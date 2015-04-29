@@ -888,6 +888,9 @@ classdef FishTracker < handle;
     % constructor
       self = self@handle();
 
+      if ~exist('emclustering') && exist('helper')
+        addpath('helper');
+      end
       
       % some additional defaults [can be overwritten by eg 'detector.thres' name]
       self.opts(1).detector(1).thres = 'auto';

@@ -457,14 +457,47 @@ classdef FishTracker < handle;
         newassignments = NaN; 
       end
 
-
-
-
+      % handle reseting after crosses (but currently no cross)
+      % in this case the LastIds should already be handled (because currently no crossing, thus the last crossing is
+      % in the current fields. 
       for i = 1:length(self.tracks)
         cross =self.crossings(i,:); 
-        
-        
-        if any(cross) || self.currentFrame-self.tracks(i).frameOfLastCrossing > self.opts.classifier.nFramesAfterCrossing
+        if length(self.tracks(i).crossedCurrentTrackIds)>0 ...
+            &&  self.currentFrame-self.tracks(i).frameOfCurrentCrossing > self.opts.classifier.nFramesAfterCrossing ...
+            && ~any(cross)
+
+          %handle all current 
+          crossedTracks = self.tracks(i).crossedCurrentTrackIds;
+            
+          % look if the tracks still exist
+          trackidx= find(ismember(trackIds,crossedTracks));
+          crossedTracks = trackIds(trackidx);
+          [~,crossedFishIds] = ismember(crossedTracks,self.fishId2TrackId(self.tracks(i).frameOfCurrentCrossing,:));
+            
+          if any(~crossedFishIds)
+            %some tracks got deleted...
+            trackidx(~crossedFishIds)=[];
+            crossedFishIds(~crossedFishIds) = [];
+          end
+            
+          % test assignments
+          feat = self.getFeatureDataFromTracks(trackidx);
+          [assignedFishIds prob] = self.fishClassifier.predictPermutedAssignments(feat,crossedFishIds);
+            
+          if min(prob)>self.opts.classifier.reassignProbThres
+            idx = ~isnan(assignedFishIds);
+            self.updateTrackFishIds(trackidx(idx),assignedFishIds(idx),self.tracks(i).frameOfCurrentCrossing);
+          end
+          %self.resetBatchIdx(i);  do not reset. if updated get's reset anyways
+          self.tracks(i).crossedCurrentTrackIds = []; % show that it was handled
+        end
+      end
+
+      
+      % handles crossings
+      for i = 1:length(self.tracks)
+        cross =self.crossings(i,:); 
+        if any(cross) % currently at crossing. do handle the last crossing
             
         
           if length(self.tracks(i).crossedLastTrackIds)==1 
@@ -481,7 +514,6 @@ classdef FishTracker < handle;
             crossedTracks = self.tracks(i).crossedLastTrackIds;
             
             % look if the tracks still exist
-            
             trackidx= find(ismember(trackIds,crossedTracks));
             crossedTracks = trackIds(trackidx);
             [~,crossedFishIds] = ismember(crossedTracks,self.fishId2TrackId(self.tracks(i).frameOfLastCrossing,:));

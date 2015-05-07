@@ -129,7 +129,7 @@ classdef FishTracker < handle;
     
     
     
-    function blobAnalyzer = newBlobAnalyzer(self);
+    function blobAnalyzer=newBlobAnalyzer(self);
       % Connected groups of foreground pixels are likely to correspond to moving
       % objects.  The blob analysis system object is used to find such groups
       % (called 'blobs' or 'connected components'), and compute their
@@ -142,7 +142,7 @@ classdef FishTracker < handle;
     end
       
         
-    function self = setupSystemObjects(self,vid)
+    function self=setupSystemObjects(self,vid)
       % Initialize Video I/O
       % Create objects for reading a video from a file, drawing the tracked
       % objects in each frame, and playing the video.
@@ -358,6 +358,9 @@ classdef FishTracker < handle;
               % swap
               f2t(startframe:t,newFishId) = self.fishId2TrackId(startframe:t,oldFishId);
               pos(:,newFishId,startframe:t) = self.pos(:,oldFishId,startframe:t);
+            
+              self.uniqueFishFrames = 0; % reset (if there is an update order is compromised) 
+              self.resetBatchIdx(trackIndex(i)); % to make sure that features do not get mixed
             end
           end
         end
@@ -412,7 +415,7 @@ classdef FishTracker < handle;
       end
       nfeat = cat(2,self.tracks.nextBatchIdx)-1;
       
-      if  ~isInit(self.fishClassifier) && min(nfeat)< self.opts.classifier.nFramesForInit;
+      if  ~isInit(self.fishClassifier) && min(nfeat)< self.opts.classifier.minBatchN && self.uniqueFishFrames<self.opts.classifier.nFramesForInit
         %wait regardless of crossing
         return
       end
@@ -450,25 +453,27 @@ classdef FishTracker < handle;
 % $$$           newassignments = nan;
 % $$$           self.uniqueFishFrames = 0;
 
-        self.resetBatchIdx(find(~isnan(newassignments)));
-        return
+        self.resetBatchIdx(1:length(self.tracks));
+        newassignments = NaN; 
       end
 
 
-     
+
+
       for i = 1:length(self.tracks)
         cross =self.crossings(i,:); 
         
         
         if any(cross) || self.currentFrame-self.tracks(i).frameOfLastCrossing > self.opts.classifier.nFramesAfterCrossing
             
+        
           if length(self.tracks(i).crossedLastTrackIds)==1 
             % self crossing. max data reacjed Update
             feat = self.getFeatureDataFromTracks(i);
             batchUpdate(self.fishClassifier,self.tracks(i).fishId,feat);
-            self.tracks(i).crossedLastTrackIds = []; % show that it wais handled
-
-          
+            self.tracks(i).crossedLastTrackIds = []; % show that it was handled
+            self.resetBatchIdx(i);
+            
           elseif length(self.tracks(i).crossedLastTrackIds)>1 
             % multiple crossings. 
             
@@ -495,7 +500,7 @@ classdef FishTracker < handle;
               idx = ~isnan(assignedFishIds);
               self.updateTrackFishIds(trackidx(idx),assignedFishIds(idx),self.tracks(i).frameOfLastCrossing);
             end
-            
+            self.resetBatchIdx(i);
             self.tracks(i).crossedLastTrackIds = []; % show that it was handled
             %self.tracks(i).frameOfLastCrossing = NaN; % DONOT RESET THIS BECAUSE OF LATER UPDATE
           else
@@ -504,7 +509,7 @@ classdef FishTracker < handle;
         end
       end
       
-      self.resetBatchIdx(find(any(self.crossings,2))');
+
       if self.displayif>1
         if any(self.crossings(:))
           figure(2)
@@ -928,15 +933,15 @@ classdef FishTracker < handle;
       
       % classifier 
       self.opts(1).classifier.crossCostThres = 3;
-      self.opts(1).classifier.reassignProbThres = 0;
-      self.opts(1).classifier.maxFramesPerBatch = 500; 
-      self.opts(1).classifier.minBatchN = 30; 
-      self.opts(1).classifier.nFramesForInit = 75; % attention! may include crossings!
+      self.opts(1).classifier.reassignProbThres = 0.2;
+      self.opts(1).classifier.maxFramesPerBatch = 200; 
+      self.opts(1).classifier.minBatchN = 25; 
+      self.opts(1).classifier.nFramesForInit = 100; 
       self.opts(1).classifier.minCrossingDistance = [];  % will set based on fishlength;
       self.opts(1).classifier.maxCrossingDistance = [];  % will set based on fishlength
       self.opts(1).classifier.minCrossingFrameDist = 5;
-      self.opts(1).classifier.nFramesAfterCrossing = 50;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 100; % all simultanously... NEW CLASSIFER
+      self.opts(1).classifier.nFramesAfterCrossing = 30;
+      self.opts(1).classifier.nFramesForUniqueUpdate = 50; % all simultanously...
       self.opts(1).classifier.bendingThres = 1.5;
       % tracks
       self.opts(1).tracks.medtau = 30;

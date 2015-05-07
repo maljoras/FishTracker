@@ -139,7 +139,6 @@ classdef FishBatchClassifier < handle;
           X(delidx,:);
         end
       end
-      
     end
     
   

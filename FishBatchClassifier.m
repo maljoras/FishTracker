@@ -40,9 +40,12 @@ classdef FishBatchClassifier < handle;
       end
       
       
-      if prod(self.featdim)~=size(batchsample{1},2)
+      if prod(self.featdim)==size(batchsample{1},2)
+      elseif 3*prod(self.featdim)==size(batchsample{1},2)
+        self.featdim = [self.featdim ,3];        
+      else
         warning('Set feature dimensions correctly, otherwise plotting will be impiared');
-        self.featdim = [size(batchsample{1},2),1];
+        self.featdim = [size(batchsample{1},2),1];        
       end
       
       

@@ -16,7 +16,7 @@ classdef MyBlobAnalysis < handle;
 
     featurewidth = [];
     featureheight = [];
-    
+    colorfeature = true;
   end
 
   properties (SetAccess = private)
@@ -62,8 +62,8 @@ classdef MyBlobAnalysis < handle;
         bb2(1:2) = floor(max(bb(1:2)-bb(3:4)/2,1));
         bb2(3:4) = bb(3:4)*2;
         region.FilledImage2x =   Iframe(bb2(2):min(bb2(2)+bb2(4)-1,end),bb2(1):min((bb2(1)+bb2(3)-1),end));
-        %region.FilledImageCol = Cframe(bb(2):(bb(2)+bb(4)-1),bb(1):(bb(1)+bb(3)-1),:);
-        
+        region.FilledImageCol = Cframe(bb(2):(bb(2)+bb(4)-1),bb(1):(bb(1)+bb(3)-1),:);
+        region.FilledImageCol2x = Cframe(bb2(2):min(bb2(2)+bb2(4)-1,end),bb2(1):min((bb2(1)+bb2(3)-1),end),:);
 
         
         %% compute MSER features
@@ -233,7 +233,7 @@ classdef MyBlobAnalysis < handle;
       smallerheight = self.featureheight;
 
       debendsmoothing = 5; % needs to be odd
-      avgheadonset = 2;
+      avgheadonset = 5;
 
       for i = 1:length(segments)
         seg = segments(i);
@@ -243,7 +243,11 @@ classdef MyBlobAnalysis < handle;
 
 
         if ~isempty(seg.MSERregions)
-        oimg = seg.FilledImage2x;
+          oimg = seg.FilledImage2x;
+          if self.colorfeature
+            oimg_col = double(seg.FilledImageCol2x);
+          end
+          
           ori = -seg.MSERregions(1).Orientation/2/pi*360+ 90;
           lst = seg.MSERregions(1).PixelList;
           msk = zeros(size(oimg));
@@ -254,6 +258,10 @@ classdef MyBlobAnalysis < handle;
           %msk =  seg.Image;
 
           oimg = seg.FilledImage2x;
+          if self.colorfeature
+            oimg_col = double(seg.FilledImageCol2x);
+          end
+          
           msk = oimg<mean(oimg(:)); % very crude
           ori = -seg.Orientation + 90;
         end
@@ -269,10 +277,21 @@ classdef MyBlobAnalysis < handle;
 
         % regenerate mask to get mean background
         mback = mean(oimg(~msk));
-
+        if self.colorfeature
+          tmp = mean(oimg_col,3);
+          mback_col = mean(tmp(~msk));
+        end
+        
+        
         % rotate fish to axes
         oimg = 1-max(imrotate(1-oimg,ori,'bilinear','loose'),1-mback);
         msk = imrotate(msk,ori,'nearest','loose');
+        
+        if self.colorfeature
+          oimg_col= imrotate(oimg_col,ori,'bilinear','loose');
+          oimg_col(~oimg_col) = mback_col;
+        end
+        
         
         % get updated bounding box of the fish
         rp1 = regionprops(msk);
@@ -290,6 +309,12 @@ classdef MyBlobAnalysis < handle;
           msk = flipud(msk);
           oimg = flipud(oimg);
           center(2) = size(oimg,1)-center(2) + 1;
+          if self.colorfeature
+            for ii = 1:size(oimg_col,3)
+              oimg_col(:,:,ii) = flipud(oimg_col(:,:,ii));
+            end
+          end
+          
         end
         
         % maybe use BB to check whether fixed width is good choice
@@ -301,6 +326,12 @@ classdef MyBlobAnalysis < handle;
         oimg = oimg(startidx:end,:);
         oimg(max(end-startidx+2,1):end,:) = mback;
         center(2) = center(2)-startidx+1;
+
+        if self.colorfeature
+          oimg_col = oimg_col(startidx:end,:,:);
+          oimg_col(max(end-startidx+2,1):end,:,:) = mback_col;
+        end
+        
         
         % select fixed window
         fbb = [center,fixedwidth,fixedheight];
@@ -310,7 +341,11 @@ classdef MyBlobAnalysis < handle;
         indy = fbb(2):min(fbb(2)+fbb(4)-1,size(oimg,1));
         indx = fbb(1):min(fbb(1)+fbb(3)-1,size(oimg,2));
         foimg(1:length(indy),1:length(indx)) = oimg(indy,indx);
-        
+
+        if self.colorfeature
+          foimg_col = mback_col*ones(fixedheight,fixedwidth,3);
+          foimg_col(1:length(indy),1:length(indx),:) = oimg_col(indy,indx,:);
+        end
         
         % compute center of mass to "de-bend" the fish
         x= 1:fixedwidth;
@@ -323,13 +358,31 @@ classdef MyBlobAnalysis < handle;
         com = [com(1:floor(bw/2));com;com(end-floor(bw/2)+1:end)];
         [indy,indx] = ndgrid(1:fixedheight,1:fixedwidth);
         
+        if self.colorfeature        
+          doimg_col = zeros(size(foimg_col));
+        end
+        
         if ~interpif
           indx = mod(bsxfun(@plus,indx,round(com-fixedwidth/2))-1,fixedwidth)+1;
           idx = s2i(size(foimg),[indy(:),indx(:)]);
           doimg = reshape(foimg(idx),size(foimg));
+          if self.colorfeature
+            for ii = 1:size(doimg_col,3)
+              tmp = foimg_col(:,:,ii);
+              doimg_col(:,:,ii) =  reshape(tmp(idx),size(tmp));
+            end
+          end
+          
         else
           indxI = max(min(bsxfun(@plus,indx,com-fixedwidth/2),fixedwidth),1);
           doimg = interp2(indx,indy,foimg,indxI,indy,'linear',mback);
+          
+          if self.colorfeature
+            for ii = 1:size(doimg_col,3)
+              tmp = foimg_col(:,:,ii);
+              doimg_col(:,:,ii) = interp2(indx,indy,tmp,indxI,indy,'linear',mback_col);
+            end
+          end
         end
 
 
@@ -345,6 +398,12 @@ classdef MyBlobAnalysis < handle;
         if startidx>1
           doimg = doimg(startidx:end,:);
           doimg(end-startidx+2:end,:) = mback;
+          
+          if self.colorfeature
+            doimg_col = doimg_col(startidx:end,:,:);
+            doimg_col(end-startidx+2:end,:,:) = mback_col;
+          end
+          
         end
 
         if plotif>2
@@ -360,21 +419,30 @@ classdef MyBlobAnalysis < handle;
         % take middle part (the fish)
         istart = floor(fixedwidth/2 - smallerwidth/2);
         jstart = 1;
-        final_oimg = zeros(smallerheight,smallerwidth);
+        %final_oimg = zeros(smallerheight,smallerwidth);
         idx1 = jstart:jstart+smallerheight-1;
         idx2 = istart:istart+smallerwidth-1;
         final_oimg = doimg(min(idx1,end),min(idx2,end));
 
+        if self.colorfeature
+          final_oimg_col = doimg_col(min(idx1,end),min(idx2,end),:);
+        end
+        
         %final_oimg = (final_oimg(:,1:smallerwidth/2) + final_oimg(:,end:-1:smallerwidth/2+1))/2;
         %final_oimg = (final_oimg-mean(final_oimg(:)))/std(final_oimg(:));
         %x = dct2(x);
-        segments(i).fishFeature = final_oimg;
+        segments(i).fishFeature = final_oimg_col;
         segments(i).bendingStdValue = std(com(1:min(smallerheight,end)));
         
         if plotif
           figure(1)
           subplot(2,length(segments)*2,2*(i-1)+length(segments)*2+1);
-          imagesc(foimg)
+          if self.colorfeature
+            imagesc(foimg_col);
+          else
+            imagesc(foimg);
+          end
+          
           daspect([1,1,1]);
           axis off;
           hold on ;
@@ -382,10 +450,13 @@ classdef MyBlobAnalysis < handle;
 
 
           subplot(2,length(segments)*2,2*(i-1)+length(segments)*2+2);
-          imagesc(final_oimg)
+          if self.colorfeature
+            imagesc(final_oimg_col);
+          else
+            imagesc(final_oimg);
+          end
           daspect([1,1,1]);
           axis off;
-          
           
         end
       end

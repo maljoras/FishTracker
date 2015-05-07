@@ -15,6 +15,8 @@ classdef MyForegroundDetector < handle;
     inverse = 0;
     plotif = 1;
 
+    rgbchannel = [];
+    map = [];
   end
 
   properties (SetAccess = private);
@@ -27,6 +29,8 @@ classdef MyForegroundDetector < handle;
     msk = [];
 
     dframe = [];
+    fv = [];
+    mu = [];
   end
   
   
@@ -37,8 +41,22 @@ classdef MyForegroundDetector < handle;
 
       frame = oframe;
 
-      if size(frame,3)==3
-        frame = rgb2gray(frame);      
+      if size(frame,3)==3 
+        if ~isempty(self.fv)
+          %frame = imadjust(oframe,[.4 .4 0.2; .6 .5 .3],[],1);
+          frame = sum(bsxfun(@times,bsxfun(@minus,oframe,self.mu),self.fv),3);
+        else
+          if ~isempty(self.map)
+            frame = rgb2ind(oframe,self.map,'nodither');
+            
+          else
+            if isempty(self.rgbchannel)
+              frame = rgb2gray(frame);   
+            else
+              frame = frame(:,:,self.rgbchannel);   
+            end
+          end
+        end
         %frame = mean(frame,3);      
       end
       if ~isfloat(frame)
@@ -47,7 +65,7 @@ classdef MyForegroundDetector < handle;
     end
     
     
-    function [thres,objlength,objwidth] = getAutoThreshold(self,frame,nObjects)
+    function [thres,objlength,objwidth] = getAutoThreshold(self,frame,oframe,nObjects)
 
       verbose('Get auto threshold and approx. object sizes...')
       % minsize = 5;
@@ -96,6 +114,12 @@ classdef MyForegroundDetector < handle;
       end
       ratio = nextlargest./largest;
       conds = largest<0.2*max(size(bwimg)) & nextlargest>10;%minimal 10 pixels
+
+      if ~sum(conds)
+        imagesc(frame)
+        error('Cannot detect objects. Change parameter settings');
+      end
+
       mr = min(max(ratio(conds)),0.9);
       % largest axis should be less than a 5th of the movie size.
       thresidx = find(nextlargest./largest>=mr & conds,1,'last');
@@ -112,26 +136,55 @@ classdef MyForegroundDetector < handle;
       objlength = round(mean(cat(1,rp.MajorAxisLength)));
       objwidth = round(mean(cat(1,rp.MinorAxisLength)));
       
+      % get a good rgb to color conversion
+      objidx = cat(1,bw.PixelIdxList{:});
+      randidx = ceil(rand(min(length(objidx)*10,prod(bw.ImageSize)),1)*prod(bw.ImageSize));
+      randidx = setdiff(randidx,objidx);
+
+      oframe1 = double(reshape(oframe,[],3));
+      col1 = oframe1(objidx,:);
+      col2 = oframe1(randidx,:);
+      [fv,~,proj,r] = lfd([col1;col2],[ones(size(col1,1),1);zeros(size(col2,1),1)],1,0);
+      
+      frame1 = sum(bsxfun(@times,bsxfun(@minus,oframe,shiftdim(r.mu,-1)),shiftdim(fv,-2)),3);
+
+      if mean(frame1(objidx))>mean(frame1(randidx))
+        fv = -fv;
+        frame1 = sum(bsxfun(@times,bsxfun(@minus,oframe,shiftdim(r.mu,-1)),shiftdim(fv,-2)),3);
+      end
+      
+      self.fv = shiftdim(fv,-2);
+      self.mu = shiftdim(r.mu,-1);
+      
+      thres1 = mean(frame1(randidx)) - 2*std(frame1(randidx));
+      thres2 = mean(frame1(objidx)) + 2*std(frame1(objidx));
+      
+      if thres1<thres2
+        thres = thres2;
+      else
+        thres = thres1 - abs(thres1-thres2)/2;
+      end
+      
       %d = abs([diff(nspots,2),0,0]);
       %idx = nspots>0 & msize<self.maxsize;
       %thres1 = thresarr(1+find(idx & d==min(d(idx)),1,'last'));
 
-      thres1 = thresarr(thresidx); 
+      %thres1 = thresarr(thresidx); 
       % set the property
-      thres = thres1-mf;
+      %thres = thres1-mf;
 
       verbose('Found threshold: %1.2f',thres);
       verbose('Object sizes: %d x %d pixels',objlength,objwidth)
       if self.plotif
         clf;
         L = labelmatrix(bw);
-        im = double(L==0).*frame + double(L)/double(max(L(:)));
+        im = double(L==0).*frame1/std(frame1(:)) + double(L)/double(max(L(:)));
         imagescbw(im)
       end
       
       
       if self.dtau
-         thres = (1-self.dratio)*thres*0.5; % approx;
+        %  thres = (1-self.dratio)*thres*0.5; % approx;
       end
       
     end
@@ -202,7 +255,7 @@ classdef MyForegroundDetector < handle;
       end
         
       % get adaptive threshold 
-      [thres,objh,objw] = getAutoThreshold(self,frame,nObjects);
+      [thres,objh,objw] = getAutoThreshold(self,frame,oframe(:,:,:,1),nObjects);
         
       if ischar(self.thres)  
         self.thres = thres;

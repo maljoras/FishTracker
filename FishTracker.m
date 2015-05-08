@@ -4,18 +4,15 @@ classdef FishTracker < handle;
   
   properties 
     
-
     scalecost = [10,10,0,0,0,0];
-   
-    %options for the parts
     opts = struct([]);
-    displayif = 0;
+    saveFields = {'centroid','classProb','bbox','assignmentCost','segment.Orientation','segment.bendingStdValue'};
 
-    %
   end
 
   properties (SetAccess = private)
 
+    displayif = 0;
     medianCost = ones(5,1);
     costinfo= {'Location','Pixel overlap','Classifier','MeanIntensity','Orientation'};
     detector = [];
@@ -34,7 +31,7 @@ classdef FishTracker < handle;
     fishwidth = [];
     dt = 1;
     writefile = '';
-
+    res = [];
     pos = [];
   end
   
@@ -59,8 +56,6 @@ classdef FishTracker < handle;
     unassignedTracks = [];
     unassignedDetections = [];
     cost = [];
-    X = [];
-    y = [];
     uniqueFishFrames = 0;
     currentFrame = [];
   end
@@ -189,18 +184,27 @@ classdef FishTracker < handle;
         
       %% Create a video file reader.
       self.videoReader = self.newVideoReader(vid);
+      
+      % establish simple background
       nfirstframes = 1;
-      verbose('Reading first %d,frames of the video to establish background',nfirstframes);
-      for i = 1:nfirstframes
-        self.readFrame();
-        if i==1
-          firstframe = zeros([size(self.frame),nfirstframes],'like', self.frame);
+      self.readFrame();
+      firstframe = zeros([size(self.frame),nfirstframes],'like', self.frame);
+      firstframe(:,:,:,1) = self.frame;
+      
+      if nfirstframes>1
+        tdistance = 3;
+        self.setCurrentTime(min(self.timerange(1)+tdistance,self.timerange(2)));
+        verbose('Reading first %d frames of the video to establish background',nfirstframes);      
+        
+        for i = 2:nfirstframes
+          self.readFrame();
+          firstframe(:,:,:,i) = self.frame;
         end
-        firstframe(:,:,:,i) = self.frame;
+        %delete(self.videoReader); % detroy again
+        %self.videoReader = self.newVideoReader(vid);
       end
-      delete(self.videoReader); % detroy again
-      self.videoReader = self.newVideoReader(vid);
-
+      self.setCurrentTime(self.timerange(1));
+      
       if self.displayif
         self.videoPlayer = vision.VideoPlayer();
       end
@@ -224,9 +228,13 @@ classdef FishTracker < handle;
         args{end+1} = self.opts.detector.(f{1});
       end
       self.detector = newForegroundDetector(self,args{:});
-      
-      [fishlength,fishwidth] = self.detector.init(firstframe,self.nfish);
 
+      if ~self.displayif
+        self.detector.plotif = 0;
+      end
+      
+      [fishlength,fishwidth, fv, mu] = self.detector.init(firstframe,self.nfish);
+      
       if isempty(self.fishlength) 
         self.fishlength = ceil(1.5*fishlength);
       end
@@ -257,12 +265,43 @@ classdef FishTracker < handle;
           self.fishClassifier.(f{1}) = self.opts.classifier.(f{1});
         end
       end
-      
-      self.fishId2TrackId = nan(250,self.nfish);
-      
+
+
       
     end
 
+    
+    function initTracking(self)
+
+      self.fishId2TrackId = nan(250,self.nfish);
+      self.pos = [];
+      self.res = [];
+      self.currentFrame = 0;
+      self.setCurrentTime(self.timerange(1));
+      self.initializeTracks(); % Create an empty array of tracks.
+      self.nextId = 1;
+      self.uniqueFishFrames = 0;
+      self.medianCost(:) = 1;
+    
+      self.uframe = [];
+      self.frame = [];
+    
+      self.segments = [];
+      self.features = [];
+      self.bboxes = [];
+      self.centroids = [];
+      self.idfeatures = [];
+      self.classProb = [];
+      self.crossings = [];
+
+    
+      self.assignments = [];
+      self.unassignedTracks = [];
+      self.unassignedDetections = [];
+      self.cost = [];
+
+    end
+    
     
     
     function setCurrentTime(self,time)
@@ -282,10 +321,12 @@ classdef FishTracker < handle;
       else
         frame = self.videoReader.readFrame();
         self.uframe = frame;
-        frame = im2double(frame);
+        frame = im2single(frame);
       end
       self.frame = frame;
       self.currentTime = self.currentTime + self.dt;
+      self.currentFrame = self.currentFrame + 1; 
+
     end
     
     function bool = hasFrame(self);      
@@ -395,7 +436,7 @@ classdef FishTracker < handle;
             newFishId = newFishIds(i);
 
             if oldFishId~=newFishId
-              verbose('switching fish %d->%d',oldFishId,newFishId)
+              verbose('switching fish %d->%d\r',oldFishId,newFishId)
               self.tracks(trackIndex(i)).fishId = newFishId;
               
               % update 
@@ -660,12 +701,6 @@ classdef FishTracker < handle;
       medtau = self.opts.tracks.medtau;
       segments = self.segments;
       clprob = self.classProb;
-      
-      if isempty(self.X)
-        self.X = cell(1,self.nfish);
-        self.y = cell(1,self.nfish);
-      end
-      
       
       if nDetections>0
         %mdist = min(pdist(double(centroids)));
@@ -989,6 +1024,47 @@ classdef FishTracker < handle;
       self.updateTrackCrossings();
     end
     
+    function generateResults(self,savedTracks)
+      
+      if isempty(savedTracks)
+        return;
+      end
+      self.res.tracks = savedTracks;
+
+      if size(savedTracks,2)<self.nfish
+        self.res.tracks(end+1,1:self.nfish) =savedTracks(1);
+        self.res.tracks(end,:) = [];
+      end
+      
+      nFrames = self.currentFrame;
+
+      self.res.pos = permute(self.pos(:,:,1:nFrames),[3,1,2]);      
+      f2t = self.fishId2TrackId(1:nFrames,:);
+
+      msk = reshape(arrayfun(@(x)~isempty(x.id),savedTracks),size(savedTracks));
+      
+      trackIdMat = zeros(nFrames,self.nfish);
+      trackIdMat(msk) = cat(1,savedTracks.id);
+      %fishIdMat = zeros(nFrames,self.nfish);
+
+      % HOW CAN THIS DONE A BIT MORE EFFICIENTLY?
+      order = 1:self.nfish;
+      for i = 1:nFrames
+        [~,loc] = ismember(trackIdMat(i,:),f2t(i,:));
+        loc(~loc) = order(~loc);
+        self.res.tracks(i,:) =self.res.tracks(i,loc);
+      end
+
+      for j = 1:self.nfish
+        [self.res.tracks(:,j).fishId] = deal(j);
+      end
+
+    end
+    
+    
+
+
+    
   end
   
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1058,19 +1134,33 @@ classdef FishTracker < handle;
       end
       
       self.setupSystemObjects(vid);
-      self.initializeTracks(); % Create an empty array of tracks.
     end
 
     
-    function trackinfo = getCurrentTracks(self,allif)
+    function trackinfo = getCurrentTracks(self)
       % gets the track info 
       
-      trackinfo = [];
-      trackinfo = self.tracks;
-      if ~allif
-        trackinfo = rmfield(trackinfo,{'segment','predictor','nextBatchIdx','batchFeatures','age','totalVisibleCount','consecutiveInvisibleCount','lastSegment'});
+      trackinfo = repmat(struct,size(self.tracks));
+
+      % need id 
+      [trackinfo(:).id] = deal(self.tracks.id);
+      [trackinfo(:).t] = deal(self.currentTime - self.dt);
+
+      % maybe a bit too slow?
+      for i_f = 1:length(self.saveFields)
+        f = self.saveFields{i_f};
+        if any(f=='.')
+          if isempty(self.tracks)
+            eval(sprintf('[trackinfo(:).%s] = deal([]);',f(1:find(f=='.',1,'first')-1)));
+          else
+            for i = 1:length(self.tracks)
+              eval(sprintf('trackinfo(i).%s = self.tracks(i).%s;',f,f));
+            end
+          end
+        else
+          [trackinfo(:).(f)] = deal(self.tracks.(f));
+        end
       end
-      
     end
   
        
@@ -1176,45 +1266,74 @@ classdef FishTracker < handle;
       
     end
 
+    function res = getTrackingResults(self)
+    % returns the current results
+      if isempty(self.res)
+        warning('No results available. First track()...');
+      else
+        res = self.res;
+      end
+    end
     
     
-    function [pos,t,varargout] = track(self)
-    % Detect objects, and track them across video frames.
-      s = 0;
+    function plotTrace(self,varargin)
+    % PLOTTRACE(FISHIDS) plots the tracking results
+    % for the given FISHIDS
 
-      self.setCurrentTime(self.timerange(1));
+      if isempty(self.res)
+        warning('No results available. First track()...');
+        return;
+      end
+    
+      if nargin<2
+        fishIds = 1:self.nfish;
+      else
+        fishIds = varargin{1};
+      end
+
+      cla;
+
+      x = squeeze(self.res.pos(:,1,fishIds));
+      y = squeeze(self.res.pos(:,2,fishIds));
       
-      verbose('Start Tracking...')
-      t = [];
+      plot(x,y);
+      
+    end
+    
+      
+    function track(self)
+    % Detect objects, and track them across video frames.
+
+      self.initTracking();
+      
+      verbose('Start tracking of %d fish ...',self.nfish)
+
       while  hasFrame(self)
-        s = s+1;
-        self.currentFrame = s; 
 
         self.readFrame();
 
         self.detectObjects();
-
+        
         self.handleTracks();
-
 
         self.updateClassifier();
 
-        if nargout>2
-          savedTracks(s).tracks = self.getCurrentTracks(0);
-        end
-        if nargout>1
-          t(s) = self.currentTime - self.dt; % current time is actually the next frame's time
-        end
-        
+        savedTracks(self.currentFrame,1:length(self.tracks)) = self.getCurrentTracks();
+
         if self.displayif
           self.displayTrackingResults();
         else
-          fprintf(' computed frame %d...\r',s);
+          t = datevec(seconds(self.currentTime));
+          if ~mod(self.currentFrame,10)
+            verbose('Currently at time %1.0fh %1.0fm %1.1fs\r',t(4),t(5),t(6));
+          end
         end
-      
       end
-      pos = permute(self.pos(:,:,1:self.currentFrame),[3,1,2]);
-
+      %% CAUTION handle last crossing 
+      
+      % make correct output structure
+      self.generateResults(savedTracks);
+      
       self.closeVideoObjects();
     end
   end

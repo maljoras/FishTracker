@@ -147,6 +147,12 @@ classdef FishBatchClassifier < handle;
   
   methods 
     
+    function reset(self,batchsample)
+      self.Sigma = [];
+      
+    end
+
+    
     function init(self,batchsample)
       self.initialize(batchsample)
     end
@@ -351,7 +357,6 @@ classdef FishBatchClassifier < handle;
     end
     
     function bool = isInit(self)
-    
       bool = ~isempty(self.Sigma);
     end
     

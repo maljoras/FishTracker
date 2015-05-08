@@ -23,7 +23,7 @@ classdef MyForegroundDetector < handle;
 
     mframe = [];
     frame = [];
-    nauto = 60;
+    nauto = 30;
     framecounter = 0;
     bwimg = [];
     msk = [];
@@ -182,9 +182,8 @@ classdef MyForegroundDetector < handle;
         imagescbw(im)
       end
       
-      
       if self.dtau
-        %  thres = (1-self.dratio)*thres*0.5; % approx;
+        %thres = (1-self.dratio)*thres; % approx;
       end
       
     end
@@ -278,7 +277,7 @@ classdef MyForegroundDetector < handle;
       self.framecounter = 0;
       
       if nargout
-        varargout = {objh,objw};
+        varargout = {objh,objw,self.fv,self.mu};
       end
       
       

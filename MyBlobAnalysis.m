@@ -220,7 +220,7 @@ classdef MyBlobAnalysis < handle;
     function segments = getFishFeatures(self,segments);
       
       plotif = 0; % for debugging
-      interpif = 1; % much better effect it seems
+      interpif = 0; % much better effect it seems
       
       if plotif 
         figure(1);
@@ -356,7 +356,7 @@ classdef MyBlobAnalysis < handle;
         com(isnan(com)) = fixedwidth/2;
         com = conv(com,ones(bw,1)/bw,'valid');
         com = [com(1:floor(bw/2));com;com(end-floor(bw/2)+1:end)];
-        [indy,indx] = ndgrid(1:fixedheight,1:fixedwidth);
+        [indy,indx] = ndgrid(single(1:fixedheight),single(1:fixedwidth));
         
         if self.colorfeature        
           doimg_col = zeros(size(foimg_col));

@@ -10,6 +10,7 @@ classdef FishBatchClassifier < handle;
     regularizer = 1e-10;
     featdim = [];
     outliersif = 1;
+
   end
 
   properties (SetAccess = private)

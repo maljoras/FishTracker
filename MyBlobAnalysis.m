@@ -426,12 +426,15 @@ classdef MyBlobAnalysis < handle;
 
         if self.colorfeature
           final_oimg_col = doimg_col(min(idx1,end),min(idx2,end),:);
+          segments(i).fishFeature = final_oimg_col;
+        else
+          segments(i).fishFeature = final_oimg;
         end
         
         %final_oimg = (final_oimg(:,1:smallerwidth/2) + final_oimg(:,end:-1:smallerwidth/2+1))/2;
         %final_oimg = (final_oimg-mean(final_oimg(:)))/std(final_oimg(:));
         %x = dct2(x);
-        segments(i).fishFeature = final_oimg_col;
+
         segments(i).bendingStdValue = std(com(1:min(smallerheight,end)));
         
         if plotif

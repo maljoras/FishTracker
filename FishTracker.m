@@ -3,24 +3,15 @@ classdef FishTracker < handle;
   
   
   properties 
-
-
     
-    nfish = 1;
-    timerange= [];
-    visreader = 0;
+
     scalecost = [10,10,0,0,0,0];
    
     %options for the parts
     opts = struct([]);
-    displayif = 2;
-    dt = 1;
+    displayif = 0;
 
-    fishlength = [];
-    fishwidth = [];
     %
-    res = []; % output structure
-    pos = [];
   end
 
   properties (SetAccess = private)
@@ -30,11 +21,21 @@ classdef FishTracker < handle;
     detector = [];
     blobAnalyzer = [];
     fishClassifier = [];
-    reader = [];
+    videoReader = [];
     videoPlayer = [];
+    videoWriter = [];
     currentTime = 0;
     tracks = [];
     fishId2TrackId = [];
+    visreader = 0;
+    nfish = 1;
+    timerange= [];
+    fishlength = [];
+    fishwidth = [];
+    dt = 1;
+    writefile = '';
+
+    pos = [];
   end
   
   properties (SetAccess = private, GetAccess=private);
@@ -68,7 +69,36 @@ classdef FishTracker < handle;
   methods (Access=private)
     
   
-
+    function closeVideoObjects(self)
+      if (self.visreader)
+        release(self.videoReader); % close the input file
+        if ~isempty(self.videoPlayer)
+          release(self.videoPlayer);
+        end
+        
+        if ~isempty(self.videoWriter)
+          release(self.videoWriter);
+        end
+      else
+        %close(self.videoReader); % close the input file
+        if ~isempty(self.videoWriter)
+          close(self.videoWriter);
+        end
+        if ~isempty(self.videoPlayer)
+          close(self.videoPlayer);
+        end
+      end
+    end
+    
+    function [writer] = newVideoWriter(self,vidname)
+      
+      if self.visreader
+        writer = vision.VideoFileWriter(vidname,'FrameRate',1/self.dt);
+      else
+        writer = VideoWriter(vidname);
+        open(writer);
+      end
+    end
     
     function [reader] = newVideoReader(self,vidname)
       
@@ -127,6 +157,15 @@ classdef FishTracker < handle;
       self.videoPlayer.step(uframe);
     end
     
+    function stepVideoWriter(self,uframe);
+      if ~isempty(self.videoWriter)
+        if self.visreader
+          self.videoWriter.step(uframe);
+        else
+          self.videoWriter.writeVideo(uframe);
+        end
+      end
+    end
     
     
     function blobAnalyzer=newBlobAnalyzer(self);
@@ -149,7 +188,7 @@ classdef FishTracker < handle;
 
         
       %% Create a video file reader.
-      self.reader = self.newVideoReader(vid);
+      self.videoReader = self.newVideoReader(vid);
       nfirstframes = 1;
       verbose('Reading first %d,frames of the video to establish background',nfirstframes);
       for i = 1:nfirstframes
@@ -159,12 +198,24 @@ classdef FishTracker < handle;
         end
         firstframe(:,:,:,i) = self.frame;
       end
-      delete(self.reader); % detroy again
-      self.reader = self.newVideoReader(vid);
+      delete(self.videoReader); % detroy again
+      self.videoReader = self.newVideoReader(vid);
 
       if self.displayif
         self.videoPlayer = vision.VideoPlayer();
       end
+      
+      if ~isempty(self.writefile) && self.displayif
+        self.videoWriter = self.newVideoWriter(self.writefile);
+      else
+        if ~isempty(self.writefile)
+          warning('set displayif>0 for writing a video file!');
+        end
+        self.videoWriter = [];
+      end
+      
+                            
+      
       
       %% get new detector
       args = {};
@@ -216,9 +267,9 @@ classdef FishTracker < handle;
     
     function setCurrentTime(self,time)
       if self.visreader
-        self.reader.reset();
+        self.videoReader.reset();
       else
-        self.reader.CurrentTime = time;
+        self.videoReader.CurrentTime = time;
       end
       self.currentTime = time;
     end
@@ -226,10 +277,10 @@ classdef FishTracker < handle;
     function readFrame(self);      
  
       if self.visreader
-        frame = self.reader.step();
+        frame = self.videoReader.step();
         self.uframe = im2uint8(frame);
       else
-        frame = self.reader.readFrame();
+        frame = self.videoReader.readFrame();
         self.uframe = frame;
         frame = im2double(frame);
       end
@@ -244,9 +295,9 @@ classdef FishTracker < handle;
       else
         
         if ~self.visreader
-          bool = hasFrame(self.reader);
+          bool = hasFrame(self.videoReader);
         else
-          bool = ~isDone(self.reader);
+          bool = ~isDone(self.videoReader);
         end
       end
 
@@ -965,7 +1016,7 @@ classdef FishTracker < handle;
       
       % classifier 
       self.opts(1).classifier.crossCostThres = 3;
-      self.opts(1).classifier.reassignProbThres = 0.2;
+      self.opts(1).classifier.reassignProbThres = 0.1;
       self.opts(1).classifier.maxFramesPerBatch = 200; 
       self.opts(1).classifier.minBatchN = 25; 
       self.opts(1).classifier.nFramesForInit = 100; 
@@ -1106,7 +1157,7 @@ classdef FishTracker < handle;
             
             
             %% insert more markers
-            howmany = 20;
+            howmany = 10;
             trackpos = self.pos(:,:,max(self.currentFrame-howmany,1):self.currentFrame);
             trackpos(:,:,any(any(isnan(trackpos),1),2)) = [];
             if ~isempty(trackpos)
@@ -1119,14 +1170,15 @@ classdef FishTracker < handle;
 
 
         self.stepVideoPlayer(uframe);
-
+        self.stepVideoWriter(uframe);
+          
       end
       
     end
 
     
     
-    function [pos,t,savedTracks] = track(self)
+    function [pos,t,varargout] = track(self)
     % Detect objects, and track them across video frames.
       s = 0;
 
@@ -1147,10 +1199,12 @@ classdef FishTracker < handle;
 
         self.updateClassifier();
 
-        
-        savedTracks(s).tracks = self.getCurrentTracks(0);
-        t(s) = self.currentTime - self.dt; % current time is actually the next frame's time
-        
+        if nargout>2
+          savedTracks(s).tracks = self.getCurrentTracks(0);
+        end
+        if nargout>1
+          t(s) = self.currentTime - self.dt; % current time is actually the next frame's time
+        end
         
         if self.displayif
           self.displayTrackingResults();
@@ -1160,12 +1214,9 @@ classdef FishTracker < handle;
       
       end
       pos = permute(self.pos(:,:,1:self.currentFrame),[3,1,2]);
-    end
 
-    
-    
-    
-    
+      self.closeVideoObjects();
+    end
   end
   
 end

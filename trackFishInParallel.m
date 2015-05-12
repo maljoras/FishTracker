@@ -29,7 +29,7 @@ function out = trackFishInParallel(timerange,duration,varargin)
   for i = 1:length(res)
     out{i} = res{i};
   end
-
+  out = combine(out{:});
   
   
   

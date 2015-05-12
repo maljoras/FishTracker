@@ -4,7 +4,7 @@ classdef FishTracker < handle;
   
   properties 
     
-    scalecost = [10,10,0,0,0,0];
+    scalecost = [20,5,2,0,0.5];
     opts = struct([]);
     saveFields = {'centroid','classProb','bbox','assignmentCost','segment.Orientation','segment.bendingStdValue'};
 
@@ -80,7 +80,7 @@ classdef FishTracker < handle;
           close(self.videoWriter);
         end
         if ~isempty(self.videoPlayer)
-          close(self.videoPlayer);
+          release(self.videoPlayer);
         end
       end
     end
@@ -170,8 +170,8 @@ classdef FishTracker < handle;
       % characteristics, such as area, centroid, and the bounding box.
 
       blobAnalyzer = MyBlobAnalysis('fishlength',self.fishlength,'fishwidth',self.fishwidth,...
-                                    'maxextent',2*(self.fishlength+self.fishwidth),...
-                                    'minextent',0.1*(self.fishlength+self.fishwidth));
+                                    'maxextent',3*(self.fishlength+self.fishwidth),...
+                                    'minextent',0.2*(self.fishlength+self.fishwidth));
         
     end
       
@@ -186,17 +186,18 @@ classdef FishTracker < handle;
       self.videoReader = self.newVideoReader(vid);
       
       % establish simple background
-      nfirstframes = 1;
+
       self.readFrame();
-      firstframe = zeros([size(self.frame),nfirstframes],'like', self.frame);
+      firstframe = zeros([size(self.frame),self.opts.detector.nAutoFrames],'like', self.frame);
       firstframe(:,:,:,1) = self.frame;
       
-      if nfirstframes>1
-        tdistance = 3;
-        self.setCurrentTime(min(self.timerange(1)+tdistance,self.timerange(2)));
-        verbose('Reading first %d frames of the video to establish background',nfirstframes);      
-        
-        for i = 2:nfirstframes
+      if self.opts.detector.nAutoFrames>1
+        tdistance = 1;
+        verbose('Reading first %d frames of the video to establish background',self.opts.detector.nAutoFrames);              
+
+        for i = 2:self.opts.detector.nAutoFrames
+          self.setCurrentTime(min(self.timerange(1)+i*tdistance,self.timerange(2)));
+          
           self.readFrame();
           firstframe(:,:,:,i) = self.frame;
         end
@@ -204,6 +205,7 @@ classdef FishTracker < handle;
         %self.videoReader = self.newVideoReader(vid);
       end
       self.setCurrentTime(self.timerange(1));
+
       
       if self.displayif
         self.videoPlayer = vision.VideoPlayer();
@@ -217,36 +219,52 @@ classdef FishTracker < handle;
         end
         self.videoWriter = [];
       end
-      
-                            
-      
-      
+            
       %% get new detector
       args = {};
       for f = fieldnames(self.opts.detector)'
-        args{end+1} = f{1};
-        args{end+1} = self.opts.detector.(f{1});
+        if ~strcmp(f{1},'nAutoFrames')
+          args{end+1} = f{1};
+          args{end+1} = self.opts.detector.(f{1});
+        end
       end
       self.detector = newForegroundDetector(self,args{:});
 
       if ~self.displayif
         self.detector.plotif = 0;
       end
-      
+
+
       [fishlength,fishwidth, fv, mu] = self.detector.init(firstframe,self.nfish);
-      
+
+       
       if isempty(self.fishlength) 
-        self.fishlength = ceil(1.5*fishlength);
+        self.fishlength = ceil(1.2*mean(fishlength));
       end
       if isempty(self.fishwidth) 
-        self.fishwidth = ceil(2*fishwidth);
+        self.fishwidth = ceil(1.2*fishwidth);
       end
+      
+      self.fishwidth = max(self.fishwidth,8);
+      assert(self.fishlength>self.fishwidth);
+      
+      
       if isempty(self.opts.classifier.maxCrossingDistance)
-        self.opts.classifier.maxCrossingDistance = self.fishlength; 
+        self.opts.classifier.maxCrossingDistance = self.fishlength*1.5; 
       end
       if isempty(self.opts.classifier.minCrossingDistance)
-        self.opts.classifier.minCrossingDistance = self.fishwidth/2; 
+        self.opts.classifier.minCrossingDistance = self.fishlength/2; 
       end
+
+      
+    end
+
+    
+    function initTracking(self)
+
+    % MAYBE RESET THE CLASSIFIER ? 
+                            
+      self.setCurrentTime(self.timerange(1));
       
       %% get new blobAnalyzer
       self.blobAnalyzer = newBlobAnalyzer(self);
@@ -265,14 +283,15 @@ classdef FishTracker < handle;
           self.fishClassifier.(f{1}) = self.opts.classifier.(f{1});
         end
       end
-
-
+      if ~self.displayif
+        self.fishClassifier.plotif = 0;
+        self.blobAnalyzer.plotif = 0;
+      end
+      if self.displayif>2
+        self.fishClassifier.plotif = 1;
+        self.blobAnalyzer.plotif = 1;
+      end
       
-    end
-
-    
-    function initTracking(self)
-
       self.fishId2TrackId = nan(250,self.nfish);
       self.pos = [];
       self.res = [];
@@ -299,7 +318,7 @@ classdef FishTracker < handle;
       self.unassignedTracks = [];
       self.unassignedDetections = [];
       self.cost = [];
-
+      
     end
     
     
@@ -308,7 +327,7 @@ classdef FishTracker < handle;
       if self.visreader
         self.videoReader.reset();
       else
-        self.videoReader.CurrentTime = time;
+        evalc('self.videoReader.CurrentTime = time;');
       end
       self.currentTime = time;
     end
@@ -319,7 +338,7 @@ classdef FishTracker < handle;
         frame = self.videoReader.step();
         self.uframe = im2uint8(frame);
       else
-        frame = self.videoReader.readFrame();
+        evalc('frame = self.videoReader.readFrame();');
         self.uframe = frame;
         frame = im2single(frame);
       end
@@ -683,6 +702,10 @@ classdef FishTracker < handle;
         % Shift the bounding box so that its center is at
         % the predicted location.
         predictedCentroid(1:2) = int32(predictedCentroid(1:2)) - bbox(3:4) / 2;
+        % no prediction outside of the video:
+        predictedCentroid(1) = max(min(predictedCentroid(1),size(self.frame,2)),1);
+        predictedCentroid(2) = max(min(predictedCentroid(2),size(self.frame,1)),1);
+
         self.tracks(i).bbox = [predictedCentroid(1:2), bbox(3:4)];
         self.tracks(i).centroid = predictedCentroid;
       end
@@ -740,7 +763,10 @@ classdef FishTracker < handle;
           fcost(i,:) = 0;
           for k = 1:length(cost)
             fcost(i,:) = fcost(i,:) + cost{k}/self.medianCost(k)*self.scalecost(k); % scale cost
-            self.medianCost(k) = self.medianCost(k)*(medtau-1)/medtau  + 1/medtau*median(cost{k}(:));
+
+            % TRACKS ?
+            mt = medtau*nTracks;
+            self.medianCost(k) = self.medianCost(k)*(mt-1)/mt  + 1/mt*median(cost{k}(:));
           end
        
         end
@@ -946,10 +972,14 @@ classdef FishTracker < handle;
       if length(self.tracks)<2
         return
       end
-
+      bbox = double(cat(1,self.tracks.bbox));
       centroids = cat(1,self.tracks.centroid);
       dist = squareform(pdist(centroids));
-      msk = dist<self.opts.classifier.maxCrossingDistance;
+      bbox34 = bbox(:,3:4);
+      msk = dist<max(bbox34(:));
+      bBoxXOverlap = bsxfun(@ge,bbox(:,1) + bbox(:,3), bbox(:,1)') & bsxfun(@lt,bbox(:,1), bbox(:,1)');
+      bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
+      bBoxOverlap = bBoxXOverlap & bBoxYOverlap;
       
       for i = 1:length(self.tracks)
         track = self.tracks(i);
@@ -959,7 +989,7 @@ classdef FishTracker < handle;
           % MAYBE ADD SOMETHING TO TEST WHETHER TRACKS ARE REALLY LOST
           
           if track.consecutiveInvisibleCount>0 || track.assignmentCost>self.opts.classifier.crossCostThres ...
-            || any(dist(i,:)<self.opts.classifier.minCrossingDistance)
+            || sum(bBoxOverlap(i,:))>1
             self.crossings(i,:) = msk(i,:);
           end
           
@@ -1081,17 +1111,20 @@ classdef FishTracker < handle;
       
       % some additional defaults [can be overwritten by eg 'detector.thres' name]
       self.opts(1).detector(1).thres = 'auto';
-      self.opts.detector.dtau = 10; % 
+      self.opts.detector.dtau = 0; % set to some value ONLY if the frame rate is very high!
       self.opts.detector.mtau= 1e4;
       self.opts.detector.inverse= 0;
       self.opts.detector.rgbchannel= [];
+      self.opts.detector.nAutoFrames = 3;
       
       % blob anaylser
       self.opts(1).blob(1).overlapthres= 0.8; % just for init str
       self.opts.blob.minArea = 100;
+      self.opts.blob.colorfeature = true;
+      self.opts.blob.interpif = 1;
       
       % classifier 
-      self.opts(1).classifier.crossCostThres = 3;
+      self.opts(1).classifier.crossCostThres = 5;
       self.opts(1).classifier.reassignProbThres = 0.1;
       self.opts(1).classifier.maxFramesPerBatch = 200; 
       self.opts(1).classifier.minBatchN = 25; 
@@ -1104,11 +1137,11 @@ classdef FishTracker < handle;
       self.opts(1).classifier.bendingThres = 1.5;
       % tracks
       self.opts(1).tracks.medtau = 30;
-      self.opts(1).tracks.costOfNonAssignment =  2*mean(self.medianCost) + sum(self.scalecost);   
+      self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
 
       %lost tracks
       self.opts(1).tracks.invisibleForTooLong = 5;
-      self.opts(1).tracks.ageThreshold = 10;
+      self.opts(1).tracks.ageThreshold = 30;
 
 
       args = varargin;
@@ -1134,6 +1167,11 @@ classdef FishTracker < handle;
       end
       
       self.setupSystemObjects(vid);
+    
+      if 1/self.dt<25 && self.detector.dtau  % high framrate
+        warning(['DTAU setting might only be suitable for high framne rate. \nSuggesting to set dtau to zero to get ' ...
+                 'superior detections.']);
+      end
     end
 
     
@@ -1292,11 +1330,24 @@ classdef FishTracker < handle;
       end
 
       cla;
-
-      x = squeeze(self.res.pos(:,1,fishIds));
-      y = squeeze(self.res.pos(:,2,fishIds));
+      posx = squeeze(self.res.pos(:,1,fishIds));
+      posy = squeeze(self.res.pos(:,2,fishIds));
       
-      plot(x,y);
+      posx(posx>size(self.frame,2) | posx<1) = NaN;
+      posy(posy>size(self.frame,1) | posy<1) = NaN;
+      
+      a = subplot(2,2,1,'align');
+      plot(posx,posy);
+      title('Traces');
+      xlabel('X-Position [px]')
+      ylabel('Y-Position [px]')
+
+      a = subplot(2,2,2,'align');
+      plot(diff(posx)/self.dt,diff(posy)/self.dt);
+      xlabel('X-Velocity [px/sec]')
+      ylabel('Y-Velocity [px/sec]')
+
+      title('Velocity');
       
     end
     

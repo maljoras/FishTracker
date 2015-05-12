@@ -6,6 +6,7 @@ classdef MyBlobAnalysis < handle;
     minArea = 50;
     minextent = 50;
     maxextent = 1000;
+    minWidth = 4;
     minmaxintensity = [0.1,0.5];
     nhistbins = 25;
     minMSERDistance = 3; % in pixels
@@ -14,9 +15,12 @@ classdef MyBlobAnalysis < handle;
     fishwidth = 10;% approximate value in pixels
     fishlength = 50; 
 
+    interpif = 0; % much better effect it seems
+    plotif = 0;
     featurewidth = [];
     featureheight = [];
     colorfeature = true;
+    readjustposition = false;
   end
 
   properties (SetAccess = private)
@@ -56,15 +60,29 @@ classdef MyBlobAnalysis < handle;
 
         % save some features 
         bb = floor(double(region.BoundingBox));
-        bb(1:2) = max(bb(1:2),1);
-        region.FilledImage =   Iframe(bb(2):bb(2)+bb(4)-1,bb(1):(bb(1)+bb(3)-1));
+        bb(1:2) = max(bb(1:2),0);
+        region.FilledImage =   Iframe(bb(2)+1:bb(2)+bb(4),bb(1)+1:(bb(1)+bb(3)));
         bb2 = bb;
-        bb2(1:2) = floor(max(bb(1:2)-bb(3:4)/2,1));
+        bb2(1:2) = max(floor(bb(1:2)-bb(3:4)/2),0);
         bb2(3:4) = bb(3:4)*2;
-        region.FilledImage2x =   Iframe(bb2(2):min(bb2(2)+bb2(4)-1,end),bb2(1):min((bb2(1)+bb2(3)-1),end));
-        region.FilledImageCol = Cframe(bb(2):(bb(2)+bb(4)-1),bb(1):(bb(1)+bb(3)-1),:);
-        region.FilledImageCol2x = Cframe(bb2(2):min(bb2(2)+bb2(4)-1,end),bb2(1):min((bb2(1)+bb2(3)-1),end),:);
-
+        % border effect
+        bb2(3) = min(bb2(3) + bb2(1),size(Iframe,2))-bb2(1);
+        bb2(4) = min(bb2(4) + bb2(2),size(Iframe,1))-bb2(2);
+        region.FilledImage2x =   Iframe(bb2(2)+1:(bb2(2)+bb2(4)),bb2(1)+1:(bb2(1)+bb2(3)));
+        region.FilledImageCol = Cframe(bb(2)+1:(bb(2)+bb(4)),bb(1)+1:(bb(1)+bb(3)),:);
+        region.FilledImageCol2x = Cframe(bb2(2)+1:(bb2(2)+bb2(4)),bb2(1)+1:(bb2(1)+bb2(3)),:);
+        region.BoundingBox2x = bb2;
+        
+        % enlarge mask
+        region.Image2x = logical(zeros(bb2([4,3])));
+        offset = bb(1:2)-bb2(1:2);
+        region.Image2x(offset(2)+1:offset(2)+bb(4),offset(1)+1:offset(1)+bb(3)) = region.Image;
+        
+% $$$         if any(size(region.Image2x)~=bb2([4,3]))
+% $$$           fprintf('mismatch\n');
+% $$$           keyboard;
+% $$$         end
+% $$$         
         
         %% compute MSER features
         featim = region.FilledImage2x;
@@ -127,7 +145,8 @@ classdef MyBlobAnalysis < handle;
         bbox =  cat(1,rp.BoundingBox);
         area = cat(1,rp.Area);
         extent = bbox(:,3) + bbox(:,4);
-        delidx =  extent<self.minextent | extent>self.maxextent | self.minArea>area;
+        width = min(bbox(:,[3,4]),[],2);
+        delidx =  extent<self.minextent | extent>self.maxextent | self.minArea>area | self.minWidth>width;
         goodmsk(delidx) = false;
       end
 
@@ -219,8 +238,8 @@ classdef MyBlobAnalysis < handle;
     
     function segments = getFishFeatures(self,segments);
       
-      plotif = 0; % for debugging
-      interpif = 0; % much better effect it seems
+      plotif = self.plotif; % for debugging
+
       
       if plotif 
         figure(1);
@@ -250,48 +269,60 @@ classdef MyBlobAnalysis < handle;
           
           ori = -seg.MSERregions(1).Orientation/2/pi*360+ 90;
           lst = seg.MSERregions(1).PixelList;
-          msk = zeros(size(oimg));
-          msk(s2i(size(oimg),lst(:,[2,1]))) = 1;
+          omsk = zeros(size(oimg));
+          omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
         else
           % take normal regions
-          %oimg = seg.FilledImage;
-          %msk =  seg.Image;
+          
 
           oimg = seg.FilledImage2x;
+          omsk =  seg.Image2x;
+          
           if self.colorfeature
             oimg_col = double(seg.FilledImageCol2x);
           end
           
-          msk = oimg<mean(oimg(:)); % very crude
+
           ori = -seg.Orientation + 90;
         end
         
                 
         if plotif
           subplot(2,length(segments),i)
-          imagescbw(oimg);
+          if self.colorfeature
+            tmp = min(max(oimg_col*255,0),255);
+          else
+            tmp = min(max(round(255*((oimg-min(oimg(:)))/diff(minmax(oimg(:)')))),0),255);
+            tmp = repmat(tmp,[1,1,3]);
+          end
+          % delete green channel within mask
+          tmp2 = tmp(:,:,2);
+          tmp2(omsk) = 50;
+          tmp(:,:,2) = tmp2;
+          image(uint8(tmp));
+          
           daspect([1,1,1]);
           axis off;
         end
         
 
         % regenerate mask to get mean background
-        mback = mean(oimg(~msk));
+        mback = mean(oimg(~omsk));
         if self.colorfeature
           tmp = mean(oimg_col,3);
-          mback_col = mean(tmp(~msk));
+          mback_col = mean(tmp(~omsk));
         end
         
         
         % rotate fish to axes
         oimg = 1-max(imrotate(1-oimg,ori,'bilinear','loose'),1-mback);
-        msk = imrotate(msk,ori,'nearest','loose');
+        msk = imrotate(omsk,ori,'nearest','loose');
         
         if self.colorfeature
-          oimg_col= imrotate(oimg_col,ori,'bilinear','loose');
+          oimg_col= 1-max(imrotate(1-oimg_col,ori,'bilinear','loose'),1-mback_col);
           oimg_col(~oimg_col) = mback_col;
         end
-        
+
         
         % get updated bounding box of the fish
         rp1 = regionprops(msk);
@@ -362,7 +393,7 @@ classdef MyBlobAnalysis < handle;
           doimg_col = zeros(size(foimg_col));
         end
         
-        if ~interpif
+        if ~self.interpif
           indx = mod(bsxfun(@plus,indx,round(com-fixedwidth/2))-1,fixedwidth)+1;
           idx = s2i(size(foimg),[indy(:),indx(:)]);
           doimg = reshape(foimg(idx),size(foimg));
@@ -386,25 +417,29 @@ classdef MyBlobAnalysis < handle;
         end
 
 
-        
-        % readjust position to start 
-        mline = mean(doimg(1:floor(fixedheight/2),:),2);
-        %headidx2 = find(cumsum(abs(diff(mline))<std(diff(mline(avgheadonset+1:end))))>3,1)-1;
-        bw1 = 3;
-        [~,headidx] = max(diff(conv(mline,ones(bw1,1)/bw1,'valid'),2));
-        headidx = headidx + 1 + (bw1-1)/2;
-        
-        startidx = headidx - avgheadonset;
-        if startidx>1
-          doimg = doimg(startidx:end,:);
-          doimg(end-startidx+2:end,:) = mback;
+
+        if self.readjustposition
+          % readjust position to start 
+          mline = mean(doimg(1:floor(fixedheight/2),:),2);
+          %headidx2 = find(cumsum(abs(diff(mline))<std(diff(mline(avgheadonset+1:end))))>3,1)-1;
+          bw1 = 3;
+          [~,headidx] = max(diff(conv(mline,ones(bw1,1)/bw1,'valid'),2));
+          headidx = headidx + 1 + (bw1-1)/2;
           
-          if self.colorfeature
-            doimg_col = doimg_col(startidx:end,:,:);
-            doimg_col(end-startidx+2:end,:,:) = mback_col;
+          startidx = headidx - avgheadonset;
+          if startidx>1
+            doimg = doimg(startidx:end,:);
+            doimg(end-startidx+2:end,:) = mback;
+            
+            if self.colorfeature
+              doimg_col = doimg_col(startidx:end,:,:);
+              doimg_col(end-startidx+2:end,:,:) = mback_col;
+            end
+            
           end
-          
         end
+        
+          
 
         if plotif>2
           figure(3);
@@ -476,7 +511,7 @@ classdef MyBlobAnalysis < handle;
     function segm = detect(self, bwimg, Iframe, Cframe)
       
     % get the spots from the binary image
-      spots=bwconncomp(bwimg);
+      spots=bwconncomp(bwimg,8);
       rp = regionprops(spots,Iframe,[self.rprops,{'Image','PixelValues','PixelIdxList'}]);
 
       goodmsk = self.getGoodMsk(rp);
@@ -500,7 +535,7 @@ classdef MyBlobAnalysis < handle;
 
       
       self.featurewidth = self.fishwidth;
-      self.featureheight = floor(self.fishlength*0.6);
+      self.featureheight = floor(self.fishlength);
 
       
       nargs = length(varargin);

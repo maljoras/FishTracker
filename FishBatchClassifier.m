@@ -6,11 +6,11 @@ classdef FishBatchClassifier < handle;
     nlfd = 10;
     nfish = 2;
     minBatchN = 50; % minimal number of features for updateing the batch
-    noveltyThres = 0.25;
+    noveltyThres = 0.15;
     regularizer = 1e-10;
     featdim = [];
     outliersif = 1;
-
+    plotif = 0;
   end
 
   properties (SetAccess = private)

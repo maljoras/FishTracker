@@ -3,7 +3,7 @@ function out = trackFishInParallel(timerange,duration,varargin)
 
   args = varargin;
 
-  % maybe save ?
+
   if duration>diff(timerange)
     % just on a single computer;
     res = trackPart(timerange,args{:});
@@ -11,7 +11,7 @@ function out = trackFishInParallel(timerange,duration,varargin)
   end
   
 
-  overlap = 2; %sec
+  overlap = 5; %sec
   
   if duration<2*overlap
     error('duration of segment too short');
@@ -37,7 +37,7 @@ function res = trackPart(tr,args)
 
 
   ft = FishTracker(args{:},'displayif',0,'timerange',tr);
-
+    % maybe save ?
   ft.track();
   res = ft;
   %res = ft.getTrackingResults;

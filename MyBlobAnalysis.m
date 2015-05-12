@@ -6,7 +6,7 @@ classdef MyBlobAnalysis < handle;
     minArea = 50;
     minextent = 50;
     maxextent = 1000;
-    minWidth = 4;
+    minWidth = 5;
     minmaxintensity = [0.1,0.5];
     nhistbins = 25;
     minMSERDistance = 3; % in pixels

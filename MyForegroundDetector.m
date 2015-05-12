@@ -16,7 +16,8 @@ classdef MyForegroundDetector < handle;
     plotif = 1;
 
     %   manuallyAdjustThres = true;
-    
+    minAxisLength = 5;
+    excludeBorderPercentForAutoThres = 0.15;
     rgbchannel = [];
     map = [];
   end
@@ -81,7 +82,15 @@ classdef MyForegroundDetector < handle;
         bwimg = bsxfun(@le,frame,thresarr(2:end-1));
       end
       
+      borderPixels = round(size(frame)*min(self.excludeBorderPercentForAutoThres,0.4));
+
       bwimg = bsxfun(@and,bwimg,self.fgmsk);
+      if borderPixels>0  
+        bwimg(1:borderPixels,:,:) = 0;
+        bwimg(:,1:borderPixels,:) = 0;
+        bwimg(end-borderPixels+1:end,:,:) = 0;
+        bwimg(:,end-borderPixels+1:end,:) = 0;
+      end
       
       largest = nan(1,size(bwimg,3));
       nextlargest = nan(1,size(bwimg,3));
@@ -95,7 +104,8 @@ classdef MyForegroundDetector < handle;
         
         %sz = cellfun('length',tmp.PixelIdxList);
         sz = cat(1,rp.MajorAxisLength);
-        %sz(sz<minsize) = [];
+        sz_minor = cat(1,rp.MinorAxisLength);
+        sz(sz_minor<self.minAxisLength) = [];
         %nspots(i) = length(sz);
         
         % get the largest objects
@@ -108,7 +118,7 @@ classdef MyForegroundDetector < handle;
         
       end
       ratio = nextlargest./largest;
-      conds = largest<0.2*max(size(bwimg)) & nextlargest>10;%minimal 10 pixels
+      conds = largest<0.2*max(size(bwimg)) & nextlargest>self.minAxisLength;%minimal 10 pixels
 
       if ~sum(conds)
         imagesc(frame)
@@ -120,7 +130,7 @@ classdef MyForegroundDetector < handle;
       thresidx = find(nextlargest./largest>=mr & conds,1,'last');
 
       % look for the size of the objects
-      bw = bwconncomp(bwimg(:,:,thresidx),4);;
+      bw = bwconncomp(bwimg(:,:,thresidx),8);;
       sz = cellfun('length',bw.PixelIdxList);
       [ssz, idx]= sort(sz,'descend');
       idx = idx(1:min(nObjects,end));

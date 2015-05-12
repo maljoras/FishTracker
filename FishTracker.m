@@ -7,12 +7,17 @@ classdef FishTracker < handle;
     scalecost = [20,5,2,0,0.5];
     opts = struct([]);
     saveFields = {'centroid','classProb','bbox','assignmentCost','segment.Orientation','segment.bendingStdValue'};
-
+    fishlength = [];
+    fishwidth = [];
+    maxVelocity = [];
+    displayif = 0;
+    timerange= [];
+    nfish = 1;
   end
 
   properties (SetAccess = private)
 
-    displayif = 0;
+
     medianCost = ones(5,1);
     costinfo= {'Location','Pixel overlap','Classifier','MeanIntensity','Orientation'};
     detector = [];
@@ -25,10 +30,7 @@ classdef FishTracker < handle;
     tracks = [];
     fishId2TrackId = [];
     visreader = 0;
-    nfish = 1;
-    timerange= [];
-    fishlength = [];
-    fishwidth = [];
+
     dt = 1;
     writefile = '';
     res = [];
@@ -60,10 +62,13 @@ classdef FishTracker < handle;
     currentFrame = [];
   end
   
-  
+
   methods (Access=private)
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+    % Gereral & init functions   
+    %---------------------------------------------------
     
-  
     function closeVideoObjects(self)
       if (self.visreader)
         release(self.videoReader); % close the input file
@@ -318,7 +323,10 @@ classdef FishTracker < handle;
       self.unassignedTracks = [];
       self.unassignedDetections = [];
       self.cost = [];
-      
+
+      if isempty(self.maxVelocity)
+        self.maxVelocity = self.fishlength*3/self.dt;
+      end
     end
     
     
@@ -363,7 +371,6 @@ classdef FishTracker < handle;
 
     end
     
-    
     function  detectObjects(self)
     % calls the detectors
     
@@ -397,8 +404,11 @@ classdef FishTracker < handle;
 
     end
   
-    %%% ClASSIFICATION
-      
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % ClASSIFICATION
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
     function cla = newFishClassifier(self,varargin);
       % Create Classifier objects
       featdim = [self.blobAnalyzer.featureheight,self.blobAnalyzer.featurewidth];
@@ -662,10 +672,13 @@ classdef FishTracker < handle;
       
 
     end
-        
-   
-    %% TRACKS
 
+    
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+  % Track related functions
+  %---------------------------------------------------
+ 
+  
     function initializeTracks(self)
     % create an empty array of tracks
       self.tracks = struct(...
@@ -733,8 +746,10 @@ classdef FishTracker < handle;
           cost = {};
           % center position 
           center = tracks(i).centroid; % kalman predict/pointtracker
-          cost{end+1} = pdist2(double(center),double(centroids),'Euclidean');
-
+          distmat = pdist2(double(center),double(centroids),'Euclidean');
+          distmat(distmat>self.maxVelocity*self.dt) = 10*self.maxVelocity*self.dt;
+          cost{end+1} = distmat;
+          
           % cost of 
 
           n = zeros(1,length(segments));
@@ -1054,6 +1069,13 @@ classdef FishTracker < handle;
       self.updateTrackCrossings();
     end
     
+    
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+    % Results & Plotting helper functions
+    %--------------------
+    
     function generateResults(self,savedTracks)
       
       if isempty(savedTracks)
@@ -1092,91 +1114,8 @@ classdef FishTracker < handle;
     end
     
     
-
-
-    
-  end
-  
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  methods
-
-
-    function self = FishTracker(vid,varargin) 
-    % constructor
-      self = self@handle();
-
-      if ~exist('emclustering') && exist('helper')
-        addpath('helper');
-      end
-      
-      % some additional defaults [can be overwritten by eg 'detector.thres' name]
-      self.opts(1).detector(1).thres = 'auto';
-      self.opts.detector.dtau = 0; % set to some value ONLY if the frame rate is very high!
-      self.opts.detector.mtau= 1e4;
-      self.opts.detector.inverse= 0;
-      self.opts.detector.rgbchannel= [];
-      self.opts.detector.nAutoFrames = 3;
-      
-      % blob anaylser
-      self.opts(1).blob(1).overlapthres= 0.8; % just for init str
-      self.opts.blob.minArea = 100;
-      self.opts.blob.colorfeature = true;
-      self.opts.blob.interpif = 1;
-      
-      % classifier 
-      self.opts(1).classifier.crossCostThres = 5;
-      self.opts(1).classifier.reassignProbThres = 0.1;
-      self.opts(1).classifier.maxFramesPerBatch = 200; 
-      self.opts(1).classifier.minBatchN = 25; 
-      self.opts(1).classifier.nFramesForInit = 100; 
-      self.opts(1).classifier.minCrossingDistance = [];  % will set based on fishlength;
-      self.opts(1).classifier.maxCrossingDistance = [];  % will set based on fishlength
-      self.opts(1).classifier.minCrossingFrameDist = 5;
-      self.opts(1).classifier.nFramesAfterCrossing = 30;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 50; % all simultanously...
-      self.opts(1).classifier.bendingThres = 1.5;
-      % tracks
-      self.opts(1).tracks.medtau = 30;
-      self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
-
-      %lost tracks
-      self.opts(1).tracks.invisibleForTooLong = 5;
-      self.opts(1).tracks.ageThreshold = 30;
-
-
-      args = varargin;
-      nargs = length(args);
-      if nargs>0 && mod(nargs,2)
-        error('expected arguments of the type ("PropName",pvalue)');
-      end
-      for i = 1:2:nargs
-        if ~ischar(args{i})
-          error('expected arguments of the type ("PropName",pvalue)');
-        else
-          idx = findstr(args{i},'.');
-          if ~isempty(idx)
-            optsname = args{i}(1:idx-1); 
-            assert(any(strcmp(optsname,fieldnames(self.opts))))
-            self.opts.(optsname).(args{i}(idx+1:end)) = args{i+1};
-          else
-            assert(~strcmp(args{i},'opts'));
-            assert(isprop(self,args{i}))
-            self.(args{i}) = args{i+1};
-          end
-        end
-      end
-      
-      self.setupSystemObjects(vid);
-    
-      if 1/self.dt<25 && self.detector.dtau  % high framrate
-        warning(['DTAU setting might only be suitable for high framne rate. \nSuggesting to set dtau to zero to get ' ...
-                 'superior detections.']);
-      end
-    end
-
-    
     function trackinfo = getCurrentTracks(self)
-      % gets the track info 
+    % gets the track info 
       
       trackinfo = repmat(struct,size(self.tracks));
 
@@ -1200,8 +1139,8 @@ classdef FishTracker < handle;
         end
       end
     end
-  
-       
+    
+    
     function displayTrackingResults(self)
 
       cjet = jet(self.nextId);
@@ -1304,6 +1243,227 @@ classdef FishTracker < handle;
       
     end
 
+  end
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %  PUBLIC METHODS
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  methods
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Contructor
+    %--------------------
+    function self = FishTracker(vid,varargin) 
+    % constructor
+      self = self@handle();
+
+      if ~exist('emclustering') && exist('helper')
+        addpath('helper');
+      end
+      
+      % some additional defaults [can be overwritten by eg 'detector.thres' name]
+      self.opts(1).detector(1).thres = 'auto';
+      self.opts.detector.dtau = 0; % set to some value ONLY if the frame rate is very high!
+      self.opts.detector.mtau= 1e4;
+      self.opts.detector.inverse= 0;
+      self.opts.detector.rgbchannel= [];
+      self.opts.detector.nAutoFrames = 3;
+      
+      % blob anaylser
+      self.opts(1).blob(1).overlapthres= 0.8; % just for init str
+      self.opts.blob.minArea = 100;
+      self.opts.blob.colorfeature = true;
+      self.opts.blob.interpif = 1;
+      
+      % classifier 
+      self.opts(1).classifier.crossCostThres = 5;
+      self.opts(1).classifier.reassignProbThres = 0.1;
+      self.opts(1).classifier.maxFramesPerBatch = 200; 
+      self.opts(1).classifier.minBatchN = 25; 
+      self.opts(1).classifier.nFramesForInit = 100; 
+      self.opts(1).classifier.minCrossingDistance = [];  % will set based on fishlength;
+      self.opts(1).classifier.maxCrossingDistance = [];  % will set based on fishlength
+      self.opts(1).classifier.minCrossingFrameDist = 5;
+      self.opts(1).classifier.nFramesAfterCrossing = 30;
+      self.opts(1).classifier.nFramesForUniqueUpdate = 50; % all simultanously...
+      self.opts(1).classifier.bendingThres = 1.5;
+      % tracks
+      self.opts(1).tracks.medtau = 30;
+      self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
+
+      %lost tracks
+      self.opts(1).tracks.invisibleForTooLong = 5;
+      self.opts(1).tracks.ageThreshold = 30;
+      
+      args = varargin;
+      nargs = length(args);
+      if nargs>0 && mod(nargs,2)
+        error('expected arguments of the type ("PropName",pvalue)');
+      end
+      for i = 1:2:nargs
+        if ~ischar(args{i})
+          error('expected arguments of the type ("PropName",pvalue)');
+        else
+          idx = findstr(args{i},'.');
+          if ~isempty(idx)
+            optsname = args{i}(1:idx-1); 
+            assert(any(strcmp(optsname,fieldnames(self.opts))))
+            self.opts.(optsname).(args{i}(idx+1:end)) = args{i+1};
+          else
+            assert(~strcmp(args{i},'opts'));
+            assert(isprop(self,args{i}))
+            self.(args{i}) = args{i+1};
+          end
+        end
+      end
+      
+      self.setupSystemObjects(vid);
+    
+      if 1/self.dt<25 && self.detector.dtau  % high framrate
+        warning(['DTAU setting might only be suitable for high framne rate. \nSuggesting to set dtau to zero to get ' ...
+                 'superior detections.']);
+      end
+    end
+ 
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Main tracking loop
+    %--------------------
+  
+    function track(self)
+    % Detect objects, and track them across video frames.
+
+      self.initTracking();
+      
+      verbose('Start tracking of %d fish ...',self.nfish)
+
+      while  hasFrame(self)
+
+        self.readFrame();
+
+        self.detectObjects();
+        
+        self.handleTracks();
+
+        self.updateClassifier();
+
+        savedTracks(self.currentFrame,1:length(self.tracks)) = self.getCurrentTracks();
+
+        if self.displayif
+          self.displayTrackingResults();
+        else
+          t = datevec(seconds(self.currentTime));
+          if ~mod(self.currentFrame,10)
+            verbose('Currently at time %1.0fh %1.0fm %1.1fs\r',t(4),t(5),t(6));
+          end
+        end
+      end
+      %% CAUTION handle last crossing 
+      
+      % make correct output structure
+      self.generateResults(savedTracks);
+      
+      self.closeVideoObjects();
+    end
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Combination of two (or more) tracking objects with overlap
+    %--------------------
+    function combinedObj = combine(self,varargin)
+
+      
+      tbinsize = self.dt;
+
+      objs = {self,varargin{:}};
+      
+      % check for empty results
+      emptymsk = cellfun(@(x)isempty(x.getTrackingResults()),objs);
+      objs(emptymsk) = [];
+      
+      if isempty(objs)
+        error('no results available. First track');
+      end
+      
+      
+      %first sort according to the starting time
+      starttimes = cellfun(@(x)x.timerange(1),objs);
+      [~,sidx] = sort(starttimes,'ascend');
+      objs = objs(sidx);
+
+      % combine results, that is results are appended. 
+      combinedObj = objs{1};
+      combinedRes = getTrackingResults(combinedObj);
+      for i = 2:length(objs)
+        obj = objs{i};
+       
+        % assert that two video files are the same
+        assert(strcmp(combinedObj.videoReader.Name,obj.videoReader.Name));
+        assert(combinedObj.nfish==obj.nfish);
+
+        res = getTrackingResults(obj);
+
+        if obj.timerange(1)> combinedObj.timerange(2)
+          % no overlap
+          warning('no overlap. Fish IDs might get mixed up!!');
+          % just append
+          combinedRes.tracks = cat(1,combinedRes.tracks,res.tracks);
+          combinedRes.pos = cat(1,combinedRes.pos,res.pos);
+
+        else
+          % some overalp
+          toverlap = [obj.timerange(1),combinedObj.timerange(2)];
+          
+          track1 = combinedRes.tracks(:,1);
+          tCombined = cat(1,track1.t);
+
+          track1 = res.tracks(:,1);
+          tObj = cat(1,track1.t);
+
+          overlapedIdx = find(tCombined(end)>= tObj);
+          overlapedCombinedIdx = find(tCombined>= tObj(1));
+
+          overlappedPos = res.pos(overlapedIdx,:,:);
+          overlappedCombinedPos = combinedRes.pos(overlapedCombinedIdx,:,:);
+        
+          dim = size(overlappedPos,2); % 2-D for now;
+          tstart = tCombined(overlapedCombinedIdx(1));
+          tidxCombined = floor((tCombined(overlapedCombinedIdx) - tstart)/tbinsize)+1;
+          [X,Y] = ndgrid(tidxCombined,1:self.nfish*dim);
+          overlappedCombinedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedCombinedPos(:),[],@mean),[],obj.nfish);
+          
+          tidx = min(max(floor((tObj(overlapedIdx) - tstart)/tbinsize)+1,1),tidxCombined(end));
+          [X,Y] = ndgrid(tidx,1:self.nfish*dim);
+          overlappedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedPos(:),[tidxCombined(end),self.nfish*dim],@mean),[],obj.nfish);
+
+          % now the two position vectors can be compared. 
+          cost = pdist2(overlappedCombinedPosInterp',overlappedPosInterp','correlation');
+          
+          % use the hungarian matching assignments from the vision toolbox
+          assignments = assignDetectionsToTracks(cost,1e4);
+          [~,sidx] = sort(assignments(:,1),'ascend');
+          assignments = assignments(sidx,:); % make sure that the (combined) tracks are in squential order
+          % append;
+          combinedRes.pos = cat(1,combinedRes.pos,res.pos(overlapedIdx(end)+1:end,:,assignments(:,2)));
+          combinedRes.tracks = cat(1,combinedRes.tracks,res.tracks(overlapedIdx(end)+1:end,assignments(:,2)));
+        end
+
+        combinedObj.res = combinedRes;
+        combinedObj.timerange= [combinedObj.timerange(1),obj.timerange(2)];
+        
+      end
+        
+    end
+    
+    
+    
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Results & plotting 
+    %--------------------
+
     function res = getTrackingResults(self)
     % returns the current results
       if isempty(self.res)
@@ -1350,44 +1510,12 @@ classdef FishTracker < handle;
       title('Velocity');
       
     end
-    
-      
-    function track(self)
-    % Detect objects, and track them across video frames.
 
-      self.initTracking();
-      
-      verbose('Start tracking of %d fish ...',self.nfish)
-
-      while  hasFrame(self)
-
-        self.readFrame();
-
-        self.detectObjects();
-        
-        self.handleTracks();
-
-        self.updateClassifier();
-
-        savedTracks(self.currentFrame,1:length(self.tracks)) = self.getCurrentTracks();
-
-        if self.displayif
-          self.displayTrackingResults();
-        else
-          t = datevec(seconds(self.currentTime));
-          if ~mod(self.currentFrame,10)
-            verbose('Currently at time %1.0fh %1.0fm %1.1fs\r',t(4),t(5),t(6));
-          end
-        end
-      end
-      %% CAUTION handle last crossing 
-      
-      % make correct output structure
-      self.generateResults(savedTracks);
-      
-      self.closeVideoObjects();
-    end
+   
   end
+  
+  
+  
   
 end
 

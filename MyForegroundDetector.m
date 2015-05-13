@@ -76,10 +76,10 @@ classdef MyForegroundDetector < handle;
       if self.inverse
         thresarr = shiftdim(linspace(max(frame(:)),mf,self.nauto),-1);
         thresarr =thresarr(end:-1:1);
-        bwimg = bsxfun(@ge,frame,thresarr(2:end-1));
+        bwimg = gather(bsxfun(@ge,frame,thresarr(2:end-1)));
       else
         thresarr = shiftdim(linspace(min(frame(:)),mf,self.nauto),-1);
-        bwimg = bsxfun(@le,frame,thresarr(2:end-1));
+        bwimg = gather(bsxfun(@le,frame,thresarr(2:end-1)));
       end
       
       borderPixels = round(size(frame)*min(self.excludeBorderPercentForAutoThres,0.4));
@@ -96,7 +96,9 @@ classdef MyForegroundDetector < handle;
       nextlargest = nan(1,size(bwimg,3));
       %msize = nan(1,size(bwimg,3));
       %nspots = nan(1,size(bwimg,3));
-      
+
+
+
       for i = 1:size(bwimg,3)
         tmp = bwconncomp(bwimg(:,:,i),8);;
         rp = regionprops(tmp,'MajorAxisLength','MinorAxisLength');
@@ -150,7 +152,7 @@ classdef MyForegroundDetector < handle;
       randidx = max(min(randidx,prod(bw.ImageSize)),1);
       randidx = setdiff(randidx,objidx);
 
-      oframe1 = double(reshape(oframe,[],3));
+      oframe1 = gather(double(reshape(oframe,[],3)));
       col1 = oframe1(objidx,:);
       col2 = oframe1(randidx,:);
       [fv,~,proj,r] = lfd([col1;col2],[ones(size(col1,1),1);zeros(size(col2,1),1)],1,0);
@@ -199,19 +201,18 @@ classdef MyForegroundDetector < handle;
     end
 
     
-    function bwimg = getBWImage(self,frame)
+    function bwimg = getBWImage(self,gpuFrame)
 
+      frame = gather(gpuFrame);
       frame = frame - self.mframe;
       
       % update and subtract mean frame
       mtau = min(self.framecounter,self.mtau);
       self.mframe = (mtau-1)/mtau * self.mframe + 1/mtau*frame; % running avaerge
 
-
-
       
       if self.dtau>1
-        f1 = frame;
+        f1 = frame; % PASS BY VALUE
         frame = (1-self.dratio)*frame + (self.dratio)*self.dframe;
         % difference frame
         self.dframe = (self.dtau-1)/self.dtau * self.dframe + 1/self.dtau*f1; % running avaerge
@@ -259,6 +260,8 @@ classdef MyForegroundDetector < handle;
     
     function  varargout = init(self,oframe,nObjects)
 
+      oframe = gather(oframe); % do on CPU;
+      
       nTimes = size(oframe,4);
       for i = 1:nTimes
         frame(:,:,i) = convertFrame(self,oframe(:,:,:,i));
@@ -364,7 +367,7 @@ classdef MyForegroundDetector < handle;
 
       %output
       if nargout>1
-        varargout{1} = cframe; % RGB converted to intensity
+        varargout{1} = gather(cframe); % RGB converted to intensity
       end
       if nargout>2
         varargout{2} = self.frame; % mean / dframe subtracted

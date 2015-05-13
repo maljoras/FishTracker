@@ -565,6 +565,10 @@ classdef MyBlobAnalysis < handle;
         Cframe = Iframe;
       end
       
+      %make sure frames live on the CPU
+      Iframe = gather(Iframe);
+      Cframe = gather(Cframe);
+      
       % detect objects
       segm = detect(self,mask, Iframe, Cframe);
 

@@ -2,14 +2,14 @@ classdef FishBatchClassifier < handle;
 % Classifies the Fish 
 
   properties 
-    npca = 50;
-    nlfd = 10;
+    npca = 10;
+    nlfd = 0;
     nfish = 2;
     minBatchN = 50; % minimal number of features for updateing the batch
     noveltyThres = 0.15;
     regularizer = 1e-10;
     featdim = [];
-    outliersif = 1;
+    outliersif = 0;
     plotif = 0;
   end
 
@@ -225,6 +225,7 @@ classdef FishBatchClassifier < handle;
         forceif = 0;
       end
       minBatchN = self.minBatchN;
+      fishidx = fishidx(:)'; %row vector;
       
       assignedFishIdx = nan(size(fishidx));
       prob = nan(size(fishidx));
@@ -239,7 +240,7 @@ classdef FishBatchClassifier < handle;
       
 
       validclasses = l(:)>=minBatchN;
-      if ~any(validclasses)
+      if ~any(validclasses) || isempty(fishidx)
         return
       end
       
@@ -290,7 +291,7 @@ classdef FishBatchClassifier < handle;
       else
         preprocessif = 1;
       end
-      
+      assumedClassIdx = assumedClassIdx(:)'; % row vector
       
       if preprocessif
         X = self.convertBatch(batchsample);

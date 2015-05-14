@@ -237,25 +237,21 @@ classdef FishTracker < handle;
       self.videoReader = self.newVideoReader(vid);
       self.videoFile = vid;
       
-      % establish simple background
+      % get some frames to initialize the detector
+      n = max(self.opts.detector.nAutoFrames,1);
+      verbose('Reading %d frames of the video to establish background',n);              
+      timePoints = linspace(self.timerange(1),self.timerange(2),n+1);
 
-      self.readFrame();
-      firstframe = zeros([size(self.frame),self.opts.detector.nAutoFrames],'like', self.frame);
-      firstframe(:,:,:,1) = self.frame;
-      
-      if self.opts.detector.nAutoFrames>1
-        tdistance = 1;
-        verbose('Reading first %d frames of the video to establish background',self.opts.detector.nAutoFrames);              
-
-        for i = 2:self.opts.detector.nAutoFrames
-          self.setCurrentTime(min(self.timerange(1)+i*tdistance,self.timerange(2)));
+      for i = 1:length(timePoints)-1
+        self.setCurrentTime(timePoints(i));
           
-          self.readFrame();
-          firstframe(:,:,:,i) = self.frame;
+        self.readFrame();
+        if i==1
+          autoFrames = zeros([size(self.frame),n],'like', self.frame);
         end
-        %delete(self.videoReader); % detroy again
-        %self.videoReader = self.newVideoReader(vid);
+        autoFrames(:,:,:,i) = self.frame;
       end
+
       
       if ~isempty(self.writefile) && self.displayif
         self.videoWriter = self.newVideoWriter(self.writefile);
@@ -277,7 +273,7 @@ classdef FishTracker < handle;
       self.detector = newForegroundDetector(self,args{:});
 
 
-      [fishlength,fishwidth, fv, mu] = self.detector.init(firstframe,self.nfish);
+      [fishlength,fishwidth, fv, mu] = self.detector.init(autoFrames,self.nfish);
 
        
       if isempty(self.fishlength) 
@@ -563,7 +559,8 @@ classdef FishTracker < handle;
         trackIndices(~crossedFishIds)=[];
         crossedFishIds(~crossedFishIds) = [];
       end
-            
+      trackIndices = trackIndices(:)'; % make sure it is a rwo vector
+       
       % test assignments
       feat = self.getFeatureDataFromTracks(trackIndices);
       [assignedFishIds prob] = self.fishClassifier.predictPermutedAssignments(feat,crossedFishIds);
@@ -657,7 +654,7 @@ classdef FishTracker < handle;
       
       
       if self.uniqueFishFrames-1 > max(self.opts.classifier.nFramesForUniqueUpdate,self.opts.classifier.nFramesAfterCrossing)
-        verbose('Perform uniqie frames update.')
+        verbose('Perform uniqie frames update.\r')
 
         trackIndices = 1:length(self.nfish);
         fishClassifierUpdate(self,trackIndices);
@@ -685,7 +682,7 @@ classdef FishTracker < handle;
 
           if longAfterCrossing &&  (track.nextBatchIdx > self.opts.classifier.nFramesForSingleUpdate)
             % crossing already handled. FishIds *should* be correct
-            verbose('Perform one fish update');
+            verbose('Perform one fish update\r');
             self.fishClassifierUpdate(trackIndex);
             self.resetBatchIdx(trackIndex);
           end
@@ -1302,7 +1299,7 @@ classdef FishTracker < handle;
       % some additional defaults [can be overwritten by eg 'detector.thres' name]
       self.opts(1).detector(1).thres = 'auto';
       self.opts.detector.dtau = 0; % set to some value ONLY if the frame rate is very high!
-      self.opts.detector.mtau= 1e4;
+      self.opts.detector.mtau= 1e3;
       self.opts.detector.inverse= 0;
       self.opts.detector.rgbchannel= [];
       self.opts.detector.nAutoFrames = 3;
@@ -1328,9 +1325,9 @@ classdef FishTracker < handle;
       self.opts(1).tracks.medtau = 30;
       self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
       self.opts(1).tracks.probThresForFish = 0.1;
-
+      self.opts(1).tracks.displayEveryNFrame = 8;
       %lost tracks
-      self.opts(1).tracks.invisibleForTooLong = 5;
+      self.opts(1).tracks.invisibleForTooLong = 3;
       self.opts(1).tracks.ageThreshold = 30;
       
       args = varargin;
@@ -1393,11 +1390,13 @@ classdef FishTracker < handle;
         savedTracks(self.currentFrame,1:length(self.tracks)) = self.getCurrentTracks();
 
         if self.displayif
-          self.displayTrackingResults();
+          if ~mod(self.currentFrame-1,self.opts.tracks.displayEveryNFrame)
+            self.displayTrackingResults();
+          end
         else
           t = datevec(seconds(self.currentTime));
           if ~mod(self.currentFrame,10)
-            verbose('Currently at time %1.0fh %1.0fm %1.1fs\r',t(4),t(5),t(6));
+            verbose('Currently at time %1.0fh %1.0fm %1.1fs                      \r',t(4),t(5),t(6));
           end
         end
       end

@@ -213,6 +213,7 @@ classdef MyBlobAnalysis < handle;
           newspots.NumObjects = length(newspots.PixelIdxList);
           
           newrp = regionprops(newspots,Iframe,[self.rprops,{'Image','PixelValues','PixelIdxList'}]);
+          
           newrp = self.getMoreFeatures(newrp,Iframe, Cframe);
 
 % $$$           % use old MSER regions

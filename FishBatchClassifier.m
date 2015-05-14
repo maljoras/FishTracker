@@ -2,11 +2,11 @@ classdef FishBatchClassifier < handle;
 % Classifies the Fish 
 
   properties 
-    npca = 10;
+    npca = 15;
     nlfd = 0;
     nfish = 2;
     minBatchN = 50; % minimal number of features for updateing the batch
-    noveltyThres = 0.15;
+    noveltyThres = 0.10;
     regularizer = 1e-10;
     featdim = [];
     outliersif = 0;

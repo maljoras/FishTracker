@@ -81,6 +81,7 @@ classdef MyForegroundDetector < handle;
         thresarr = shiftdim(linspace(min(frame(:)),mf,self.nauto),-1);
         bwimg = gather(bsxfun(@le,frame,thresarr(2:end-1)));
       end
+
       
       borderPixels = round(size(frame)*min(self.excludeBorderPercentForAutoThres,0.4));
 
@@ -100,7 +101,15 @@ classdef MyForegroundDetector < handle;
 
 
       for i = 1:size(bwimg,3)
-        tmp = bwconncomp(bwimg(:,:,i),8);;
+        bwimg1 = bwareaopen(bwimg(:,:,i),self.minAxisLength^2);
+        tmp = bwconncomp(bwimg1,8);
+        
+        
+        
+        % USE IMOPEN ETC ?? IMEXTENDEDMAX ??
+   
+        
+        
         rp = regionprops(tmp,'MajorAxisLength','MinorAxisLength');
         
         

@@ -512,6 +512,7 @@ classdef MyBlobAnalysis < handle;
     function segm = detect(self, bwimg, Iframe, Cframe)
       
     % get the spots from the binary image
+      bwimg = bwareaopen(bwimg,self.minArea);
       spots=bwconncomp(bwimg,8);
       rp = regionprops(spots,Iframe,[self.rprops,{'Image','PixelValues','PixelIdxList'}]);
 

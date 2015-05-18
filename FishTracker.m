@@ -625,12 +625,12 @@ classdef FishTracker < handle;
       self.fishId2TrackId(t,fishIds) = trackIds;
         
       % save track positions
+      if isempty(self.pos)
+        self.pos = nan(2,self.nfish,250);
+      end
+      
       if size(self.pos,3)< t
-        if isempty(self.pos)
-          self.pos = nan(2,self.nfish,250);
-        else
-          self.pos = cat(3,self.pos,nan(2,self.nfish,250));
-        end
+        self.pos = cat(3,self.pos,nan(2,self.nfish,250));
       end
       self.pos(1:2,fishIds,t) = cat(1,self.tracks.centroid)';
 
@@ -641,7 +641,7 @@ classdef FishTracker < handle;
       else
         self.uniqueFishFrames = 0;
         if ~isInit(self.fishClassifier) % we do not want a mixture at the beginning
-          self.resetBatchIdx(1:self.nfish);
+          self.resetBatchIdx(1:length(self.tracks));
         end
       end
       nfeat = cat(2,self.tracks.nextBatchIdx)-1;
@@ -659,7 +659,7 @@ classdef FishTracker < handle;
           batchsample(1:length(feat)) = feat;
           
           self.fishClassifier.init(batchsample);
-          self.resetBatchIdx(1:self.nfish);
+          self.resetBatchIdx(1:length(self.tracks));
           
           % reset all potentials previous crossings
           [self.tracks.frameOfLastCrossing] = deal(self.currentFrame);
@@ -1110,7 +1110,7 @@ classdef FishTracker < handle;
       
       %make symmetric CATUTION MIGHT NOT BE SYMMETRIC!
       self.crossings = self.crossings | self.crossings';
-      self.crossings(find(eye(self.nfish))) = any(self.crossings,1);
+      self.crossings(find(eye(length(self.crossings)))) = any(self.crossings,1);
     
     end
     
@@ -1221,7 +1221,7 @@ classdef FishTracker < handle;
       for i_f = 1:length(self.saveFields)
         f = self.saveFields{i_f};
         if any(f=='.')
-          if isempty(self.tracks)
+          if isempty(self.tracks) 
             eval(sprintf('[trackinfo(:).%s] = deal([]);',f(1:find(f=='.',1,'first')-1)));
           else
             for i = 1:length(self.tracks)
@@ -1501,7 +1501,10 @@ classdef FishTracker < handle;
       end
       pool = gcp;
       
-      sec = linspace(self.timerange(1),self.timerange(2),pool.NumWorkers+1);
+      maxDuration = min(diff(self.timerange)/pool.NumWorkers,1e4*self.dt);
+      nparts = floor((diff(self.timerange)/maxDuration));
+      
+      sec = linspace(self.timerange(1),self.timerange(2),nparts+1);
       secEnd = sec(2:end);
       secStart = max(sec(1:end-1)-tOverlap,sec(1));
       timeRanges = [secStart(:),secEnd(:)];
@@ -1659,7 +1662,7 @@ classdef FishTracker < handle;
 
         % cut those time points with too high assignemnt cost
         assignmentCost = reshape(cat(1,res.tracks.assignmentCost),size(res.tracks));
-        assignmentThres = quantile(assignmentCost(:),0.98);
+        assignmentThres = quantile(assignmentCost(:),0.999);
         idx = find(assignmentCost > assignmentThres);
 
         for i = 1:size(res.pos,2)
@@ -1714,12 +1717,47 @@ classdef FishTracker < handle;
       
       
       a = subplot(2,2,2,'align');
-      plot(diff(posx)/self.dt,diff(posy)/self.dt);
+      plot(diff(posx)/self.dt,diff(posy)/self.dt,'.');
       xlabel('X-Velocity [px/sec]')
       ylabel('Y-Velocity [px/sec]')
 
       title('Velocity');
       
+
+      a = subplot(2,2,3,'align');
+
+      dxy = 10;
+      szFrame = size(self.frame);
+      sz = ceil(szFrame/dxy);
+      sz = sz(1:2);
+
+      dposx = min(max(floor(posx/dxy)+1,1),sz(2));
+      dposy = min(max(floor(posy/dxy)+1,1),sz(1));
+      P = zeros([sz,length(fishIds)]);
+      for i = 1:size(posx,2)
+        msk = ~(isnan(dposy(:,i)) | isnan(dposx(:,i)));
+        P(:,:,i) = accumarray([dposy(msk,i),dposx(msk,i)],1,sz);
+        P(:,:,i) = P(:,:,i)/sum(sum(P(:,:,i)));
+      end
+      P(1,1,:) = 0;
+      
+      Z = sum(P,3);
+      Z = imfilter(Z,fspecial('disk',3),'same');
+      imagesc(1:szFrame(2),1:szFrame(1),Z,[0,quantile(P(:),0.99)]);
+      title('Overall probability');
+      xlabel('X-Position [px]')
+      ylabel('Y-Position [px]')
+      axis xy;
+      
+      a = subplot(2,2,4,'align');
+      [~,cl] = max(P,[],3);
+      cl = cl + (sum(P,3)~=0);
+      imagesc(1:szFrame(2),1:szFrame(1),cl);
+      xlabel('X-Position [px]')
+      ylabel('Y-Position [px]')
+      title('Domain of fish')
+      axis xy;
+
     end
 
    

@@ -1501,7 +1501,7 @@ classdef FishTracker < handle;
       end
       pool = gcp;
       
-      maxDuration = min(diff(self.timerange)/pool.NumWorkers,1e4*self.dt);
+      maxDuration = min(diff(self.timerange)/pool.NumWorkers,1.2e4*self.dt);
       nparts = floor((diff(self.timerange)/maxDuration));
       
       sec = linspace(self.timerange(1),self.timerange(2),nparts+1);
@@ -1512,6 +1512,10 @@ classdef FishTracker < handle;
       nRanges = size(timeRanges,1);
       
       % copy objects
+      verbose('Parallel tracking from %1.1f to %1.1fh on %d workers',...
+              self.timerange(1)/3600,self.timerange(2)/3600,pool.NumWorkers);
+      verbose('%d processes with %1.1fm duration and %1.1fsec overlap.',...
+              nRanges,max(diff(timeRanges,[],2))/60,tOverlap);
       FTs = repmat(self,[1,nRanges]);
       res = {};
       parfor i = 1:nRanges
@@ -1593,7 +1597,7 @@ classdef FishTracker < handle;
           overlapedCombinedIdx = find(tCombined>= tObj(1) & ~any(isnan(combinedRes.pos(:,1,:)),3));
 
           if isempty(overlapedIdx)|| isempty(overlapedCombinedIdx)
-            warning(['no valid indeces found for overlap. Fish IDs might get mixed up!!. Take all ' ...
+            warning(['no valid indices found for overlap. Fish IDs might get mixed up!!. Take all ' ...
                      'available. ']);
 
             % simply take all res
@@ -1631,7 +1635,10 @@ classdef FishTracker < handle;
 
         combinedObj.res = combinedRes;
         combinedObj.timerange= [combinedObj.timerange(1),obj.timerange(2)];
-        
+        combinedObj.currentFrame = 1;
+        combinedObj.currentTime = self.timerange(1);
+        combinedObj.pos = []; % not valid 
+        combinedObj.fishId2TrackId = []; % not valid 
       end
         
     end

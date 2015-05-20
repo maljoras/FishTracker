@@ -479,7 +479,9 @@ classdef FishTracker < handle;
       oldFishIds = cat(2,self.tracks(trackIndex).fishId);
       
       if any(isnan(trackIndex)) || any(isnan(newFishIds)) 
-        keyboard
+        %should not happen
+        warning('NAN detected!! This should not happen.')
+        return
       end
       
       if any(newFishIds~=oldFishIds)     
@@ -629,7 +631,7 @@ classdef FishTracker < handle;
         self.pos = nan(2,self.nfish,250);
       end
       
-      if size(self.pos,3)< t
+      if size(self.pos,3)<t
         self.pos = cat(3,self.pos,nan(2,self.nfish,250));
       end
       self.pos(1:2,fishIds,t) = cat(1,self.tracks.centroid)';
@@ -1364,7 +1366,8 @@ classdef FishTracker < handle;
       self.opts.detector.mtau= 1e3;
       self.opts.detector.inverse= 0;
       self.opts.detector.rgbchannel= [];
-      self.opts.detector.nAutoFrames = 4;
+      self.opts.detector.nAutoFrames = 9;
+      self.opts.detector.excludeBorderPercentForAutoThres = 0.05;
       
       % blob anaylser
       self.opts(1).blob(1).overlapthres= 0.8; % just for init str
@@ -1453,6 +1456,16 @@ classdef FishTracker < handle;
 
         savedTracks(self.currentFrame,1:length(self.tracks)) = self.getCurrentTracks();
 
+        % SOMETIMES SOME TRACKS ARE EMPTY. WHY ?
+        DEBUG = 0;
+        if DEBUG
+          if any(cellfun('isempty',{self.tracks.id}))
+            warning('Detected empty tracks')
+            keyboard
+          end
+        end
+        
+        
         if self.displayif
           if ~mod(self.currentFrame-1,self.opts.tracks.displayEveryNFrame)
             self.displayTrackingResults();
@@ -1521,12 +1534,13 @@ classdef FishTracker < handle;
       parfor i = 1:nRanges
         ft = FTs(i);
         ft.timerange = timeRanges(i,:);
+        ft.currentTime = ft.timerange(1);
         ft.resetVideoReader();
+        ft.setCurrentTime(ft.timerange(1)); % to make sure 
         ft.displayif = 0;
         ft.track();
         res{i} = ft;
       end
-  
       combinedFT = combine(res{:});
       if nargout>1
         varargout{1} = res;
@@ -1575,6 +1589,7 @@ classdef FishTracker < handle;
         if obj.timerange(1)> combinedObj.timerange(2)
           % no overlap
           warning('no overlap. Fish IDs might get mixed up!!');
+          keyboard
           % just append
           combinedRes.tracks = cat(1,combinedRes.tracks,res.tracks);
           combinedRes.pos = cat(1,combinedRes.pos,res.pos);
@@ -1668,6 +1683,10 @@ classdef FishTracker < handle;
         res.pos(:,2,:) = posy;
 
         % cut those time points with too high assignemnt cost
+        % WHY DOES THIS HAPPEN?? THERE SHOULDN'T BE ANY EMPTY VALUES!!
+        emptymsk = find(cellfun('isempty',{res.tracks.assignmentCost}));
+        [res.tracks(emptymsk).assignmentCost] = deal(Inf);
+
         assignmentCost = reshape(cat(1,res.tracks.assignmentCost),size(res.tracks));
         assignmentThres = quantile(assignmentCost(:),0.999);
         idx = find(assignmentCost > assignmentThres);

@@ -95,7 +95,7 @@ classdef MyForegroundDetector < handle;
                                       % present in the mframe
       
       %self.frame  = frame;
-    
+
     end
     
     

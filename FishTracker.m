@@ -105,6 +105,10 @@ classdef FishTracker < handle;
       end
     end
     
+    function [player] = newVideoPlayer(self,vidname)
+      player = vision.VideoPlayer();
+    end
+    
     
     function resetVideoReader(self)
       if (self.visreader)
@@ -113,50 +117,51 @@ classdef FishTracker < handle;
         %close(self.videoReader); % close the input file
       end
       delete(self.videoReader);
-      t = self.currentTime;
-      tr= self.timerange;
       self.videoReader = newVideoReader(self,self.videoFile);
-      self.setCurrentTime(t);
-      self.timerange = tr;
+      self.setCurrentTime(self.currentTime);
     end
     
       
       
       
-    function [reader] = newVideoReader(self,vidname)
-      
-      if ~isempty(self.timerange)  && self.visreader
-        warning('Timerange not supported with visreader');
-        self.visreader = 0; % NOT SUPPORTED
-      end
-      if isempty(self.timerange)
-        self.timerange = [0,Inf];
+    function [reader, dt, timerange] = newVideoReader(self,vidname,timerange)
+    % note: does not set the current time. Initialize with self.setCurrentTime
+      if ~exist('timerange','var')
+        timerange = [];
       end
       
-
+      
+      if ~isempty(timerange)  && self.visreader
+        error('Timerange not supported with visreader');
+      end
+      
       if self.visreader
         reader = vision.VideoFileReader(vidname);
         isDone(reader); % check
-        self.visreader = 1;
       else
         reader = VideoReader(vidname);
-        self.visreader = 0;
+      end
+
+      if isempty(timerange)
+        timerange = [0,Inf];
       end
       
-      if ~self.visreader
-        self.dt = 1/double(reader.FrameRate);
-        assert(length(self.timerange)==2 && self.timerange(1)<reader.Duration/self.dt);
 
-        if isinf(self.timerange(2))
-          self.timerange(2) = reader.duration;
+      
+      if ~self.visreader
+        dt = 1/double(reader.FrameRate);
+        assert(length(timerange)==2 && timerange(1)<reader.Duration/self.dt);
+
+        if isinf(timerange(2))
+          timerange(2) = reader.duration;
         end
         
       else
         tmp = info(reader);
-        self.dt = 1/double(tmp.VideoFrameRate);
+        dt = 1/double(tmp.VideoFrameRate);
       
-        if isinf(self.timerange(2))
-          self.timerange(2) = tmp.duration;
+        if isinf(timerange(2))
+          timerange(2) = tmp.duration;
         end
 
       end
@@ -180,9 +185,8 @@ classdef FishTracker < handle;
       end
       
       if self.displayif && isempty(self.videoPlayer)
-        self.videoPlayer = vision.VideoPlayer();
+        self.videoPlayer = self.newVideoPlayer();
       end
-
       
     end
     
@@ -191,7 +195,8 @@ classdef FishTracker < handle;
       % Create a Kalman filter object.
       predictor = configureKalmanFilter('ConstantVelocity', centroid, [100, 10], [50, 5], 10);
     end
-  
+
+    
     function detector = newForegroundDetector(self,varargin);
       % The foreground detector is used to segment moving objects from
       % the background. It outputs a binary mask, where the pixel value
@@ -201,9 +206,6 @@ classdef FishTracker < handle;
       % might become overloaded
       detector = MyForegroundDetector(varargin{:});
     end
-    
-    
-   
     
     function stepVideoPlayer(self,uframe);
       self.videoPlayer.step(uframe);
@@ -240,7 +242,7 @@ classdef FishTracker < handle;
 
         
       %% Create a video file reader.
-      self.videoReader = self.newVideoReader(vid);
+      [self.videoReader,self.dt,self.timerange,self.visreader] = self.newVideoReader(vid,self.timerange);
       self.videoFile = vid;
       
       % get some frames to initialize the detector
@@ -1489,8 +1491,12 @@ classdef FishTracker < handle;
     function [combinedFT varargout] = trackParallel(self,tOverlap,minDurationPerWorker)
     %  FTNEW = FT.TRACKPARALLEL() will track the results in parallel and creates a new FT object with tracks combined
     % 
-    %  FT.TRACKPARALLEL(..,TOVERLAP,MINDURATIONPERWORKER) sepecifies the overlap between workers in seconds and the
-    %  minmal video time per worker in seconds
+    %  FT.TRACKPARALLEL(..,TOVERLAP,MINDURATIONPERWORKER) sepecifies the overlap between workers in
+    %  seconds and the minmal video time per worker in seconds
+    % 
+    % CAUTION: if not calculated in parallel (w.g. for too short data) the returned handle object
+    % will be the IDENTICAL handle (only a reference to the same data).  Only in case of parallel
+    % processing the returned object will have a NEW handle (and thus reference new data).
 
       if ~exist('minDurationPerWorker','var')
         minDurationPerWorker = 300; % 5 minutes;
@@ -1508,7 +1514,7 @@ classdef FishTracker < handle;
       if totalDuration<2*tOverlap || totalDuration < 2*(minDurationPerWorker-tOverlap)
         % just on a single computer;
         self.track();
-        combinedFT = self; % a bit nasty...
+        combinedFT = self; % SHOULD IMPLEMENT COPY OBJECT HERE !!!
         varargout{1} = [];
         return
       end
@@ -1529,6 +1535,10 @@ classdef FishTracker < handle;
               self.timerange(1)/3600,self.timerange(2)/3600,pool.NumWorkers);
       verbose('%d processes with %1.1fm duration and %1.1fsec overlap.',...
               nRanges,max(diff(timeRanges,[],2))/60,tOverlap);
+
+      % CAUTION THIS YIELDS A REFERENCE COPY ONLY !!! HOWEVER, RUNNING THIS WITH PARFOR LOOP WILL CHANGE
+      % EACH HANDLE TO A VALUE BASED OBJECT ON EACH WORKER SO WE DO NOT NEED A FORMAL COPY METHOD. SEEMS TO
+      % BE A HACK IN MATLAB.
       FTs = repmat(self,[1,nRanges]);
       res = {};
       parfor i = 1:nRanges
@@ -1555,6 +1565,12 @@ classdef FishTracker < handle;
     %--------------------
     function combinedObj = combine(self,varargin)
 
+      % make sure that the objects do not refer to the same data (i.e. have different handle
+      % references)
+      if any(self==cat(1,varargin{:}))
+        error('cannot combine handles with identical data references');
+      end
+        
       
       tbinsize = max(self.fishlength/self.maxVelocity,2*self.dt);
 
@@ -1668,7 +1684,7 @@ classdef FishTracker < handle;
     function res = getTrackingResults(self)
     % returns the current results
       if isempty(self.res)
-        warning('No results available. First track()...');
+        error('No results available. First track()...');
       else
         res = self.res;
       
@@ -1699,11 +1715,121 @@ classdef FishTracker < handle;
       end
     end
     
+    function plotVideo(self,timerange,delay)
+
+      res = self.getTrackingResults();      
+      
+      if ~exist('timerange','var')
+        timerange = [res.tracks(1).t,res.tracks(end).t];
+      end
+      
+      if ~exist('delay','var')
+        delay = 0;
+      end
+      
+      self.videoPlayer = self.newVideoPlayer();
+      self.resetVideoReader();
+      tr = self.timerange;
+      self.timerange = timerange;
+      self.setCurrentTime(timerange(1));
+      self.currentFrame = 0;
+      t_tracks =cat(1,res.tracks(:,1).t);
+      tidx = find(t_tracks>=timerange(1) & t_tracks<timerange(2)); 
+      t_tracks = t_tracks(tidx);
+      selected_tracks = res.tracks(tidx,:);   
+      cols = uint8(255*jet(self.nfish));
+      s = 0;
+      while self.hasFrame() & s<size(selected_tracks,1)
+        self.readFrame();
+        s = s+1;
+        
+        t = self.currentTime-self.dt;
+        
+        assert(abs(t_tracks(s)-t)<self.dt);
+
+        uframe = self.uframe;
+        tracks = selected_tracks(s,:);
+
+        % Get bounding boxes.
+        bboxes = cat(1, tracks.bbox);
+          
+        % Get ids.
+        ids = int32([tracks(:).fishId]);
+        labels = cellstr(int2str(ids'));
+        clabels = cols(ids,:);
+
+        highcost = isinf(cat(1,tracks.assignmentCost));
+        clabels(highcost,:) = 127; % grey
+        % Draw the objects on the frame.
+        uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color',clabels);
+        
+
+        clprob = cat(1,tracks.classProb);
+        clprob(isnan(clprob)) = 0;
+        dia = self.fishlength/self.nfish;
+        for i_cl = 1:self.nfish
+          for j = 1:length(tracks)
+            pos = [bboxes(j,1)+dia*(i_cl-1)+dia/2,bboxes(j,2)+ dia/2 ...
+                   + bboxes(j,4),dia/2];
+            uframe = insertShape(uframe, 'FilledCircle',pos, 'color', cols(i_cl,:), 'opacity',clprob(j,i_cl));
+          end
+        end
+        self.stepVideoPlayer(uframe);
+        d = seconds(t);
+        d.Format = 'hh:mm:ss';
+        verbose('CurrentTime %s\r',char(d))
+        pause(delay);
+        
+      end
+      
+      self.timerange = tr;
+      self.closeVideoObjects();
+      
+      
+    end
     
-    function plotTrace(self,fishIds,plotTimeRange)
+    
+    function plotTrace(self,varargin)
+      self.plotByType('TRACE',varargin{:});
+    end
+    
+    function plotProbMap(self,varargin)
+      self.plotByType('PROBMAP',varargin{:});
+    end
+    
+    function plotDomains(self,varargin)
+      self.plotByType('DOMAINS',varargin{:});
+    end
+
+    function plotVelocity(self,varargin)
+      self.plotByType('VELOCITY',varargin{:});
+    end
+
+    function plot(self,varargin)
+
+      clf;
+      subplot(2,2,1)
+      self.plotTrace(varargin{:});
+
+      subplot(2,2,2)
+      self.plotVelocity(varargin{:});
+      
+      subplot(2,2,3)
+      self.plotProbMap(varargin{:});
+      
+      subplot(2,2,4)
+      self.plotDomains(varargin{:});
+
+    end
+
+    function plotByType(self,plottype,fishIds,plotTimeRange)
     % PLOTTRACE(FISHIDS) plots the tracking results
     % for the given FISHIDS
 
+      if ~exist('plottype','var') || isempty(plottype)
+        plottype = 'TRACE';
+      end
+      
       if isempty(self.res)
         warning('No results available. First track()...');
         return;
@@ -1717,7 +1843,7 @@ classdef FishTracker < handle;
         plotTimeRange = self.timerange;
       end
 
-      clf;
+      cla;
       res = self.getTrackingResults();
       
       t = cat(1,res.tracks(:,1).t);
@@ -1731,65 +1857,70 @@ classdef FishTracker < handle;
       posy = squeeze(res.pos(plotidx,2,fishIds));
       
       
-      a = subplot(2,2,1,'align');
-      plot(posx,posy);
-      title('Traces');
-      xlabel('X-Position [px]')
-      ylabel('Y-Position [px]')
+      switch upper(plottype)
 
-      msk = isnan(posx);
-      hold on;
-      plot(centroidx(msk),centroidy(msk),'.r');
-      
-      
-      a = subplot(2,2,2,'align');
-      plot(diff(posx)/self.dt,diff(posy)/self.dt,'.');
-      xlabel('X-Velocity [px/sec]')
-      ylabel('Y-Velocity [px/sec]')
-
-      title('Velocity');
+        case 'TRACE'
+          plot(posx,posy);
+          title('Traces');
+          xlabel('X-Position [px]')
+          ylabel('Y-Position [px]')
+          
+          msk = isnan(posx);
+          hold on;
+          plot(centroidx(msk),centroidy(msk),'.r','linewidth',1);
+        
+        case 'VELOCITY'
       
 
-      a = subplot(2,2,3,'align');
+          plot(diff(posx)/self.dt,diff(posy)/self.dt,'.');
+          xlabel('X-Velocity [px/sec]')
+          ylabel('Y-Velocity [px/sec]')
+          
+          title('Velocity');
+        
+        case {'PROBMAP','DOMAINS'}
 
-      dxy = 10;
-      szFrame = size(self.frame);
-      sz = ceil(szFrame/dxy);
-      sz = sz(1:2);
 
-      dposx = min(max(floor(posx/dxy)+1,1),sz(2));
-      dposy = min(max(floor(posy/dxy)+1,1),sz(1));
-      P = zeros([sz,length(fishIds)]);
-      for i = 1:size(posx,2)
-        msk = ~(isnan(dposy(:,i)) | isnan(dposx(:,i)));
-        P(:,:,i) = accumarray([dposy(msk,i),dposx(msk,i)],1,sz);
-        P(:,:,i) = P(:,:,i)/sum(sum(P(:,:,i)));
+          dxy = 10;
+          szFrame = size(self.frame);
+          sz = ceil(szFrame/dxy);
+          sz = sz(1:2);
+          
+          dposx = min(max(floor(posx/dxy)+1,1),sz(2));
+          dposy = min(max(floor(posy/dxy)+1,1),sz(1));
+          P = zeros([sz,length(fishIds)]);
+          for i = 1:size(posx,2)
+            msk = ~(isnan(dposy(:,i)) | isnan(dposx(:,i)));
+            P(:,:,i) = accumarray([dposy(msk,i),dposx(msk,i)],1,sz);
+            P(:,:,i) = P(:,:,i)/sum(sum(P(:,:,i)));
+          end
+          P(1,1,:) = 0;
+          
+          if strcmp(upper(plottype),'PROBMAP')
+            Z = sum(P,3);
+            Z = imfilter(Z,fspecial('disk',3),'same');
+            imagesc(1:szFrame(2),1:szFrame(1),Z,[0,quantile(P(:),0.99)]);
+            title('Overall probability');
+            xlabel('X-Position [px]')
+            ylabel('Y-Position [px]')
+            axis xy;
+          else
+
+            [~,cl] = max(P,[],3);
+            cl = cl + (sum(P,3)~=0);
+            imagesc(1:szFrame(2),1:szFrame(1),cl);
+            xlabel('X-Position [px]')
+            ylabel('Y-Position [px]')
+            title('Domain of fish')
+            axis xy;
+          end
+          
+        otherwise
+          error('do not know plot type');
       end
-      P(1,1,:) = 0;
-      
-      Z = sum(P,3);
-      Z = imfilter(Z,fspecial('disk',3),'same');
-      imagesc(1:szFrame(2),1:szFrame(1),Z,[0,quantile(P(:),0.99)]);
-      title('Overall probability');
-      xlabel('X-Position [px]')
-      ylabel('Y-Position [px]')
-      axis xy;
-      
-      a = subplot(2,2,4,'align');
-      [~,cl] = max(P,[],3);
-      cl = cl + (sum(P,3)~=0);
-      imagesc(1:szFrame(2),1:szFrame(1),cl);
-      xlabel('X-Position [px]')
-      ylabel('Y-Position [px]')
-      title('Domain of fish')
-      axis xy;
-
     end
-
    
   end
-  
-  
   
   
 end

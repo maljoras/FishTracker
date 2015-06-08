@@ -242,7 +242,7 @@ classdef FishTracker < handle;
 
         
       %% Create a video file reader.
-      [self.videoReader,self.dt,self.timerange,self.visreader] = self.newVideoReader(vid,self.timerange);
+      [self.videoReader,self.dt,self.timerange] = self.newVideoReader(vid,self.timerange);
       self.videoFile = vid;
       
       % get some frames to initialize the detector

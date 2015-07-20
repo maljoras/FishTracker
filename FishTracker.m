@@ -840,7 +840,7 @@ classdef FishTracker < handle;
 
           if ~all(isnan(tracks(i).classProb))
             % id distance 
-            cost{end+1} = pdist2(tracks(i).classProb,clprob,'correlation');
+            cost{end+1} = pdist2(tracks(i).classProb,clprob,'Euclidean');%correlation??!??
             cost{end}(isnan(cost{end})) = 1;
             
             % make sure that at least one fishclass is reasonable probable
@@ -1352,7 +1352,7 @@ classdef FishTracker < handle;
   methods
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Contructor
+    % Constructor
     %--------------------
     function self = FishTracker(vid,varargin) 
     % constructor
@@ -1369,24 +1369,27 @@ classdef FishTracker < handle;
       self.opts.detector.inverse= 0;
       self.opts.detector.rgbchannel= [];
       self.opts.detector.nAutoFrames = 9;
-      self.opts.detector.excludeBorderPercentForAutoThres = 0.05;
+      self.opts.detector.excludeBorderPercentForAutoThres = 0.2;
       
       % blob anaylser
       self.opts(1).blob(1).overlapthres= 0.8; % just for init str
       self.opts.blob.minArea = 100;
-      self.opts.blob.colorfeature = true;
+      self.opts.blob.colorfeature = false;
       self.opts.blob.interpif = 1;
       
       % classifier 
       self.opts(1).classifier.crossCostThres = 5;
       self.opts(1).classifier.reassignProbThres = 0.1;
-      self.opts(1).classifier.maxFramesPerBatch = 150; 
+      self.opts(1).classifier.maxFramesPerBatch = 400; 
       self.opts(1).classifier.minBatchN = 20; 
-      self.opts(1).classifier.nFramesForInit = 30; % unique frames needed for init classifier
+      self.opts(1).classifier.npca = 15; 
+      self.opts(1).classifier.nlfd = 3; 
+      self.opts(1).classifier.outliersif = 1; 
+      self.opts(1).classifier.nFramesForInit = 125; % unique frames needed for init classifier
       self.opts(1).classifier.minCrossingFrameDist = 5;
-      self.opts(1).classifier.nFramesAfterCrossing = 25;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 50; % all simultanously...
-      self.opts(1).classifier.nFramesForSingleUpdate = 100; % single. should be larger than unique...
+      self.opts(1).classifier.nFramesAfterCrossing = 40;
+      self.opts(1).classifier.nFramesForUniqueUpdate = 150; % all simultanously...
+      self.opts(1).classifier.nFramesForSingleUpdate = 200; % single. should be larger than unique...
       self.opts(1).classifier.bendingThres = 1.5;
       % tracks
       self.opts(1).tracks.medtau = 100;
@@ -1394,7 +1397,7 @@ classdef FishTracker < handle;
       self.opts(1).tracks.probThresForFish = 0.2;
       self.opts(1).tracks.displayEveryNFrame = 8;
       self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
-
+      
       %lost tracks
       self.opts(1).tracks.invisibleForTooLong = 5;
       self.opts(1).tracks.ageThreshold = 5;

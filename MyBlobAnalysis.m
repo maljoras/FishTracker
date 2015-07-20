@@ -253,7 +253,7 @@ classdef MyBlobAnalysis < handle;
       smallerheight = self.featureheight;
 
       debendsmoothing = 5; % needs to be odd
-      avgheadonset = 5;
+      avgheadonset = 2;%5
 
       for i = 1:length(segments)
         seg = segments(i);

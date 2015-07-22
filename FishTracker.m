@@ -281,14 +281,18 @@ classdef FishTracker < handle;
       self.detector = newForegroundDetector(self,args{:});
 
 
-      [fishlength,fishwidth, fv, mu] = self.detector.init(autoFrames,self.nfish);
-
-       
-      if isempty(self.fishlength) 
+      [fishlength,fishwidth] = self.detector.init(autoFrames,self.nfish);
+      
+      
+      if isempty(self.fishlength)
         self.fishlength = ceil(1.2*mean(fishlength));
       end
       if isempty(self.fishwidth) 
         self.fishwidth = ceil(1.2*fishwidth);
+      end
+
+      if isempty(self.fishlength) || isempty(self.fishwidth)
+        error('Initialize fishlength & fishwidth')
       end
       
       self.fishwidth = max(self.fishwidth,8);
@@ -1236,6 +1240,10 @@ classdef FishTracker < handle;
           [trackinfo(:).(f)] = deal(self.tracks.(f));
         end
       end
+      %if ~isempty(self.tracks)
+      %  keyboard;
+      %end
+      
     end
     
     
@@ -1379,7 +1387,7 @@ classdef FishTracker < handle;
       
       % classifier 
       self.opts(1).classifier.crossCostThres = 3;
-      self.opts(1).classifier.reassignProbThres = 0.0;
+      self.opts(1).classifier.reassignProbThres = 0.05;
       self.opts(1).classifier.maxFramesPerBatch = 400; 
       self.opts(1).classifier.minBatchN = 10; 
       self.opts(1).classifier.npca = 15; 

@@ -175,7 +175,14 @@ classdef MyForegroundDetector < handle;
 
 
       if ~sum(conds)
-        error('Cannot detect objects automatically. Switch to manual...');
+        warning('Cannot detect objects automatically. Better switch to manual...');
+        objlength = NaN;
+        objwidth = NaN;
+        thres = NaN;
+        fv = [];
+        mu = [];
+        bw = [];
+        return
       end
 
       mr = min(max(ratio(conds)),0.9);
@@ -188,11 +195,9 @@ classdef MyForegroundDetector < handle;
         objlength = round(largest(:,1));
         objwidth = round(largest(:,2));
       else
-        objlength = round(largest(:,1));
-        objwidth = round(largest(:,2));
-
+        objlength = round(nextlargest(:,1));
+        objwidth = round(nextlargest(:,2));
       end
-      
       
       % get a good rgb to color conversion
       lst = {rp.PixelIdxList};
@@ -253,6 +258,75 @@ classdef MyForegroundDetector < handle;
     end
 
     
+    function [thres,objh,objw,bw] = getAdaptiveAuto(self,oframe,nObjects)
+      
+      %iteratively
+      verbose('Get auto threshold and approx. object sizes...')      
+      nTimes = size(oframe,4);
+      frame = zeros(size(oframe,1),size(oframe,2),nTimes);
+
+      for i_auto = 1:2
+      
+        for i = 1:nTimes
+          frame(:,:,i) = convertFrame(self,oframe(:,:,:,i),0);
+        end
+      
+        % get adaptive threshold 
+        for i = 1:nTimes
+          verbose('Computing adaptive threshold %d/%d..\r',i,nTimes)
+          [thres(i),objh(i),objw(i), fv{i}, mu{i},bw{i}] = getAutoThreshold(self,frame(:,:,i),oframe(:,:,:,i),nObjects);
+        end
+        if all(isnan(thres))
+          
+          return
+        end
+        %delete nans
+        delidx = find(isnan(thres));
+        if ~isempty(delidx)
+          thres(delidx) = [];
+          objh(delidx) = [];
+          objw(delidx) = [];
+          fv(delidx) = [];
+          mu(delidx) = [];
+        end
+        
+        
+        self.thres= mean(thres);
+        
+        self.fv = mean(cat(5,fv{:}),5);
+        self.fv = self.fv/norm(self.fv(:));
+        self.mu = mean(cat(5,mu{:}),5);
+        
+        
+        if  numel(self.bgimg)>1
+          % pixels likely to be above thres;
+          notbgmsk = self.bgimg-mean(self.bgimg(:)) <= self.thres;
+        else
+          notbgmsk = 1;
+        end
+        self.msk = self.fgmsk & notbgmsk;
+
+        % convert again according to the new LFD
+        for i = 1:nTimes
+          frame(:,:,i) = convertFrame(self,oframe(:,:,:,i),0);
+        end
+
+        self.mframe = 0;
+        if nTimes>1
+          self.mframe = self.mframe + mean(frame(:,:,2:end),3);
+        end
+
+      end
+      verbose('Found (mean) threshold: %1.2f',self.thres);
+      objh = round(mean(objh));
+      objw = round(mean(objw));
+      verbose('Mean object sizes: %d x %d pixels',objh,objw);
+
+
+    end
+    
+    
+    
     function bwimg = getBWImage(self,gpuFrame)
 
       frame = gather(gpuFrame);
@@ -292,66 +366,47 @@ classdef MyForegroundDetector < handle;
     end
     
     
+
+    
+    
     function  varargout = init(self,oframe,nObjects)
 
       oframe = gather(oframe); % do on CPU;
-
+      nTimes = size(oframe,4);
       savethres = self.thres;
-      
-      %iteratively
-      verbose('Get auto threshold and approx. object sizes...')      
-      for i_auto = 1:2
-      
-        nTimes = size(oframe,4);
-        for i = 1:nTimes
-          frame(:,:,i) = convertFrame(self,oframe(:,:,:,i),0);
-        end
-      
-        % get adaptive threshold 
-        for i = 1:nTimes
-          verbose('Computing adaptive threshold %d/%d..\r',i,nTimes)
-          [thres(i),objh(i),objw(i), fv{i}, mu{i},bw{i}] = getAutoThreshold(self,frame(:,:,i),oframe(:,:,:,i),nObjects);
-        end
-
-        self.thres= mean(thres);
-        
-        self.fv = mean(cat(5,fv{:}),5);
-        self.fv = self.fv/norm(self.fv(:));
-        self.mu = mean(cat(5,mu{:}),5);
-        
-        
-        if  numel(self.bgimg)>1
-          % pixels likely to be above thres;
-          notbgmsk = self.bgimg-mean(self.bgimg(:)) <= self.thres;
-        else
-          notbgmsk = 1;
-        end
-        self.msk = self.fgmsk & notbgmsk;
-
-        % convert again according to the new LFD
-        for i = 1:nTimes
-          frame(:,:,i) = convertFrame(self,oframe(:,:,:,i),0);
-        end
-
-        self.mframe = 0;
-        if nTimes>1
-          self.mframe = self.mframe + mean(frame(:,:,2:end),3);
-        end
-
-      end
 
 
-      verbose('Found (mean) threshold: %1.2f',self.thres);
-      if ~ischar(savethres)  
-        verbose('However: use the given threshold: %1.2f',savethres);
+      if ischar(savethres)  
+         [self.thres,objh,objw,bw] = getAdaptiveAuto(self,oframe,nObjects);
+      else
         self.thres = savethres;
+        self.mu = [];
+        self.fv = [];
+        objh =  [];
+        objw = [];
+        bw = [];
+      end
+     
+      
+      if  numel(self.bgimg)>1
+        % pixels likely to be above thres;
+        notbgmsk = self.bgimg-mean(self.bgimg(:)) <= self.thres;
+      else
+        notbgmsk = 1;
+      end
+      self.msk = self.fgmsk & notbgmsk;
+      
+      % convert again according to the new LFD
+      sz = size(oframe);
+      frame = zeros([sz(1:2),nTimes]);
+      for i = 1:nTimes
+        frame(:,:,i) = convertFrame(self,oframe(:,:,:,i),0);
       end
       
-      objh = round(mean(objh));
-      objw = round(mean(objw));
-      verbose('Mean object sizes: %d x %d pixels',objh,objw);
-
-        
+      self.mframe = 0;
+      if nTimes>1
+        self.mframe = self.mframe + mean(frame(:,:,2:end),3);
+      end
 
       if ~self.mtau
         verbose('Using auto frames as background!');
@@ -362,7 +417,7 @@ classdef MyForegroundDetector < handle;
       self.framecounter = 0;
       
       if nargout
-        varargout = {objh,objw,self.fv,self.mu};
+        varargout = {objh,objw};
       end
 
       if self.plotif
@@ -371,20 +426,25 @@ classdef MyForegroundDetector < handle;
         [r1,r2] = getsubplotnumber(nTimes);
         for i = 1:nTimes
           subplot(r1,r2,i);
-          L = labelmatrix(bw{i});
+
           others = setdiff(1:nTimes,i);
           framei = frame(:,:,i)  - mean(frame(:,:,others),3) - self.thres;
           framei = (framei-min(framei(:)))/(max(framei(:))-min(framei(:)));
 
-          rgbLabels = label2rgb(L);
-          rgbFrame = repmat(255*max(min(framei,1),0),[1,1,3]);
-          msk = repmat(mean(rgbLabels,3)==255,[1,1,3]);
-          image(uint8(~msk.*single(rgbLabels) + msk.*rgbFrame));
-
+          if ~isempty(bw)
+            L = labelmatrix(bw{i});
+            rgbLabels = label2rgb(L);
+            rgbFrame = repmat(255*max(min(framei,1),0),[1,1,3]);
+            msk = repmat(mean(rgbLabels,3)==255,[1,1,3]);
+            image(uint8(~msk.*single(rgbLabels) + msk.*rgbFrame));
+          else
+            imagesc(framei.*(framei>self.thres));
+          end
+          
+          
         end
       end
 
-      
       
     end
     

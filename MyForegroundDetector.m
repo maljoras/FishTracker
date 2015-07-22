@@ -377,7 +377,7 @@ classdef MyForegroundDetector < handle;
 
 
       if ischar(savethres)  
-         [self.thres,objh,objw,bw] = getAdaptiveAuto(self,oframe,nObjects);
+         [thres,objh,objw,bw] = getAdaptiveAuto(self,oframe,nObjects);
       else
         self.thres = savethres;
         self.mu = [];

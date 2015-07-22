@@ -391,10 +391,10 @@ classdef FishTracker < handle;
       self.currentTime = self.currentTime + self.dt;
       self.currentFrame = self.currentFrame + 1; 
 
-      if ~mod(self.currentFrame,5e3)
-        % memory leakage ? 
-        self.resetVideoReader();
-      end
+      % if ~mod(self.currentFrame,5e3)
+      %  % memory leakage ? 
+      %  self.resetVideoReader();
+      %end
     end
     
     function bool = hasFrame(self);      
@@ -1368,8 +1368,8 @@ classdef FishTracker < handle;
       self.opts.detector.mtau= 1e3;
       self.opts.detector.inverse= 0;
       self.opts.detector.rgbchannel= [];
-      self.opts.detector.nAutoFrames = 9;
-      self.opts.detector.excludeBorderPercentForAutoThres = 0.2;
+      self.opts.detector.nAutoFrames = 4;
+      self.opts.detector.excludeBorderPercentForAutoThres = 0.01;
       
       % blob anaylser
       self.opts(1).blob(1).overlapthres= 0.8; % just for init str
@@ -1378,10 +1378,10 @@ classdef FishTracker < handle;
       self.opts.blob.interpif = 1;
       
       % classifier 
-      self.opts(1).classifier.crossCostThres = 5;
-      self.opts(1).classifier.reassignProbThres = 0.1;
+      self.opts(1).classifier.crossCostThres = 3;
+      self.opts(1).classifier.reassignProbThres = 0.0;
       self.opts(1).classifier.maxFramesPerBatch = 400; 
-      self.opts(1).classifier.minBatchN = 20; 
+      self.opts(1).classifier.minBatchN = 10; 
       self.opts(1).classifier.npca = 15; 
       self.opts(1).classifier.nlfd = 3; 
       self.opts(1).classifier.outliersif = 1; 
@@ -1548,7 +1548,7 @@ classdef FishTracker < handle;
         ft = FTs(i);
         ft.timerange = timeRanges(i,:);
         ft.currentTime = ft.timerange(1);
-        ft.resetVideoReader();
+        %ft.resetVideoReader();
         ft.setCurrentTime(ft.timerange(1)); % to make sure 
         ft.displayif = 0;
         ft.track();
@@ -1731,7 +1731,7 @@ classdef FishTracker < handle;
       end
       
       self.videoPlayer = self.newVideoPlayer();
-      self.resetVideoReader();
+      %self.resetVideoReader();
       tr = self.timerange;
       self.timerange = timerange;
       self.setCurrentTime(timerange(1));

@@ -93,31 +93,75 @@ classdef MyForegroundDetector < handle;
 
       frame = frame - mean(frame(:)); % to avoid light effects no
                                       % present in the mframe
-      
       %self.frame  = frame;
 
     end
     
     
     
+    function [largest,nextlargest,rp_last,bw_last] = getObjectSizes(self,bwimg,mmsk,nObjects)
+      largest = nan(size(bwimg,3),2);
+      nextlargest = nan(size(bwimg,3),2);
+      se = strel('disk',self.minAxisLength);
+
+      for i = 1:size(bwimg,3)
+        bwimg(:,:,i) = bwareaopen(bwimg(:,:,i),self.minMinorAxisLength*self.minAxisLength,8);
+        bw = bwconncomp(bwimg(:,:,i),8);
+        
+        rp = regionprops(bw,'MajorAxisLength','MinorAxisLength','PixelIdxList');
+        
+        sz = cat(1,rp.MajorAxisLength);
+        sz_minor = cat(1,rp.MinorAxisLength);
+
+        if length(rp)
+          perinmsk = zeros(length(rp),1);
+          for ii = 1:length(rp)
+            perinmsk(ii) = mean(mmsk(rp(ii).PixelIdxList));
+          end
+          
+          delidx = sz_minor<self.minMinorAxisLength | perinmsk<0.9;
+          sz(delidx ) = [];
+          sz_minor(delidx) = [];
+        end
+        
+        if length(sz)
+          [ssz,sidx] = sort(sz,'descend');
+          ssz_minor = sz_minor(sidx);
+          % get the largest objects
+          if length(ssz)
+            largest(i,:) = [ssz(1:min(end,1)),ssz_minor(1:min(end,1))];
+            nextlargest(i,:) = [median(ssz(min(end,2):min(end,nObjects))),median(ssz_minor(min(end,2):min(end,nObjects)))];
+          end
+        end
+      end
+      rp(delidx) = [];
+      rp_last = rp;
+      bw_last = bw;
+    end
+    
+      
+    
     function [thres,objlength,objwidth, fv, mu,bw] = getAutoThreshold(self,frame,oframe,nObjects)
 
+
+      % sometimes there is a black/white mask. Ignore these pixels
+      mmsk = ~((frame==max(frame(:))) | (frame==min(frame(:))));
+
       % minsize = 5;
-      mf = mean(frame(:));
       
+
       if self.inverse
-        thresarr = shiftdim(linspace(max(frame(:)),mf,self.nauto),-1);
+        thresarr = shiftdim(linspace(median(frame(mmsk)),max(frame(mmsk)),self.nauto),-1);      
         thresarr =thresarr(end:-1:1);
         bwimg = gather(bsxfun(@ge,frame,thresarr(2:end-1)));
       else
-        thresarr = shiftdim(linspace(min(frame(:)),mf,self.nauto),-1);
+        thresarr = shiftdim(linspace(min(frame(mmsk)),median(frame(mmsk)),self.nauto),-1);      
         bwimg = gather(bsxfun(@le,frame,thresarr(2:end-1)));
       end
-
       
       borderPixels = round(size(frame)*min(self.excludeBorderPercentForAutoThres,0.4));
 
-      bwimg = bsxfun(@and,bwimg,self.fgmsk);
+      bwimg = bsxfun(@and,bsxfun(@and,bwimg,self.fgmsk),mmsk);
       if borderPixels>0  
         bwimg(1:borderPixels,:,:) = 0;
         bwimg(:,1:borderPixels,:) = 0;
@@ -125,56 +169,39 @@ classdef MyForegroundDetector < handle;
         bwimg(:,end-borderPixels+1:end,:) = 0;
       end
       
-      largest = nan(1,size(bwimg,3));
-      nextlargest = nan(1,size(bwimg,3));
-      se = strel('disk',self.minAxisLength);
+      [largest,nextlargest] = self.getObjectSizes(bwimg,mmsk,nObjects);
+      ratio = nextlargest(:,1)./largest(:,1);
+      conds = largest(:,1)<0.2*max(size(bwimg)) & nextlargest(:,1)>self.minAxisLength;%minimal 10 pixels
 
-      for i = 1:size(bwimg,3)
-        bwimg(:,:,i) = bwareaopen(bwimg(:,:,i),self.minMinorAxisLength*self.minAxisLength,8);
-        bw = bwconncomp(bwimg(:,:,i),8);
-        
-        rp = regionprops(bw,'MajorAxisLength','MinorAxisLength');
-        
-        sz = cat(1,rp.MajorAxisLength);
-        sz_minor = cat(1,rp.MinorAxisLength);
-        sz(sz_minor<self.minMinorAxisLength ) = [];
-
-        [ssz,sidx] = sort(sz,'descend');
-        % get the largest objects
-        if length(ssz)
-          largest(i) = mean(ssz(1:min(end,1)));
-          nextlargest(i) = mean(ssz(min(end,2):min(end,nObjects)));
-        end
-        
-      end
-      ratio = nextlargest./largest;
-      conds = largest<0.2*max(size(bwimg)) & nextlargest>self.minAxisLength;%minimal 10 pixels
 
       if ~sum(conds)
-        imagesc(frame)
-        error('Cannot detect objects. Change parameter settings');
+        error('Cannot detect objects automatically. Switch to manual...');
       end
 
       mr = min(max(ratio(conds)),0.9);
       % largest axis should be less than a 5th of the movie size.
-      thresidx = find(nextlargest./largest>=mr & conds,1,'last');
+      thresidx = find(nextlargest(:,1)./largest(:,1)>=mr & conds,1,'last');
 
       % look for the size of the objects
-      bw = bwconncomp(bwimg(:,:,thresidx),8);
-      sz = cellfun('length',bw.PixelIdxList);
-      [ssz, idx]= sort(sz,'descend');
-      idx = idx(2:min(nObjects,end));
+      [largest,nextlargest, rp, bw] = self.getObjectSizes(bwimg(:,:,thresidx),mmsk,nObjects);
+      if nObjects==1
+        objlength = round(largest(:,1));
+        objwidth = round(largest(:,2));
+      else
+        objlength = round(largest(:,1));
+        objwidth = round(largest(:,2));
+
+      end
       
-      objlength = round(mean(cat(1,rp.MajorAxisLength)));
-      objwidth = round(mean(cat(1,rp.MinorAxisLength)));
       
       % get a good rgb to color conversion
-      objidx = cat(1,bw.PixelIdxList{:});
+      lst = {rp.PixelIdxList};
+      objidx = cat(1,lst{:});
       %randidx = ceil(rand(min(length(objidx)*10,prod(bw.ImageSize)),1)*prod(bw.ImageSize));
-      objij = i2s(bw.ImageSize,objidx);
+      objij = i2s(size(frame),objidx);
       randij = ceil(bsxfun(@plus,objlength*randn([size(objij),10]),objij));
-      randidx = s2i(bw.ImageSize,reshape(permute(randij,[1,3,2]),[],2));
-      randidx = max(min(randidx,prod(bw.ImageSize)),1);
+      randidx = s2i(size(frame),reshape(permute(randij,[1,3,2]),[],2));
+      randidx = max(min(randidx,prod(size(frame))),1);
       randidx = setdiff(randidx,objidx);
 
       oframe1 = gather(double(reshape(oframe,[],3)));

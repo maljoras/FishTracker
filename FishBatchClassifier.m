@@ -274,6 +274,8 @@ classdef FishBatchClassifier < handle;
         Sigma_old = self.Sigma(:,:,idx);
         b = size(X{s},1);
         n = self.n(idx);
+        
+        % UPDATE WITH WEIGHT ACCORDING TO PROB WOULD BE BETTER (LIKE KALMAN GAIN)
         mu_new = n/(n+b)*mu_old + sum(X{s},1)/(b+n);
         self.Sigma(:,:,idx)  = n/(n+b)*(Sigma_old + mu_old'*mu_old) + X{s}'*X{s}/(n+b) - mu_new'*mu_new;
         self.mu(idx,:) = mu_new;

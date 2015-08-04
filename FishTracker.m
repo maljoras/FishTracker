@@ -4,7 +4,7 @@ classdef FishTracker < handle;
   
   properties 
     
-    scalecost = [20,5,1,0,1];
+    scalecost = [20,5,1,1];
     opts = struct([]);
     saveFields = {'centroid','classProb','bbox','assignmentCost','consecutiveInvisibleCount', ...
                   'segment.Orientation','segment.bendingStdValue'};
@@ -13,28 +13,27 @@ classdef FishTracker < handle;
     maxVelocity = [];
     displayif = 0;
     timerange= [];
-    nfish = 1;
+    nfish = [];
     useGpu = 0;
-
+    useScaledFormat = 0;
+    useOpenCV = 1;
   end
 
   properties (SetAccess = private)
 
 
-    medianCost = ones(5,1);
-    costinfo= {'Location','Pixel overlap','Classifier','MeanIntensity','Orientation'};
+    medianCost = ones(4,1);
+    costinfo= {'Location','Pixel overlap','Classifier','Orientation'};
     detector = [];
     blobAnalyzer = [];
     fishClassifier = [];
     videoReader = [];
     videoPlayer = [];
     videoWriter = [];
-    currentTime = 0;
     tracks = [];
     fishId2TrackId = [];
-    visreader = 0;
 
-    dt = 1;
+    
     writefile = '';
     res = [];
     pos = [];
@@ -45,11 +44,7 @@ classdef FishTracker < handle;
   properties (SetAccess = private, GetAccess=private);
   
     nextId = 1; % ID of the next track
-
   
-    uframe = [];
-    frame = [];
-    
     segments = [];
     features = [];
     bboxes = [];
@@ -57,14 +52,15 @@ classdef FishTracker < handle;
     idfeatures = [];
     classProb = [];
     crossings = [];
-
+    currentFrame = [];
+    
+    currentCrossBoxLengthScale = []; 
     
     assignments = [];
     unassignedTracks = [];
     unassignedDetections = [];
     cost = [];
     uniqueFishFrames = 0;
-    currentFrame = [];
   end
   
 
@@ -75,97 +71,53 @@ classdef FishTracker < handle;
     %---------------------------------------------------
 
     function closeVideoObjects(self)
-      if (self.visreader)
-        release(self.videoReader); % close the input file
-        if ~isempty(self.videoPlayer)
-          release(self.videoPlayer);
-        end
+
+      self.videoReader.delete()
+
+      if ~isempty(self.videoPlayer)
+        release(self.videoPlayer);
+      end
         
-        if ~isempty(self.videoWriter)
-          release(self.videoWriter);
-        end
-      else
-        %close(self.videoReader); % close the input file
-        if ~isempty(self.videoWriter)
-          close(self.videoWriter);
-        end
-        if ~isempty(self.videoPlayer)
-          release(self.videoPlayer);
-        end
+      if ~isempty(self.videoWriter)
+        release(self.videoWriter);
+      end
+    end
+        
+    function stepVideoPlayer(self,frame);
+      self.videoPlayer.step(frame);
+    end
+    
+    function closeVideoPlayer(self,frame);
+      self.videoPlayer.release();
+    end
+    
+    function stepVideoWriter(self,frame);
+      if ~isempty(self.videoWriter)
+        self.videoWriter.step(frame);
       end
     end
     
+ 
     function [writer] = newVideoWriter(self,vidname)
-      
-      if self.visreader
-        writer = vision.VideoFileWriter(vidname,'FrameRate',1/self.dt);
-      else
-        writer = VideoWriter(vidname);
-        open(writer);
-      end
+      writer = vision.VideoFileWriter(vidname,'FrameRate',self.videoReader.frameRate);
     end
     
     function [player] = newVideoPlayer(self,vidname)
       player = vision.VideoPlayer();
     end
     
-    
-    function resetVideoReader(self)
-      if (self.visreader)
-        release(self.videoReader); % close the input file
-      else
-        %close(self.videoReader); % close the input file
-      end
-      delete(self.videoReader);
-      self.videoReader = newVideoReader(self,self.videoFile);
-      self.setCurrentTime(self.currentTime);
-    end
-    
       
-      
-      
-    function [reader, dt, timerange] = newVideoReader(self,vidname,timerange)
-    % note: does not set the current time. Initialize with self.setCurrentTime
+    function [reader, timerange] = newVideoReader(self,vidname,timerange)
+    % note: does not set the current time. 
       if ~exist('timerange','var')
         timerange = [];
       end
-      
-      
-      if ~isempty(timerange)  && self.visreader
-        error('Timerange not supported with visreader');
-      end
-      
-      if self.visreader
-        reader = vision.VideoFileReader(vidname);
-        isDone(reader); % check
+      if self.useOpenCV && hasOpenCV()
+        reader = FishVideoReaderCV(vidname,timerange);
       else
-        reader = VideoReader(vidname);
+        reader = FishVideoReaderMatlab(vidname,timerange);
       end
-
-      if isempty(timerange)
-        timerange = [0,Inf];
-      end
-      
-
-      
-      if ~self.visreader
-        dt = 1/double(reader.FrameRate);
-        assert(length(timerange)==2 && timerange(1)<reader.Duration/self.dt);
-
-        if isinf(timerange(2))
-          timerange(2) = reader.duration;
-        end
-        
-      else
-        tmp = info(reader);
-        dt = 1/double(tmp.VideoFrameRate);
-      
-        if isinf(timerange(2))
-          timerange(2) = tmp.duration;
-        end
-
-      end
-
+      timerange = reader.timeRange;
       
     end
 
@@ -204,33 +156,44 @@ classdef FishTracker < handle;
       % to the background.
 
       % might become overloaded
-      detector = MyForegroundDetector(varargin{:});
-    end
-    
-    function stepVideoPlayer(self,uframe);
-      self.videoPlayer.step(uframe);
-    end
-    
-    function stepVideoWriter(self,uframe);
-      if ~isempty(self.videoWriter)
-        if self.visreader
-          self.videoWriter.step(uframe);
-        else
-          self.videoWriter.writeVideo(uframe);
-        end
+      if hasOpenCV() && self.useOpenCV
+        detector = FishForegroundDetectorMatlab(varargin{:});
+        %detector = FishForegroundDetectorCV(varargin{:}); % MOG2 seems somewhat WORSE 
+
+      else
+        detector = FishForegroundDetectorMatlab(varargin{:});
       end
     end
     
     
-    function blobAnalyzer=newBlobAnalyzer(self);
+    
+    function blobAnalyzer=newBlobAnalyzer(self,opts);
       % Connected groups of foreground pixels are likely to correspond to moving
       % objects.  The blob analysis system object is used to find such groups
       % (called 'blobs' or 'connected components'), and compute their
       % characteristics, such as area, centroid, and the bounding box.
 
-      blobAnalyzer = MyBlobAnalysis('fishlength',self.fishlength,'fishwidth',self.fishwidth,...
-                                    'maxextent',3*(self.fishlength+self.fishwidth),...
-                                    'minextent',0.2*(self.fishlength+self.fishwidth));
+
+      if self.useOpenCV && hasOpenCV()
+        obj = 'FishBlobAnalysisCV';
+      else
+        obj = 'FishBlobAnalysisMatlab';
+      end
+      
+      if ~isempty(self.fishlength)
+        
+        blobAnalyzer = feval(obj,'fishlength',self.fishlength,'fishwidth',self.fishwidth,...
+                             'maxextent',3*(self.fishlength+self.fishwidth),...
+                             'minextent',0.2*(self.fishlength+self.fishwidth));
+      else
+        blobAnalyzer = feval(obj);
+      end
+        
+      for f = fieldnames(opts)'
+        if isprop(blobAnalyzer,f{1})
+          blobAnalyzer.(f{1}) = opts.(f{1});
+        end
+      end
         
     end
       
@@ -242,24 +205,9 @@ classdef FishTracker < handle;
 
         
       %% Create a video file reader.
-      [self.videoReader,self.dt,self.timerange] = self.newVideoReader(vid,self.timerange);
+      [self.videoReader,self.timerange] = self.newVideoReader(vid,self.timerange);
       self.videoFile = vid;
       
-      % get some frames to initialize the detector
-      n = max(self.opts.detector.nAutoFrames,1);
-      verbose('Reading %d frames of the video to establish background',n);              
-      timePoints = linspace(self.timerange(1),self.timerange(2),n+1);
-
-      for i = 1:length(timePoints)-1
-        self.setCurrentTime(timePoints(i));
-          
-        self.readFrame();
-        if i==1
-          autoFrames = zeros([size(self.frame),n],'like', self.frame);
-        end
-        autoFrames(:,:,:,i) = self.frame;
-      end
-
       
       if ~isempty(self.writefile) && self.displayif
         self.videoWriter = self.newVideoWriter(self.writefile);
@@ -273,73 +221,54 @@ classdef FishTracker < handle;
       %% get new detector
       args = {};
       for f = fieldnames(self.opts.detector)'
-        if ~strcmp(f{1},'nAutoFrames')
-          args{end+1} = f{1};
-          args{end+1} = self.opts.detector.(f{1});
-        end
+        args{end+1} = f{1};
+        args{end+1} = self.opts.detector.(f{1});
       end
-      self.detector = newForegroundDetector(self,args{:});
+      self.detector = self.newForegroundDetector(args{:});
 
 
-      [fishlength,fishwidth] = self.detector.init(autoFrames,self.nfish);
+      %% look for objects 
+      [nfish,fishSize] = self.findObjectSizes();
       
-      
-      if isempty(self.fishlength)
-        self.fishlength = ceil(1.2*mean(fishlength));
+      if isempty(self.fishlength) % otherwise already set by hand
+        self.fishlength = fishSize(1);
       end
       if isempty(self.fishwidth) 
-        self.fishwidth = ceil(1.2*fishwidth);
+        self.fishwidth = fishSize(2);
       end
 
-      if isempty(self.fishlength) || isempty(self.fishwidth)
-        error('Initialize fishlength & fishwidth')
+      if isempty(self.nfish) 
+        self.nfish = nfish;
       end
-      
-      self.fishwidth = max(self.fishwidth,8);
       assert(self.fishlength>self.fishwidth);
-      
-      
-      
+
     end
 
     
     function initTracking(self)
-
     % MAYBE RESET THE CLASSIFIER ? 
-                            
-      self.setCurrentTime(self.timerange(1));
-      
-      %% get new blobAnalyzer
-      self.blobAnalyzer = newBlobAnalyzer(self);
-      for f = fieldnames(self.opts.blob)'
-        if isprop(self.blobAnalyzer,f{1})
-          self.blobAnalyzer.(f{1}) = self.opts.blob.(f{1});
-        end
-      end
-    
 
+      self.videoReader.timeRange = self.timerange;                       
+      self.timerange = self.videoReader.timeRange; % to get the boundaries right;
+      self.videoReader.setCurrentTime(self.timerange(1));
+      
+ 
+      %% get new blobAnalyzer (because fishlength might haven changed)
+      self.blobAnalyzer = newBlobAnalyzer(self, self.opts.blob);
+    
       %% get new fish classifier 
-      self.fishClassifier = newFishClassifier(self);
-      % set proporties
-      for f = fieldnames(self.opts.classifier)'
-        if isprop(self.fishClassifier,f{1})
-          self.fishClassifier.(f{1}) = self.opts.classifier.(f{1});
-        end
-      end
+      self.fishClassifier = newFishClassifier(self,self.opts.classifier);
 
       self.setDisplayType();
       
       self.fishId2TrackId = nan(250,self.nfish);
       self.pos = [];
       self.res = [];
-      self.currentFrame = 0;
+
       self.initializeTracks(); % Create an empty array of tracks.
       self.nextId = 1;
       self.uniqueFishFrames = 0;
       self.medianCost(:) = 1;
-    
-      self.uframe = [];
-      self.frame = [];
     
       self.segments = [];
       self.features = [];
@@ -354,74 +283,104 @@ classdef FishTracker < handle;
       self.unassignedTracks = [];
       self.unassignedDetections = [];
       self.cost = [];
-
+      self.currentFrame = 0;
+      
+      self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScalePreInit;
+      
       if isempty(self.maxVelocity)
-        self.maxVelocity = self.fishlength*3/self.dt;
+        self.maxVelocity = self.fishlength*3*self.videoReader.frameRate;
       end
     end
     
     
-    
-    function setCurrentTime(self,time)
-      if self.visreader
-        self.videoReader.reset();
-      else
-        self.videoReader.CurrentTime = time;
-      end
-      self.currentTime = time;
-    end
-    
-    
-    
-    function readFrame(self);      
- 
-      if self.visreader
-        if self.useGpu
-          frame = gpuArray(self.videoReader.step());
-        else
-          frame = self.videoReader.step();
-        end
-        self.uframe = im2uint8(frame);
-      else
-        if self.useGpu
-          frame = gpuArray(self.videoReader.readFrame());
-        else
-          frame = self.videoReader.readFrame();
-        end
-        self.uframe = frame;
-        frame = im2single(frame);
-      end
-      self.frame = frame;
-      self.currentTime = self.currentTime + self.dt;
-      self.currentFrame = self.currentFrame + 1; 
+    function [nObjects,objectSize] =findObjectSizes(self)
 
-      % if ~mod(self.currentFrame,5e3)
-      %  % memory leakage ? 
-      %  self.resetVideoReader();
-      %end
-    end
-    
-    function bool = hasFrame(self);      
+      verbose('Detect approx fish sizes...');
+      minAxisWidth = 10;
+      
+      self.videoReader.reset();
 
-      if self.currentTime>self.timerange(2) 
-        bool = false;
-      else
+      blobAnalyzer = self.newBlobAnalyzer(self.opts.blob);
+      rprops = blobAnalyzer.rprops;
+      blobAnalyzer.rprops = {rprops{:},'MinorAxisLength','MajorAxisLength'};
+      n = min(self.detector.history/2,floor(self.videoReader.timeRange(2)*self.videoReader.frameRate));
+      
+      s = 0;
+      for i = 1:n
+        frame = self.videoReader.readFrameFormat(['GRAY' self.detector.expectedFrameFormat]);
+        bwmsk = self.detector.step(frame);
+
+        if self.displayif>3
+          clf;
+          subplot(2,1,1);
+          imagesc(frame);
+          title(i);
+          subplot(2,1,2);
+          imagesc(bwmsk);
+          drawnow;
+        end
+          
+        if i<n/2
+          continue;
+        end
+
+        segm = blobAnalyzer.step(bwmsk,frame);
+        if isempty(segm)
+          continue;
+        end
+        s = s+1;
+        idx = [segm.MinorAxisLength]>minAxisWidth;
+        count(s) = length(segm(idx));
+        width(s) = median([segm(idx).MinorAxisLength]);
+        height(s) = median([segm(idx).MajorAxisLength]);
+
+      end
+      if ~s
+        error('Something wrong with the bolbAnalyzer ... cannot find objects.');
+      end
+      
+      nObjects = median(count);
+      objectSize = ceil([quantile(height,0.9),quantile(width,0.1)]); % because fish are bending
+      
+      
+      verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
+      
+      if self.displayif>1
+        figure;
+        imagesc(bwmsk);
+        title(sprintf('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize));
+      end
+
+      self.videoReader.scale = [];
+      self.videoReader.delta = [];
+      self.videoReader.frameFormat = ['GRAY',self.detector.expectedFrameFormat];
+
+      if self.useScaledFormat
+        % get good color conversion
+        self.videoReader.oneFrameBack();
+        cframe = self.videoReader.readFrameFormat(['RGBS']);
+        [fv,mu] = getColorConversion(bwmsk,cframe);
         
-        if ~self.visreader
-          bool = hasFrame(self.videoReader);
-        else
-          bool = ~isDone(self.videoReader);
+        if ~isempty(fv)
+          scale = fv/norm(fv);
+          self.videoReader.scale = scale;
+          self.videoReader.delta = -scale.*mu;
+          self.videoReader.frameFormat = ['SCALED',self.detector.expectedFrameFormat];
         end
       end
-
+      
+      self.videoReader.reset();
+      clear blobAnalyzer
+      
     end
+    
     
     function  detectObjects(self)
     % calls the detectors
     
-      [mask,Iframe] = self.detector.step(self.frame);
+      bwmsk = self.detector.step(self.videoReader.frame);
 
-      segm = self.blobAnalyzer.step(mask,Iframe,self.frame);
+      segm = self.blobAnalyzer.step(bwmsk,self.videoReader.frame);
       
       if ~isempty(segm)
         self.centroids = cat(1,segm.Centroid);
@@ -433,7 +392,8 @@ classdef FishTracker < handle;
         end
         
         self.bboxes = int32(cat(1,segm.BoundingBox));
-        self.features = [cat(1,segm.MeanIntensity), cat(1,segm.Orientation)];
+        %self.features = [cat(1,segm.MeanIntensity), cat(1,segm.Orientation)];
+        self.features = [ cat(1,segm.Orientation)];
         self.segments = segm;
         self.idfeatures =  permute(cat(4,segm.fishFeature),[4,1,2,3]);
         self.classProb = self.computeClassProb(self.idfeatures(:,:));
@@ -454,10 +414,18 @@ classdef FishTracker < handle;
     % ClASSIFICATION
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    function cla = newFishClassifier(self,varargin);
+    function cla = newFishClassifier(self,opts);
       % Create Classifier objects
       featdim = [self.blobAnalyzer.featureheight,self.blobAnalyzer.featurewidth];
-      cla = FishBatchClassifier(self.nfish,featdim,varargin{:});
+      cla = FishBatchClassifier(self.nfish,featdim);
+    
+      % set proporties
+      for f = fieldnames(opts)'
+        if isprop(cla,f{1})
+          cla.(f{1}) = opts.(f{1});
+        end
+      end
+
     end
 
 
@@ -621,9 +589,10 @@ classdef FishTracker < handle;
       if isempty(self.tracks) % no tracks
         return;
       end
-      
-     % save current track->fishID
+
+      % save current track->fishID
       t = self.currentFrame;
+      
       if size(self.fishId2TrackId,1)< t
         self.fishId2TrackId = cat(1,self.fishId2TrackId,nan(250,self.nfish));
       end
@@ -655,6 +624,7 @@ classdef FishTracker < handle;
       nfeat = cat(2,self.tracks.nextBatchIdx)-1;
       
       if ~isInit(self.fishClassifier)
+        
         if min(nfeat)> self.opts.classifier.minBatchN  && self.uniqueFishFrames>self.opts.classifier.nFramesForInit
           % classifier not yet initialized but a lot of unique frames. Force to init! Might get some crossings
           % as well but do not care. The  classifiers will get updated later
@@ -667,11 +637,12 @@ classdef FishTracker < handle;
           batchsample(1:length(feat)) = feat;
           
           self.fishClassifier.init(batchsample);
+          self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScale; % update
           self.resetBatchIdx(1:length(self.tracks));
           
           % reset all potentials previous crossings
-          [self.tracks.frameOfLastCrossing] = deal(self.currentFrame);
-          [self.tracks.frameOfCurrentCrossing] = deal(self.currentFrame);
+          [self.tracks.frameOfLastCrossing] = deal(t);
+          [self.tracks.frameOfCurrentCrossing] = deal(t);
           [self.tracks.crossedLastTrackIds] = deal([]);
           [self.tracks.crossedCurrentTrackIds] = deal([]);
           
@@ -703,7 +674,7 @@ classdef FishTracker < handle;
         if ~any(self.crossings(trackIndex,:))
           % no crossing. But maybe the threshold for handlines the tracks after crossing is reached
 
-          longAfterCrossing =  self.currentFrame - track.frameOfCurrentCrossing > self.opts.classifier.nFramesAfterCrossing;
+          longAfterCrossing =  t - track.frameOfCurrentCrossing > self.opts.classifier.nFramesAfterCrossing;
           if ~isempty(track.crossedCurrentTrackIds)  &&  longAfterCrossing
             indicesCurrent = [indicesCurrent, trackIndex];
           end
@@ -731,7 +702,7 @@ classdef FishTracker < handle;
       for trackIndex = 1:length(self.tracks)
         track = self.tracks(trackIndex);
         if ~any(self.crossings(trackIndex,:))
-          longAfterCrossing =  self.currentFrame - track.frameOfCurrentCrossing > self.opts.classifier.nFramesAfterCrossing;
+          longAfterCrossing =  t - track.frameOfCurrentCrossing > self.opts.classifier.nFramesAfterCrossing;
           if longAfterCrossing &&  (track.nextBatchIdx > self.opts.classifier.nFramesForSingleUpdate)
             % crossing already handled. FishIds *should* be correct
             verbose('Perform one fish update\r');
@@ -784,7 +755,8 @@ classdef FishTracker < handle;
     
     
     function predictNewLocationsOfTracks(self)
-      
+
+      szFrame = self.videoReader.frameSize;
       for i = 1:length(self.tracks)
         bbox = self.tracks(i).bbox;
         
@@ -795,8 +767,9 @@ classdef FishTracker < handle;
         % the predicted location.
         predictedCentroid(1:2) = int32(predictedCentroid(1:2)) - bbox(3:4) / 2;
         % no prediction outside of the video:
-        predictedCentroid(1) = max(min(predictedCentroid(1),size(self.frame,2)),1);
-        predictedCentroid(2) = max(min(predictedCentroid(2),size(self.frame,1)),1);
+
+        predictedCentroid(1) = max(min(predictedCentroid(1),szFrame(2)),1);
+        predictedCentroid(2) = max(min(predictedCentroid(2),szFrame(1)),1);
 
         self.tracks(i).bbox = [predictedCentroid(1:2), bbox(3:4)];
         self.tracks(i).centroid = predictedCentroid;
@@ -828,23 +801,42 @@ classdef FishTracker < handle;
           cost = {};
           % center position 
           center = tracks(i).centroid; % kalman predict/pointtracker
-          distmat = pdist2(double(center),double(centroids),'Euclidean');
-          highidx = distmat>self.maxVelocity*self.dt; 
+          %distmat = pdist2(double(center),double(centroids),'Euclidean');
+          distmat = sqrt((centroids(:,1) - center(1)).^2 + (centroids(:,2) - center(2)).^2)';
+
+          highidx = distmat>self.maxVelocity*self.videoReader.frameRate; 
           distmat(highidx) = highCost*distmat(highidx);
           cost{end+1} = distmat;
           
-          % cost of 
-          n = zeros(1,length(segments));
-          for jj = 1:length(segments)
-            memb = ismember(tracks(i).segment.PixelIdxList(:)',segments(jj).PixelIdxList(:)');
-            n(jj) = sum(memb)/length(memb);
-          end
-          cost{end+1} = 1-n + (n==0)*highCost;
+          % cost of overlap
+          %overlap = zeros(1,length(segments));
+          %for jj = 1:length(segments)
+          % memb = ismember(tracks(i).segment.PixelIdxList(:)',segments(jj).PixelIdxList(:)');
+          % overlap(jj) = sum(memb)/length(memb);
+          %end
           
+          % better judge overlap from bounding box 
+          bbtrack = double(tracks(i).bbox);
+          bbsegs = cat(1,segments.BoundingBox);
 
+          mnx = min(bbsegs(:,3),bbtrack(3));
+          mny = min(bbsegs(:,4),bbtrack(4));
+
+          bBoxXOverlap = min(min(max(bbtrack(1) + bbtrack(3) - bbsegs(:,1),0), ...
+                             max(bbsegs(:,1) + bbsegs(:,3) - bbtrack(1),0)),mnx);
+          bBoxYOverlap = min(min(max(bbtrack(2) + bbtrack(4) - bbsegs(:,2),0), ...
+                             max(bbsegs(:,2) + bbsegs(:,4) - bbtrack(2),0)),mny);
+
+          overlap = bBoxXOverlap.*bBoxYOverlap./mnx./mny;
+
+          cost{end+1} = 1-overlap' + (overlap'==0)*highCost;
+          
+          
+          % more costs
           if ~all(isnan(tracks(i).classProb))
             % id distance 
-            cost{end+1} = pdist2(tracks(i).classProb,clprob,'Euclidean');%correlation??!??
+            %cost{end+1} = pdist2(tracks(i).classProb,clprob,'Euclidean');%correlation??!??
+            cost{end+1} = sqrt(sum(bsxfun(@minus,tracks(i).classProb,clprob).^2,2))';
             cost{end}(isnan(cost{end})) = 1;
             
             % make sure that at least one fishclass is reasonable probable
@@ -857,7 +849,8 @@ classdef FishTracker < handle;
           
           % other features
           for j = 1:size(features,2)
-            cost{end+1}= pdist2(double(tracks(i).features(j)),double(features(:,j)),'Euclidean');
+            %cost{end+1}= pdist2(double(tracks(i).features(j)),double(features(:,j)),'Euclidean');
+            cost{end+1} = abs(tracks(i).features(j)-features(:,j))';
           end
 
         
@@ -1096,7 +1089,8 @@ classdef FishTracker < handle;
       centroids = cat(1,self.tracks.centroid);
       dist = squareform(pdist(centroids));
       bbox34 = bbox(:,3:4);
-      msk = dist<max(bbox34(:));
+
+      msk = dist<self.currentCrossBoxLengthScale*max(bbox34(:));
 
       bBoxXOverlap = bsxfun(@ge,bbox(:,1) + bbox(:,3), bbox(:,1)') & bsxfun(@lt,bbox(:,1), bbox(:,1)');
       bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
@@ -1108,7 +1102,7 @@ classdef FishTracker < handle;
         if sum(msk(i,:))>1  
           
           if track.consecutiveInvisibleCount>0 || track.assignmentCost>self.opts.classifier.crossCostThres ...
-            || sum(bBoxOverlap(i,:))>1
+            || sum(bBoxOverlap(i,:))>1  
             self.crossings(i,:) = msk(i,:);
           end
           
@@ -1116,7 +1110,7 @@ classdef FishTracker < handle;
 
       end
       
-      %make symmetric CATUTION MIGHT NOT BE SYMMETRIC!
+      %make symmetric CAUTION: MIGHT NOT BE SYMMETRIC!
       self.crossings = self.crossings | self.crossings';
       self.crossings(find(eye(length(self.crossings)))) = any(self.crossings,1);
     
@@ -1139,6 +1133,8 @@ classdef FishTracker < handle;
           if dt<self.opts.classifier.minCrossingFrameDist
             % seems to be the same crossing. Might be others involved, but their tracks will get handled anyway
             % do nothing
+            self.tracks(i).frameOfCurrentCrossing = self.currentFrame; % update current
+            self.tracks(i).crossedCurrentTrackIds = union(self.tracks(i).crossedCurrentTrackIds,trackIds(find(cross)));
           else  
             %new crossing. 
             self.tracks(i).frameOfLastCrossing = self.tracks(i).frameOfCurrentCrossing;
@@ -1223,7 +1219,7 @@ classdef FishTracker < handle;
 
       % need id 
       [trackinfo(:).id] = deal(self.tracks.id);
-      [trackinfo(:).t] = deal(self.currentTime - self.dt);
+      [trackinfo(:).t] = deal(self.videoReader.currentTime);
 
       % maybe a bit too slow?
       for i_f = 1:length(self.saveFields)
@@ -1253,7 +1249,11 @@ classdef FishTracker < handle;
 
       minVisibleCount = 2;
       tracks = self.tracks;
-      uframe = gather(self.uframe);
+      uframe = repmat(self.videoReader.frame,[1,1,3]); % make color
+      if ~isa(uframe,'uint8')
+        uframe = uint8(uframe*255);
+      end
+      
       if ~isempty(tracks)
         
         % Noisy detections tend to result in short-lived tracks.
@@ -1371,14 +1371,8 @@ classdef FishTracker < handle;
       end
       
       % some additional defaults [can be overwritten by eg 'detector.thres' name]
-      self.opts(1).detector(1).thres = 'auto';
-      self.opts.detector.dtau = 0; % set to some value ONLY if the frame rate is very high!
-      self.opts.detector.mtau= 1e3;
-      self.opts.detector.inverse= 0;
-      self.opts.detector.rgbchannel= [];
-      self.opts.detector.nAutoFrames = 4;
-      self.opts.detector.excludeBorderPercentForAutoThres = 0.01;
-      
+      self.opts(1).detector.history = 200;
+
       % blob anaylser
       self.opts(1).blob(1).overlapthres= 0.8; % just for init str
       self.opts.blob.minArea = 100;
@@ -1393,18 +1387,21 @@ classdef FishTracker < handle;
       self.opts(1).classifier.npca = 15; 
       self.opts(1).classifier.nlfd = 3; 
       self.opts(1).classifier.outliersif = 1; 
-      self.opts(1).classifier.nFramesForInit = 125; % unique frames needed for init classifier
+      self.opts(1).classifier.nFramesForInit = 120; % unique frames needed for init classifier
       self.opts(1).classifier.minCrossingFrameDist = 5;
       self.opts(1).classifier.nFramesAfterCrossing = 40;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 150; % all simultanously...
+      self.opts(1).classifier.nFramesForUniqueUpdate = 120; % all simultanously...
       self.opts(1).classifier.nFramesForSingleUpdate = 200; % single. should be larger than unique...
       self.opts(1).classifier.bendingThres = 1.5;
+
       % tracks
       self.opts(1).tracks.medtau = 100;
       self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
       self.opts(1).tracks.probThresForFish = 0.2;
       self.opts(1).tracks.displayEveryNFrame = 8;
       self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
+      self.opts(1).tracks.crossBoxLengthScale = 1.5; % how many times the max bbox length is regarded as a crossing. 
+      self.opts(1).tracks.crossBoxLengthScalePreInit = 1; % before classifier init
       
       %lost tracks
       self.opts(1).tracks.invisibleForTooLong = 5;
@@ -1434,10 +1431,6 @@ classdef FishTracker < handle;
       
       self.setupSystemObjects(vid);
     
-      if 1/self.dt<25 && self.detector.dtau  % high framrate
-        warning(['DTAU setting might only be suitable for high framne rate. \nSuggesting to set dtau to zero to get ' ...
-                 'superior detections.']);
-      end
     end
  
     
@@ -1457,9 +1450,15 @@ classdef FishTracker < handle;
         verbose('Continue tracking ...');
       end
 
-      while  hasFrame(self)
+      if self.displayif && ~isOpen(self.videoPlayer)
+        self.videoPlayer.show();
+      end
+      
+      
+      while  hasFrame(self.videoReader) && (~self.displayif || (self.displayif && isOpen(self.videoPlayer)))
 
-        self.readFrame();
+        self.currentFrame = self.currentFrame + 1;
+        self.videoReader.readFrame();
 
         self.detectObjects();
         
@@ -1469,33 +1468,24 @@ classdef FishTracker < handle;
 
         savedTracks(self.currentFrame,1:length(self.tracks)) = self.getCurrentTracks();
 
-        % SOMETIMES SOME TRACKS ARE EMPTY. WHY ?
-        DEBUG = 0;
-        if DEBUG
-          if any(cellfun('isempty',{self.tracks.id}))
-            warning('Detected empty tracks')
-            keyboard
-          end
-        end
-        
-        
         if self.displayif
           if ~mod(self.currentFrame-1,self.opts.tracks.displayEveryNFrame)
             self.displayTrackingResults();
           end
         else
-          t = datevec(seconds(self.currentTime));
           if ~mod(self.currentFrame,10)
+            t = datevec(seconds(self.videoReader.currentTime));
             verbose('Currently at time %1.0fh %1.0fm %1.1fs                      \r',t(4),t(5),t(6));
           end
         end
       end
-      %% CAUTION handle last crossing 
+      
+      %% CAUTION SHOULD handle latest crossings
       
       % make correct output structure
       self.generateResults(savedTracks);
       
-      self.closeVideoObjects();
+      %self.closeVideoObjects();
     end
     
     
@@ -1509,14 +1499,16 @@ classdef FishTracker < handle;
     % will be the IDENTICAL handle (only a reference to the same data).  Only in case of parallel
     % processing the returned object will have a NEW handle (and thus reference new data).
 
+      
+      dt = 1/self.videoReader.frameRate;
       if ~exist('minDurationPerWorker','var')
         minDurationPerWorker = 300; % 5 minutes;
       end
       
       if ~exist('tOverlap','var') || isempty(tOverlap)
         % allow enough time for the classifer to init in the overlapping period
-        tOverlap = 5*self.dt*max([self.opts.classifier.nFramesForInit,self.opts.classifier.nFramesForUniqueUpdate]); 
-        tOverlap = max(tOverlap,self.opts.tracks.medtau*self.dt);
+        tOverlap = 5*dt*max([self.opts.classifier.nFramesForInit,self.opts.classifier.nFramesForUniqueUpdate]); 
+        tOverlap = max(tOverlap,self.opts.tracks.medtau*dt);
       end
       
       assert(minDurationPerWorker>tOverlap);
@@ -1531,7 +1523,7 @@ classdef FishTracker < handle;
       end
       pool = gcp;
       
-      maxDuration = min(diff(self.timerange)/pool.NumWorkers,1.2e4*self.dt);
+      maxDuration = min(diff(self.timerange)/pool.NumWorkers,1.2e4*dt);
       nparts = floor((diff(self.timerange)/maxDuration));
       
       sec = linspace(self.timerange(1),self.timerange(2),nparts+1);
@@ -1556,8 +1548,7 @@ classdef FishTracker < handle;
         ft = FTs(i);
         ft.timerange = timeRanges(i,:);
         ft.currentTime = ft.timerange(1);
-        %ft.resetVideoReader();
-        ft.setCurrentTime(ft.timerange(1)); % to make sure 
+        ft.videoReader.setCurrentTime(ft.timerange(1)); % to make sure 
         ft.displayif = 0;
         ft.track();
         res{i} = ft;
@@ -1582,8 +1573,8 @@ classdef FishTracker < handle;
         error('cannot combine handles with identical data references');
       end
         
-      
-      tbinsize = max(self.fishlength/self.maxVelocity,2*self.dt);
+      dt = 1/self.videoReader.frameRate;
+      tbinsize = max(self.fishlength/self.maxVelocity,2*dt);
 
       objs = {self,varargin{:}};
       
@@ -1677,7 +1668,6 @@ classdef FishTracker < handle;
 
         combinedObj.res = combinedRes;
         combinedObj.timerange= [combinedObj.timerange(1),obj.timerange(2)];
-        combinedObj.currentFrame = 1;
         combinedObj.currentTime = self.timerange(1);
         combinedObj.pos = []; % not valid 
         combinedObj.fishId2TrackId = []; % not valid 
@@ -1703,8 +1693,9 @@ classdef FishTracker < handle;
         posx = squeeze(self.res.pos(:,1,:));
         posy = squeeze(self.res.pos(:,2,:));
 
-        posx(posx>size(self.frame,2) | posx<1) = NaN;
-        posy(posy>size(self.frame,1) | posy<1) = NaN;
+        sz = self.videoReader.frameSize;
+        posx(posx>sz(2) | posx<1) = NaN;
+        posy(posy>sz(1) | posy<1) = NaN;
 
         res.pos(:,1,:) = posx;
         res.pos(:,2,:) = posy;
@@ -1726,39 +1717,45 @@ classdef FishTracker < handle;
       end
     end
     
-    function plotVideo(self,timerange,delay)
+    function playVideo(self,timerange,delay)
 
       res = self.getTrackingResults();      
       
       if ~exist('timerange','var')
-        timerange = [res.tracks(1).t,res.tracks(end).t];
+        t = cat(1,res.tracks(:,1).t);
+        timerange = t([1,end]);
       end
       
       if ~exist('delay','var')
         delay = 0;
       end
-      
-      self.videoPlayer = self.newVideoPlayer();
-      %self.resetVideoReader();
-      tr = self.timerange;
-      self.timerange = timerange;
-      self.setCurrentTime(timerange(1));
-      self.currentFrame = 0;
+
+      if isempty(self.videoPlayer)
+        self.videoPlayer = self.newVideoPlayer();
+      end
+      if  ~isOpen(self.videoPlayer)
+        self.videoPlayer.show();
+      end
+
+      currentTime = self.videoReader.currentTime;      
+      self.videoReader.timeRange = timerange;
+      self.videoReader.reset();
+      self.videoReader.setCurrentTime(timerange(1));
+
       t_tracks =cat(1,res.tracks(:,1).t);
       tidx = find(t_tracks>=timerange(1) & t_tracks<timerange(2)); 
       t_tracks = t_tracks(tidx);
       selected_tracks = res.tracks(tidx,:);   
       cols = uint8(255*jet(self.nfish));
       s = 0;
-      while self.hasFrame() & s<size(selected_tracks,1)
-        self.readFrame();
+      while self.videoReader.hasFrame() && s<size(selected_tracks,1) && isOpen(self.videoPlayer)
+        uframe = self.videoReader.readFrameFormat('RGBU');
         s = s+1;
         
-        t = self.currentTime-self.dt;
+        t = self.videoReader.currentTime;
         
-        assert(abs(t_tracks(s)-t)<self.dt);
+        assert(abs(t_tracks(s)-t)<1/self.videoReader.frameRate);
 
-        uframe = self.uframe;
         tracks = selected_tracks(s,:);
 
         % Get bounding boxes.
@@ -1785,20 +1782,53 @@ classdef FishTracker < handle;
             uframe = insertShape(uframe, 'FilledCircle',pos, 'color', cols(i_cl,:), 'opacity',clprob(j,i_cl));
           end
         end
+
         self.stepVideoPlayer(uframe);
+        
         d = seconds(t);
         d.Format = 'hh:mm:ss';
         verbose('CurrentTime %s\r',char(d))
         pause(delay);
-        
       end
-      
-      self.timerange = tr;
-      self.closeVideoObjects();
-      
+
+      self.videoReader.timeRange = self.timerange;
+      self.videoReader.reset();
       
     end
     
+    
+    function  save(self,savename,savepath,vname)
+    % SELF.SAVE([SAVENAME,SAVEPATH,VNAME]) saves the object
+
+      if ~exist('savename','var')
+        savename = 'FishTrackerSave';
+      end
+      
+      if ~isempty(fileparts(savename))
+        [savepath,savename] = fileparts(savename);
+      else
+        [~,savename] = fileparts(savename);
+      end
+      
+      if ~exist('savepath','var') || isempty(savepath)
+        if isempty(self.videoFile)
+          warning('VideoFile is empty, save to PWD!');
+          savepath = '';
+        else
+          savepath = fileparts(self.videoFile);
+        end
+      end
+
+      if ~exist('vname','var') || ~isempty(vname)
+        vname = 'ft';
+      end
+      eval([vname '=self;']);
+      fname = [savepath '/' savename '.mat'];
+      save([savepath '/' savename],vname);
+
+      verbose('saved varible %s to %s',vname,fname);
+    end      
+      
     
     function plotTrace(self,varargin)
       self.plotByType('TRACE',varargin{:});
@@ -1866,7 +1896,7 @@ classdef FishTracker < handle;
       
       posx = squeeze(res.pos(plotidx,1,fishIds));
       posy = squeeze(res.pos(plotidx,2,fishIds));
-      
+      dt = 1/self.videoReader.frameRate;
       
       switch upper(plottype)
 
@@ -1883,7 +1913,7 @@ classdef FishTracker < handle;
         case 'VELOCITY'
       
 
-          plot(diff(posx)/self.dt,diff(posy)/self.dt,'.');
+          plot(diff(posx)/dt,diff(posy)/dt,'.');
           xlabel('X-Velocity [px/sec]')
           ylabel('Y-Velocity [px/sec]')
           
@@ -1893,7 +1923,7 @@ classdef FishTracker < handle;
 
 
           dxy = 10;
-          szFrame = size(self.frame);
+          szFrame = self.videoReader.frameSize;
           sz = ceil(szFrame/dxy);
           sz = sz(1:2);
           

@@ -1,17 +1,20 @@
-classdef MyBlobAnalysis < handle;
+classdef FishBlobAnalysis < handle;
   
   properties 
     
-    rprops = {'Centroid','MeanIntensity','BoundingBox','Orientation','Area'};
+    rprops = {'Centroid','BoundingBox','Orientation','Area'};
     minArea = 50;
     minextent = 50;
     maxextent = 1000;
     minWidth = 5;
     minmaxintensity = [0.1,0.5];
     nhistbins = 25;
+
+    computeMSER = 1;
     minMSERDistance = 3; % in pixels
+    computeMSERthres = 4.5; % when to compute MSER (extent larger than computerMSERthres*fishwidth*fishlength)
     overlapthres = 0.8;
-  
+
     fishwidth = 20;% approximate value in pixels
     fishlength = 100; 
 
@@ -27,6 +30,19 @@ classdef MyBlobAnalysis < handle;
     segm = [];
     frame = [];
   end
+  
+  
+  methods (Abstract);
+    [oimg,msk,oimg_col] = a_imrotate(self,ori,oimg,mback,omsk,oimg_col,mback_col);
+    [outregion] = a_computeMSERregions(self,inregion,bb2);
+    
+    regions = a_getRegions(self,bwimg,Iframe,rprops);
+    [boundingBox,centroid] = a_getMaxAreaRegion(self,bwimg);
+    doimg = a_interp(self,foimg,xshift,mback,type);
+  
+    a_init(self);
+  end
+  
   
   methods (Access=private)
   
@@ -61,20 +77,10 @@ classdef MyBlobAnalysis < handle;
         region.FilledImage =   Iframe(bb(2)+1:bb(2)+bb(4),bb(1)+1:(bb(1)+bb(3)));
         region.FilledImage2x =   Iframe(bb2(2)+1:(bb2(2)+bb2(4)),bb2(1)+1:(bb2(1)+bb2(3)));
 
-        if isa(Iframe,'uint8')
-          region.FilledImage = single(region.FilledImage)/255;
-          region.FilledImage2x = single(region.FilledImage2x)/255;
-        end
-
         if ~isempty(Cframe)
           region.FilledImageCol = Cframe(bb(2)+1:(bb(2)+bb(4)),bb(1)+1:(bb(1)+bb(3)),:);
           region.FilledImageCol2x = Cframe(bb2(2)+1:(bb2(2)+bb2(4)),bb2(1)+1:(bb2(1)+bb2(3)),:);
         
-          if isa(Cframe,'uint8')
-            region.FilledImageCol = single(region.FilledImageCol)/255;
-            region.FilledImageCol2x = single(region.FilledImageCol2x)/255;
-          end
-          
         else % needed?
           region.FilledImageCol = region.FilledImage;
           region.FilledImageCol2x = region.FilledImage2x;
@@ -86,54 +92,15 @@ classdef MyBlobAnalysis < handle;
         region.Image2x(offset(2)+1:offset(2)+bb(4),offset(1)+1:offset(1)+bb(3)) = region.Image;
         
 
-        
-        
         %% compute MSER features
-        featim = region.FilledImage2x;
-        range = [self.minArea,max(ceil(region.Area*0.75),self.minArea+10)];
-        points= detectMSERFeatures(featim,'RegionAreaRange',range,'MaxAreaVariation',0.6);
-        orgpoints = points;
-        
-        
-        delinds = zeros(points.Count,1);
-        for j = 1:length(points)
-          if any(points(j).Location < bb2(3:4)/4) | any(points(j).Location > 3*bb2(3:4)/4)
-            delinds(j) =  1;
-          end
+        region.MSERregions = []; % field is expected by some functions...
+        region.MSERregionsOffset = [];
+
+        if self.computeMSER &&  bb(3)*bb(4)>self.computeMSERthres*self.fishwidth*self.fishlength
+          verbose('%d>%f1.0',bb(3)*bb(4),self.computeMSERthres*self.fishwidth*self.fishlength)
+          region = self.a_computeMSERregions(region,bb2);
         end
-        points = points(~delinds);
-
-        if points.Count>1
-          % delete very near points
-          p = tril(squareform(pdist(points.Location)));
-          x = 1;
-          delinds = zeros(points.Count,1);
-          while ~isempty(x)
-            [x,y] = find(p<self.minMSERDistance & p>0,1);
-            if ~isempty(x)
-              if length(points(x).PixelList)>length(points(y).PixelList)
-                z = y;
-              else
-                z = x;
-              end
-              delinds(z) = 1;
-              p(:,y) = 0; % y still deleted
-            end
-          end
-          points = points(~delinds);
-        end
-
-
-        region.MSERregions = points;
-        region.MSERregions = [];
-        for ii = 1:points.Count
-          for f = {'Location','Orientation','Axes','PixelList'}
-            region.MSERregions(ii,1).(f{1}) = points(ii).(f{1}); % re-map to structure
-          end
-        end
-
-        region.MSERregionsOffset = bb2(1:2);
-        
+          
         %% add 
         regionext = cat(1,regionext,region);
       end
@@ -216,8 +183,8 @@ classdef MyBlobAnalysis < handle;
           newspots.PixelIdxList(delsp==1) =[];
           newspots.NumObjects = length(newspots.PixelIdxList);
           
-          newrp = regionprops(newspots,Iframe,[self.rprops,{'Image','PixelValues','PixelIdxList'}]);
-          
+          newrp = regionprops(newspots,Iframe,[self.rprops,{'Image','MajorAxisLength','MinorAxisLength'}]);
+
           newrp = self.getMoreFeatures(newrp,Iframe, Cframe);
 
           newrplist = cat(1,newrplist, newrp);
@@ -265,7 +232,7 @@ classdef MyBlobAnalysis < handle;
             oimg_col = seg.FilledImageCol2x;
           end
           
-          ori = -seg.MSERregions(1).Orientation/2/pi*360+ 90;
+          ori = -seg.MSERregions(1).Orientation+ 90;
           lst = seg.MSERregions(1).PixelList;
           omsk = zeros(size(oimg));
           omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
@@ -283,6 +250,16 @@ classdef MyBlobAnalysis < handle;
 
           ori = -seg.Orientation + 90;
         end
+
+        % need single for the features
+        if isa(oimg,'uint8')
+          oimg = single(oimg)/255;
+        end
+        
+        if self.colorfeature && isa(oimg_col,'uint8')
+          oimg_col = single(oimg_col)/255;
+        end
+        
         
                 
         if plotif
@@ -313,21 +290,15 @@ classdef MyBlobAnalysis < handle;
         
         
         % rotate fish to axes
-        oimg = 1-max(imrotate(1-oimg,ori,'bilinear','loose'),1-mback);
-        msk = imrotate(omsk,ori,'nearest','loose');
-        
         if self.colorfeature
-          oimg_col= 1-max(imrotate(1-oimg_col,ori,'bilinear','loose'),1-mback_col);
-          oimg_col(~oimg_col) = mback_col;
+          [oimg,msk,oimg_col] = self.a_imrotate(ori,oimg,mback,omsk,oimg_col,mback_col);
+        else
+          [oimg,msk] = self.a_imrotate(ori,oimg,mback,omsk,[],[]);
         end
-
         
         % get updated bounding box of the fish
-        rp1 = regionprops(msk);
-        [~,midx] = max(cat(1,rp1.Area));
-        center = rp1(midx).Centroid;
-        bb = max(floor(rp1(midx).BoundingBox),1);
-        
+        [bb,center] = self.a_getMaxAreaRegion(msk);
+
         
         % get direction of movement (assuming the fish get's "thinner")
         y =sum(msk,2);
@@ -385,13 +356,16 @@ classdef MyBlobAnalysis < handle;
         com(isnan(com)) = fixedwidth/2;
         com = conv(com,ones(bw,1)/bw,'valid');
         com = [com(1:floor(bw/2));com;com(end-floor(bw/2)+1:end)];
-        [indy,indx] = ndgrid(single(1:fixedheight),single(1:fixedwidth));
+
         
-        if self.colorfeature        
-          doimg_col = zeros(size(foimg_col));
-        end
+       
         
         if ~self.interpif
+          [indy,indx] = ndgrid(single(1:fixedheight),single(1:fixedwidth));
+          if self.colorfeature        
+            doimg_col = zeros(size(foimg_col));
+          end
+
           indx = mod(bsxfun(@plus,indx,round(com-fixedwidth/2))-1,fixedwidth)+1;
           idx = s2i(size(foimg),[indy(:),indx(:)]);
           doimg = reshape(foimg(idx),size(foimg));
@@ -403,14 +377,11 @@ classdef MyBlobAnalysis < handle;
           end
           
         else
-          indxI = max(min(bsxfun(@plus,indx,com-fixedwidth/2),fixedwidth),1);
-          doimg = interp2(indx,indy,foimg,indxI,indy,'linear',mback);
-          
+          indxI = max(min(bsxfun(@plus,single(1:fixedwidth),com-fixedwidth/2),fixedwidth),1);
+          indy = repmat(single(1:fixedheight)',[1,size(indxI,2)]);
+          doimg = self.a_interp(foimg,com-fixedwidth/2,mback,'Linear');
           if self.colorfeature
-            for ii = 1:size(doimg_col,3)
-              tmp = foimg_col(:,:,ii);
-              doimg_col(:,:,ii) = interp2(indx,indy,tmp,indxI,indy,'linear',mback_col);
-            end
+            doimg_col = self.a_interp(foimg_col,com-fixedwidth/2,mback_col,'Linear');
           end
         end
 
@@ -508,11 +479,9 @@ classdef MyBlobAnalysis < handle;
     
     function segm = detect(self, bwimg, Iframe, Cframe)
       
-    % get the spots from the binary image
-      bwimg = bwareaopen(bwimg,self.minArea);
-      spots=bwconncomp(bwimg,8);
-      rp = regionprops(spots,Iframe,[self.rprops,{'Image','PixelValues','PixelIdxList'}]);
-
+      % get the spots from the binary image
+      rp = self.a_getRegions(bwimg,Iframe,[self.rprops,{'Image'}]);
+      
       goodmsk = self.getGoodMsk(rp);
 
       % compute more features
@@ -528,7 +497,7 @@ classdef MyBlobAnalysis < handle;
 
   methods
     
-    function self = MyBlobAnalysis(varargin) % constructor
+    function self = FishBlobAnalysis(varargin) % constructor
       
       self = self@handle();
 
@@ -549,14 +518,26 @@ classdef MyBlobAnalysis < handle;
         end
       end
       
-
-
-      verbose('Initiated BlobAnalyzer with fish features.')
+      self.a_init();
+      
+      verbose('Initiated %s with fish features.',upper(class(self)))
       verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
     end
     
     
       
+    
+    function set.fishwidth(self,fw)
+      self.fishwidth = fw;
+      self.a_init();
+    
+    end
+    
+    function set.fishlength(self,fl)
+      self.fishlength = fl;
+      self.a_init();
+    end
+
       
     function segm = step(self,bwimg, Iframe, Cframe)
     % SEGM = STEP(SELF,BWIMG, IFRAME, CFRAME).  IFRAME is an intensity
@@ -576,6 +557,7 @@ classdef MyBlobAnalysis < handle;
      end
 
     
+     
     function plot(self)
 
       if isempty(self.segm)

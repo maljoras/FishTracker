@@ -3,42 +3,49 @@ classdef FishTracker < handle;
   
   
   properties 
-    
-    scalecost = [20,5,1,1];
+
+    nfish = [];
+    fishlength = [];
+    fishwidth = [];
+    timerange= [];    
+
     opts = struct([]);
     saveFields = {'centroid','classProb','bbox','assignmentCost','consecutiveInvisibleCount', ...
                   'segment.Orientation','segment.bendingStdValue'};
-    fishlength = [];
-    fishwidth = [];
     maxVelocity = [];
     displayif = 0;
-    timerange= [];
-    nfish = [];
+
     useGpu = 0;
-    useScaledFormat = 0;
+    useScaledFormat = 1;
     useOpenCV = 1;
+    
+    grayFormat = 'GRAY';
+    
+    scalecost = [10,5,1,0.5];
   end
 
   properties (SetAccess = private)
 
-
-    medianCost = ones(4,1);
+    videoFile = '';
+    
+    uniqueFishFrames = 0;
+    currentFrame = 0;
+    currentCrossBoxLengthScale = 1; 
+    
     costinfo= {'Location','Pixel overlap','Classifier','Orientation'};
-    detector = [];
-    blobAnalyzer = [];
-    fishClassifier = [];
+    medianAssignmentCost =1;
+    tracks = [];
+    cost = [];
+    res = [];
+
     videoReader = [];
     videoPlayer = [];
     videoWriter = [];
-    tracks = [];
-    fishId2TrackId = [];
+    
+    detector = [];
+    blobAnalyzer = [];
+    fishClassifier = [];
 
-    
-    writefile = '';
-    res = [];
-    pos = [];
-    
-    videoFile = '';
   end
   
   properties (SetAccess = private, GetAccess=private);
@@ -52,15 +59,16 @@ classdef FishTracker < handle;
     idfeatures = [];
     classProb = [];
     crossings = [];
-    currentFrame = [];
-    
-    currentCrossBoxLengthScale = []; 
+
+    fishId2TrackId = [];
+    medianCost = ones(4,1);
+    pos = [];
     
     assignments = [];
     unassignedTracks = [];
     unassignedDetections = [];
-    cost = [];
-    uniqueFishFrames = 0;
+
+    writefile = '';
   end
   
 
@@ -123,7 +131,7 @@ classdef FishTracker < handle;
 
     function setDisplayType(self)
 
-      if self.displayif>2
+      if self.displayif>3
         self.fishClassifier.plotif = 1;
         self.blobAnalyzer.plotif = 1;
       end
@@ -132,7 +140,7 @@ classdef FishTracker < handle;
         self.blobAnalyzer.plotif = 0;
       end
       
-      if self.displayif> 1
+      if self.displayif> 4
         self.opts.tracks.displayEveryNFrame = 1;
       end
       
@@ -157,8 +165,8 @@ classdef FishTracker < handle;
 
       % might become overloaded
       if hasOpenCV() && self.useOpenCV
-        detector = FishForegroundDetectorMatlab(varargin{:});
-        %detector = FishForegroundDetectorCV(varargin{:}); % MOG2 seems somewhat WORSE 
+        % detector = FishForegroundDetectorMatlab(varargin{:});
+        detector = FishForegroundDetectorCV(varargin{:}); % MOG2 seems somewhat WORSE 
 
       else
         detector = FishForegroundDetectorMatlab(varargin{:});
@@ -207,8 +215,7 @@ classdef FishTracker < handle;
       %% Create a video file reader.
       [self.videoReader,self.timerange] = self.newVideoReader(vid,self.timerange);
       self.videoFile = vid;
-      
-      
+
       if ~isempty(self.writefile) && self.displayif
         self.videoWriter = self.newVideoWriter(self.writefile);
       else
@@ -234,7 +241,7 @@ classdef FishTracker < handle;
         self.fishlength = fishSize(1);
       end
       if isempty(self.fishwidth) 
-        self.fishwidth = fishSize(2);
+        self.fishwidth = fishSize(2); 
       end
 
       if isempty(self.nfish) 
@@ -255,7 +262,8 @@ classdef FishTracker < handle;
  
       %% get new blobAnalyzer (because fishlength might haven changed)
       self.blobAnalyzer = newBlobAnalyzer(self, self.opts.blob);
-    
+      self.videoReader.originalif = self.opts.blob.colorfeature;
+
       %% get new fish classifier 
       self.fishClassifier = newFishClassifier(self,self.opts.classifier);
 
@@ -269,7 +277,8 @@ classdef FishTracker < handle;
       self.nextId = 1;
       self.uniqueFishFrames = 0;
       self.medianCost(:) = 1;
-    
+      self.medianAssignmentCost = 1;
+
       self.segments = [];
       self.features = [];
       self.bboxes = [];
@@ -288,7 +297,7 @@ classdef FishTracker < handle;
       self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScalePreInit;
       
       if isempty(self.maxVelocity)
-        self.maxVelocity = self.fishlength*3*self.videoReader.frameRate;
+        self.maxVelocity = self.fishlength*5*self.videoReader.frameRate;
       end
     end
     
@@ -297,17 +306,22 @@ classdef FishTracker < handle;
 
       verbose('Detect approx fish sizes...');
       minAxisWidth = 10;
+      if isempty(self.grayFormat)
+        self.grayFormat = 'GRAY';
+      end
       
       self.videoReader.reset();
 
       blobAnalyzer = self.newBlobAnalyzer(self.opts.blob);
+      self.videoReader.originalif = self.opts.blob.colorfeature;
+
       rprops = blobAnalyzer.rprops;
       blobAnalyzer.rprops = {rprops{:},'MinorAxisLength','MajorAxisLength'};
-      n = min(self.detector.history/2,floor(self.videoReader.timeRange(2)*self.videoReader.frameRate));
-      
+      n = min(self.detector.history,floor(self.videoReader.timeRange(2)*self.videoReader.frameRate));
+      blobAnalyzer.computeMSER = 0; % faster 
       s = 0;
       for i = 1:n
-        frame = self.videoReader.readFrameFormat(['GRAY' self.detector.expectedFrameFormat]);
+        [frame oframe] = self.videoReader.readFrameFormat([self.grayFormat self.detector.expectedFrameFormat]);
         bwmsk = self.detector.step(frame);
 
         if self.displayif>3
@@ -320,11 +334,11 @@ classdef FishTracker < handle;
           drawnow;
         end
           
-        if i<n/2
+        if i<n*3/4
           continue;
         end
 
-        segm = blobAnalyzer.step(bwmsk,frame);
+        segm = blobAnalyzer.step(bwmsk,frame,oframe);
         if isempty(segm)
           continue;
         end
@@ -340,7 +354,7 @@ classdef FishTracker < handle;
       end
       
       nObjects = median(count);
-      objectSize = ceil([quantile(height,0.9),quantile(width,0.1)]); % because fish are bending
+      objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % note that fish are bending
       
       
       verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
@@ -353,20 +367,21 @@ classdef FishTracker < handle;
 
       self.videoReader.scale = [];
       self.videoReader.delta = [];
-      self.videoReader.frameFormat = ['GRAY',self.detector.expectedFrameFormat];
+      self.videoReader.frameFormat = [self.grayFormat,self.detector.expectedFrameFormat];
 
       if self.useScaledFormat
         % get good color conversion
         self.videoReader.oneFrameBack();
         cframe = self.videoReader.readFrameFormat(['RGBS']);
-        [fv,mu] = getColorConversion(bwmsk,cframe);
-        
-        if ~isempty(fv)
-          scale = fv/norm(fv);
+        [scale,delta] = getColorConversion(bwmsk,cframe);
+
+        if ~isempty(scale)
           self.videoReader.scale = scale;
-          self.videoReader.delta = -scale.*mu;
+          self.videoReader.delta = delta;
           self.videoReader.frameFormat = ['SCALED',self.detector.expectedFrameFormat];
         end
+        
+        sframe = self.videoReader.readFrameFormat(['SCALEDS']);
       end
       
       self.videoReader.reset();
@@ -380,7 +395,7 @@ classdef FishTracker < handle;
     
       bwmsk = self.detector.step(self.videoReader.frame);
 
-      segm = self.blobAnalyzer.step(bwmsk,self.videoReader.frame);
+      segm = self.blobAnalyzer.step(bwmsk,self.videoReader.frame,self.videoReader.oframe);
       
       if ~isempty(segm)
         self.centroids = cat(1,segm.Centroid);
@@ -393,7 +408,7 @@ classdef FishTracker < handle;
         
         self.bboxes = int32(cat(1,segm.BoundingBox));
         %self.features = [cat(1,segm.MeanIntensity), cat(1,segm.Orientation)];
-        self.features = [ cat(1,segm.Orientation)];
+        self.features = cos([ cat(1,segm.Orientation)]/180*pi);
         self.segments = segm;
         self.idfeatures =  permute(cat(4,segm.fishFeature),[4,1,2,3]);
         self.classProb = self.computeClassProb(self.idfeatures(:,:));
@@ -447,160 +462,138 @@ classdef FishTracker < handle;
     end
 
     
-    function updateTrackFishIds(self,trackIndex,newFishIds,counterFieldName)
+    function switchTracks(self,fromTrackIndices,toTrackIndices,tranges)
     % updates all ids since the last crossing
 
-      oldFishIds = cat(2,self.tracks(trackIndex).fishId);
-      
-      if any(isnan(trackIndex)) || any(isnan(newFishIds)) 
-        %should not happen
-        warning('NAN detected!! This should not happen.')
-        return
+      same = fromTrackIndices == toTrackIndices;
+      fromTrackIndices(same) = [];
+      toTrackIndices(same) = [];
+      if size(tranges,1)>1
+        tranges(same,:) = [];
+      end
+
+      if isempty(fromTrackIndices)
+        return;
       end
       
-      if any(newFishIds~=oldFishIds)     
-
-        if ~all(sort(newFishIds)==sort(oldFishIds)) || length(newFishIds)==1
-          % not a permutation. 
-          return;
-        end
-
-        f2t = self.fishId2TrackId;
-        pos = self.pos;
-
-       
-        for i = 1:length(trackIndex)
-          if ~isnan(newFishIds(i))
-            oldFishId = oldFishIds(i);
-            newFishId = newFishIds(i);
-
-            if oldFishId~=newFishId
-              verbose('switching fish %d->%d\r',oldFishId,newFishId)
-              self.tracks(trackIndex(i)).fishId = newFishId;
-              
-              % update 
-              t = self.currentFrame;
-
-              startframe = self.tracks(trackIndex(i)).(counterFieldName);
-              
-              trackId = self.tracks(trackIndex(i)).id;
-
-              % swap
-              f2t(startframe:t,newFishId) = self.fishId2TrackId(startframe:t,oldFishId);
-              pos(:,newFishId,startframe:t) = self.pos(:,oldFishId,startframe:t);
-            
-              self.uniqueFishFrames = 0; % reset (if there is an update order is compromised) 
-              self.resetBatchIdx(trackIndex(i)); % to make sure that features do not get mixed
-            end
-          end
-        end
-        self.fishId2TrackId = f2t;
-        self.pos = pos;
+      if length(fromTrackIndices)== 1 && length(toTrackIndices)== 1
+        % assume swap
+        h = [fromTrackIndices,toTrackIndices];
+        fromTrackIndices = h;
+        toTrackIndices = h([2,1]);
       end
-    end
+        
+      if length(fromTrackIndices)~=length(toTrackIndices) || ~all(sort(fromTrackIndices)==sort(toTrackIndices))
+        % cannot handle this. do a full update if necessary
+        self.fishClassifierUpdate(1:length(self.tracks),0);
+        return;
+      end
+        
+      f2t = self.fishId2TrackId;
+      pos = self.pos;
+      
+      toFishIds = [self.tracks(toTrackIndices).fishId];
+      fromFishIds = [self.tracks(fromTrackIndices).fishId];
+
+      for i = 1:length(toTrackIndices)
+        
+         if isempty(tranges)
+          tstart = min(self.tracks(fromTrackIndices(i)).firstFrameOfCrossing,...
+                       self.tracks(toTrackIndices(i)).firstFrameOfCrossing);
+          tend = self.currentFrame;
+        else
+          tstart = tranges(min(i,end),1);
+          tend = tranges(min(i,end),2);
+        end
+          
+        % get the frame with the minimal distance
+        p1 = squeeze(self.pos(:,toFishIds(i),tstart:tend));
+        p2 = squeeze(self.pos(:,fromFishIds(i),tstart:tend));
+        d = sqrt(sum((p1 - p2).^2,1));        
+
+        [m,iframe]  = min(d);
+
+        if  m>self.fishlength
+          warning('Could not find a good swapping point of the fish');
+          %take minimal distance as reference
+        end
+        
+        crossTime = min(iframe + tstart - 1,tend);
+          
+        % assign f2t
+        f2t(crossTime:self.currentFrame,toFishIds(i)) =  self.fishId2TrackId(crossTime:self.currentFrame,fromFishIds(i));
+          
+        % assign pos
+        pos(:,toFishIds(i),crossTime:self.currentFrame) =  self.pos(:,fromFishIds(i),crossTime:self.currentFrame);
+      
+        self.tracks(toTrackIndices(i)).fishId = fromFishIds(i);
+      end
+      
+      % save swapped 
+      self.pos = pos;
+      self.fishId2TrackId = f2t;
+
+      % better batch reset
+      self.resetBatchIdx(toTrackIndices);
+      self.uniqueFishFrames = 0;
     
+    
+    end
     
     
     function resetBatchIdx(self,trackidx)
       [self.tracks(trackidx).nextBatchIdx] = deal(1);
     end
 
+
     
-    function distangleMismatchedTracks(self,currentTrackIndices,type, updateif)
-
-      if strcmp(type,'current')
-        idFieldName = 'crossedCurrentTrackIds';
-        counterFieldName = 'frameOfCurrentCrossing';
-      else
-        idFieldName =  'crossedLastTrackIds';
-        counterFieldName = 'frameOfLastCrossing';
-      end
-      
-      % handle all simultanously
-      crossedTracks = [];
-      for i = 1:length(currentTrackIndices)
-        crossedTracks = union(crossedTracks,self.tracks(currentTrackIndices(i)).(idFieldName));
-      end
-      if isempty(crossedTracks)
-        return;
-      end
-
-      trackIds = cat(2,self.tracks.id);      
-      
-      % look if the tracks still exist
-      trackIndices= find(ismember(trackIds,crossedTracks));
-      crossedTracks = trackIds(trackIndices);
-
-      % take the current fishId of the existing tracks (should be the actual one)
-      %frameIdx = self.tracks(currentTrackIndex).(counterFieldName);
-      [~,crossedFishIds] = ismember(crossedTracks,self.fishId2TrackId(self.currentFrame,:));
-            
-      if any(~crossedFishIds)
-        %seems that some tracks got deleted...
-        trackIndices(~crossedFishIds)=[];
-        crossedFishIds(~crossedFishIds) = [];
-      end
-      trackIndices = trackIndices(:)'; % make sure it is a rwo vector
-       
-      % test assignments
-      feat = self.getFeatureDataFromTracks(trackIndices);
-      [assignedFishIds prob] = self.fishClassifier.predictPermutedAssignments(feat,crossedFishIds);
-            
-      if min(prob)>self.opts.classifier.reassignProbThres
-        idx = ~isnan(assignedFishIds);
-        self.updateTrackFishIds(trackIndices(idx),assignedFishIds(idx),counterFieldName);
-      end
-      for i = 1:length(currentTrackIndices) 
-        self.tracks(currentTrackIndices(i)).(idFieldName) = []; % show that it was handled
-      end
-      if updateif
-        self.fishClassifierUpdate(currentTrackIndices);
-      end
-
-      if self.displayif>3
-        figure(3);
-        clf;
-        plot(squeeze(self.pos(1,:,:))')
-        drawnow;
-      end
-    end
-    
-      
-    function fishClassifierUpdate(self,trackIndices)
+    function switched = fishClassifierUpdate(self,trackIndices,updateif)
     % updates the collected features according to the current fishIDs
-      
+
+      switched =0;
+      batchIdx = [self.tracks(trackIndices).nextBatchIdx ];
+      if any(batchIdx<self.opts.classifier.minBatchN)
+        % not enough sample 
+        return
+      end
+
       fishIds = cat(2,self.tracks(trackIndices).fishId);
       feat = self.getFeatureDataFromTracks(trackIndices);
 
-      % this update might update difference fishIDs. .. maybe handle this an reassign. 
-      [assignedFishIds prob] = batchUpdate(self.fishClassifier,fishIds,feat); % force?
-      if min(prob)>self.opts.classifier.reassignProbThres
-        idx = ~isnan(assignedFishIds);
-        self.updateTrackFishIds(trackIndices(idx),assignedFishIds(idx),'frameOfLastCrossing');
+      if updateif
+        % change classifier
+        [assignedFishIds prob] = batchUpdate(self.fishClassifier,fishIds,feat); 
+      else
+        % just test
+        [assignedFishIds prob] = self.fishClassifier.predictPermutedAssignments(feat,fishIds); 
       end
-    end
-    
-
-
-    function updateClassifier(self)
-    % updates the identity classifier and tracks the identity to
-    % trackID assisgments
       
-      if isempty(self.tracks) % no tracks
-        return;
+      if ~any(isnan(assignedFishIds))
+        
+        same = assignedFishIds==fishIds;
+        if ~all(same) && min(prob(~same))>self.opts.classifier.reassignProbThres
+          
+          fromTrackIndices = trackIndices(~same);
+          [~,idx] = ismember(assignedFishIds(~same),fishIds);
+          toTrackIndices = trackIndices(idx);
+          tstart = min([self.tracks.firstFrameOfCrossing]); % a wild guess.
+          self.switchTracks(fromTrackIndices,toTrackIndices,[tstart,self.currentFrame]);
+          
+          switched = 1;
+          self.resetBatchIdx(toTrackIndices);
+        end
       end
+      
+    end
 
+    
+    function updatePos(self)
       % save current track->fishID
       t = self.currentFrame;
       
       if size(self.fishId2TrackId,1)< t
         self.fishId2TrackId = cat(1,self.fishId2TrackId,nan(250,self.nfish));
       end
-      
-      fishIds = cat(2,self.tracks.fishId);      
-      trackIds = cat(2,self.tracks.id);      
-      self.fishId2TrackId(t,fishIds) = trackIds;
-        
       % save track positions
       if isempty(self.pos)
         self.pos = nan(2,self.nfish,250);
@@ -609,118 +602,303 @@ classdef FishTracker < handle;
       if size(self.pos,3)<t
         self.pos = cat(3,self.pos,nan(2,self.nfish,250));
       end
+      
+      if isempty(self.tracks) % no tracks
+        return;
+      end
+      
+      fishIds = cat(2,self.tracks.fishId);      
+      trackIds = cat(2,self.tracks.id);      
+      self.fishId2TrackId(t,fishIds) = trackIds;
+        
       self.pos(1:2,fishIds,t) = cat(1,self.tracks.centroid)';
-
-      % check whether exist crossing or time to update
-      crossif = any(self.crossings(:));
+      
+      % update unique frames
+      % NOTE THIS IS THE PREVIOUS SITUATION SINCE CROSSINGS OF THE CURRENT FRAME ARE NOT YET DETECTED.
+      crossif = ~isempty(self.crossings);
       if ~crossif && length(self.tracks)==self.nfish
         self.uniqueFishFrames = self.uniqueFishFrames + 1;
       else
         self.uniqueFishFrames = 0;
-        if ~isInit(self.fishClassifier) % we do not want a mixture at the beginning
-          self.resetBatchIdx(1:length(self.tracks));
+      end
+
+    
+    end
+    
+    
+    function success = initClassifier(self)
+    % checks condition and inits classifier (if conds are met) and resets relevant counters
+
+      success = 0;
+      if length(self.tracks)<self.nfish 
+        if  self.currentFrame > self.opts.classifier.nFramesForInit
+          warning(['nfish setting might be wrong! The classifier Cannot find the correct ' ...
+                   'number of tracks'])
+        end
+        return
+      end
+
+      if self.currentFrame < self.opts.classifier.nFramesForInit % cannot wait for ages..
+        if ~isempty(self.crossings)
+          self.resetBatchIdx(1:length(self.tracks));% we do not want a mixture at the beginning
         end
       end
-      nfeat = cat(2,self.tracks.nextBatchIdx)-1;
-      
-      if ~isInit(self.fishClassifier)
+
+      if self.uniqueFishFrames>self.opts.classifier.nFramesForInit  || ...
+          self.currentFrame> 3*self.opts.classifier.nFramesForInit % cannot wait for ages..
         
-        if min(nfeat)> self.opts.classifier.minBatchN  && self.uniqueFishFrames>self.opts.classifier.nFramesForInit
-          % classifier not yet initialized but a lot of unique frames. Force to init! Might get some crossings
-          % as well but do not care. The  classifiers will get updated later
+        fishIds = cat(2,self.tracks.fishId);      
+
+        feat = self.getFeatureDataFromTracks(1:length(self.tracks));
+        [~,sidx] = sort(fishIds);
+        feat = feat(sidx);
+        batchsample = cell(1,self.nfish);
+        [batchsample{:}] = deal([]);
+        batchsample(1:length(feat)) = feat;
+        
+        self.fishClassifier.init(batchsample);
+        self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScale; % update
+        self.resetBatchIdx(1:length(self.tracks));
+        
+        % reset all potentials previous crossings
+        [self.tracks.lastFrameOfCrossing] = deal(self.currentFrame);
+        [self.tracks.firstFrameOfCrossing] = deal(self.currentFrame);
+        [self.tracks.crossedTrackIds] = deal([]);
+        
+        self.uniqueFishFrames  = 0;
+        success = 1;
+      end
+      
+    end
+    
+    
+    function [toTrackIndices,tranges] = getCrossSwitchTracks(self,trackIndices)
+
+      toTrackIndices = trackIndices;
+      tranges = zeros(length(trackIndices),2);
+      
+      for ii = 1:length(trackIndices)
+        trackIndex = trackIndices(ii);
+      
+
+        trackIds = cat(2,self.tracks.id);      
+        fishIds = cat(2,self.tracks.fishId);      
+
+        track = self.tracks(trackIndex);
+
+        % find all the fishIds involved in the crossing
+        tstart = track.firstFrameOfCrossing;
+        tend = track.lastFrameOfCrossing;
+
+        [~,crossedFishIds] = find(ismember(self.fishId2TrackId(tstart:tend,:),track.crossedTrackIds));
+        %crossedFishIds = setdiff(unique(crossedFishIds)',track.handledFishIdsDuringCrossing);
+        crossedFishIds = unique(crossedFishIds)'; % !!!!!!!!!! do not need the handle stuff since
+                                                  % we do not reset the batch. Tracks might get
+                                                  % handled twice but dont care.
+        
+        if length(crossedFishIds)>1
+          %use the current tracks that represnt  these fish... (what if a track was deleted during
+          %crossing..maybe avoid?)
+          crossedTracks = self.fishId2TrackId(self.currentFrame,crossedFishIds);
           
-          feat = self.getFeatureDataFromTracks(1:length(self.tracks));
-          [~,sidx] = sort(fishIds);
-          feat = feat(sidx);
-          batchsample = cell(1,self.nfish);
-          [batchsample{:}] = deal([]);
-          batchsample(1:length(feat)) = feat;
+          % directly test the data from given track index
+          feat = self.getFeatureDataFromTracks(trackIndex);
+
+          prob = self.fishClassifier.predictBatch(feat{1});
+          if any(isnan(prob))
+            % somehow no features. do not handle the crossing but wait
+            return
+          end
           
-          self.fishClassifier.init(batchsample);
-          self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScale; % update
-          self.resetBatchIdx(1:length(self.tracks));
+          [m,idx] = max(prob(crossedFishIds)); % however, only allow the selection of available fish
+          newFishId = crossedFishIds(idx);
+          oldFishId = track.fishId;
           
-          % reset all potentials previous crossings
-          [self.tracks.frameOfLastCrossing] = deal(t);
-          [self.tracks.frameOfCurrentCrossing] = deal(t);
-          [self.tracks.crossedLastTrackIds] = deal([]);
-          [self.tracks.crossedCurrentTrackIds] = deal([]);
+          [m1,bestFishId] = max(prob);
+          if m~=m1 % or maybe we missed a track not in the crossing ? 
+
+            % test whether this confusion is mutual % in case of 3-crossings, is this problematic ?
+            bestTrackIndex = find(fishIds==bestFishId);
+            bestFeat = self.getFeatureDataFromTracks(bestTrackIndex);
+            
+            assumedFishIds = [bestFishId, newFishId]; %exchanged
+            [assignedFishIds prob2] = self.fishClassifier.predictPermutedAssignments([feat bestFeat],assumedFishIds); 
+            
+            
+            if all(assignedFishIds==assumedFishIds) &&  min(prob2)>self.opts.classifier.reassignProbThres ...
+                  & ~any(isnan(assignedFishIds))
+              % indeed wrong. 
+              verbose('Thought %d (%1.2f) but fish %d (%1.2f) seems better',newFishId,m,bestFishId,m1);                      
+
+              %however, how to now the time points of crossings?
+              % just assume that it is from tstart...
+              tstart = max(min(tstart,self.tracks(bestTrackIndex).firstFrameOfCrossing),1);
+              newFishId = bestFishId;
+            
+            end
+          end
+          % change
+          toTrackIndices(ii) = find(fishIds==newFishId);        
+        end
+        
+        tranges(ii,:) = [tstart,tend];
+        self.tracks(trackIndex).crossedTrackIds = [];
+
+      end
+        
+    end
+    
+    
+    
+    function plotCrossings_(self,section,updateIdx)
+
+
+      figure(2);
+      if section==1
+        clf;
+      end
+      
+      cols = jet(self.nfish);
+      [r1,r2] = getsubplotnumber(length(updateIdx));
+      
+      s = 0;
+      for trackIndex = updateIdx
+        s = s+1;
+        a = subplot(r1,r2,s);
+        set(a,'ColorOrder',cols,'ColorOrderIndex',1);
+        hold on;
+        
+        t1 = self.tracks(trackIndex).firstFrameOfCrossing;
+        t2 = self.tracks(trackIndex).lastFrameOfCrossing;
+        t0 = max(t1-30,1);
+        t = self.currentFrame;
+        
+        if section==1
+          ids = self.tracks(trackIndex).crossedTrackIds;
           
-          self.uniqueFishFrames  = 0;
+          %first plot all traces
+          plot(squeeze(self.pos(1,:,t0:t))',squeeze(self.pos(2,:,t0:t))','--','Linewidth',1);
+          hold on; 
+          
+          % plot those that are in the current crossing
+          fids = find(ismember(self.fishId2TrackId(t2,:),ids));
+          set(a,'ColorOrder',cols(fids,:));set(a,'ColorOrderIndex',1)
+          plot(squeeze(self.pos(1,fids,t1:t2))',squeeze(self.pos(2,fids,t1:t2))','o','Linewidth',2);
+          
         else
+          %section 2
+          fid = self.tracks(trackIndex).fishId;
+          plot(squeeze(self.pos(1,fid,t0:t))',squeeze(self.pos(2,fid,t0:t))','-','Linewidth',2,'color',cols(fid,:));
+          frameSize = self.videoReader.frameSize;
+          axis ij;
+          xlim([0,frameSize(2)])
+          ylim([0,frameSize(1)]);
+        
+
+        end
+        
+      end
+      if section==2
+        drawnow;
+      end
+    end
+    
+    
+    
+    
+    function updateClassifier(self)
+    % updates the identity classifier and tracks the identity to
+    % trackID assisgments
+
+      if ~isInit(self.fishClassifier)
+        if ~self.initClassifier()
           return
         end
       end
       
       
-      if self.uniqueFishFrames-1 > max(self.opts.classifier.nFramesForUniqueUpdate,self.opts.classifier.nFramesAfterCrossing)
-        verbose('Perform uniqie frames update.\r')
+      %% handle crossings boundaries
+      t = self.currentFrame;
+      lastCrossingTimes =  [self.tracks.lastFrameOfCrossing];
+      hitBound = t-lastCrossingTimes > self.opts.classifier.nFramesAfterCrossing;
+      notHandled = ~arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
+
+      if ~isempty(self.crossings)
+        newCrossing  = ismember(1:length(self.tracks), cat(2,self.crossings{:}));
+        newCrossing = newCrossing & (t-lastCrossingTimes> self.opts.classifier.minFramesAfterCrossing);
+        hitBound = hitBound |newCrossing;
+      end
+      
+      if ~hasFrame(self.videoReader)
+        % last frame
+        updateIndices = find(notHandled);
+      else
+        updateIndices = find(hitBound & notHandled);
+      end
+      
+      if self.displayif>2 && ~isempty(updateIndices)
+        self.plotCrossings_(1,updateIndices);
+      end
+      
+      if ~isempty(updateIndices)
+        [toTrackIndices,tranges] = self.getCrossSwitchTracks(updateIndices);
+        self.switchTracks(updateIndices,toTrackIndices,tranges);
+
+      end
+
+      if self.displayif>2 && ~isempty(updateIndices)
+        self.plotCrossings_(2,updateIndices);
+      end
+      
+      % ONLY NOW UPDATE THE CURRENT CROSSING
+      self.updateTrackCrossings();
+      
+      
+      
+      %% check whether everything still seems reasonable
+      notCrossing = find(arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks));
+      if length(notCrossing)>1 
+        cl = cat(1,self.tracks(notCrossing).classProb);
+        cl = (cl +  cat(1,self.tracks(notCrossing).lastClassProb))/2;
+        sure = 0.9;
+        if all(max(cl,[],2)>sure) % could be sure but mixed up
+          A = pdist2(cl,cl);
+          as = assignDetectionsToTracks(A,1); 
+          if ~isempty(as) &&  any(as(:,1)==as(:,2))
+            if self.fishClassifierUpdate(notCrossing,0)
+
+              verbose('Switched. Seems better...');
+              self.resetBatchIdx(notCrossing);
+            end
+          end
+        end
+      end
+      
+      
+      %% unique fish update
+      if self.uniqueFishFrames-1 > self.opts.classifier.nFramesForUniqueUpdate;
+        verbose('Perform unique frames update.')
         
         trackIndices = 1:self.nfish;
-        self.fishClassifierUpdate(trackIndices);
+        self.fishClassifierUpdate(trackIndices,1);
 
         self.uniqueFishFrames = 0; % reset
         self.resetBatchIdx(trackIndices);
       end
 
+
       
-      %% distangle wrongly fishIDs after crossings
-      indicesCurrent = [];
-      indicesLast = [];
-      for trackIndex = 1:length(self.tracks)
-       
-        track = self.tracks(trackIndex);
+      %% single fish update
 
-        if ~any(self.crossings(trackIndex,:))
-          % no crossing. But maybe the threshold for handlines the tracks after crossing is reached
+      noCrossing = arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
+      enoughData =  [self.tracks.nextBatchIdx] > self.opts.classifier.nFramesForSingleUpdate;
 
-          longAfterCrossing =  t - track.frameOfCurrentCrossing > self.opts.classifier.nFramesAfterCrossing;
-          if ~isempty(track.crossedCurrentTrackIds)  &&  longAfterCrossing
-            indicesCurrent = [indicesCurrent, trackIndex];
-          end
-        else   % currently some crossing !
-
-          % indices the last crossing
-          indicesLast = [indicesLast,trackIndex];
-        end
+      singleUpdateIdx = find(noCrossing & enoughData);
+      if ~isempty(singleUpdateIdx)
+        verbose('Perform single fish update.');
+        self.fishClassifierUpdate(singleUpdateIdx,1);
+        self.resetBatchIdx(singleUpdateIdx);      
       end
-
-      if ~isempty(indicesLast)
-        self.distangleMismatchedTracks(indicesLast,'last',false);
-        % was some crossing. So better reset 
-        self.resetBatchIdx(indicesLast);
-      else % only indices current if there is otherwise no crossing (to avoid update errors)
-        if ~isempty(indicesCurrent)
-          self.distangleMismatchedTracks(indicesCurrent,'current',false);
-          self.resetBatchIdx(indicesCurrent);
-        end
-      end
-      
-
-      
-      %% unique update
-      for trackIndex = 1:length(self.tracks)
-        track = self.tracks(trackIndex);
-        if ~any(self.crossings(trackIndex,:))
-          longAfterCrossing =  t - track.frameOfCurrentCrossing > self.opts.classifier.nFramesAfterCrossing;
-          if longAfterCrossing &&  (track.nextBatchIdx > self.opts.classifier.nFramesForSingleUpdate)
-            % crossing already handled. FishIds *should* be correct
-            verbose('Perform one fish update\r');
-            self.fishClassifierUpdate(trackIndex);
-            self.resetBatchIdx(trackIndex);
-          end
-        end
-      end
-      
-      
-      
-      if self.displayif>2
-        if any(self.crossings(:))
-          figure(2)
-          self.fishClassifier.plotMeans();
-        end
-      end
-      
 
     end
 
@@ -740,13 +918,13 @@ classdef FishTracker < handle;
         'features',{},...
         'segment', {},...
         'classProb',{},...
+        'lastClassProb',{},...
         'batchFeatures',{},...
         'nextBatchIdx',{},...
         'predictor', {}, ...
-        'frameOfCurrentCrossing', {}, ...
-        'crossedCurrentTrackIds',{},...
-        'frameOfLastCrossing', {}, ...
-        'crossedLastTrackIds',{},...
+        'firstFrameOfCrossing', {}, ...
+        'lastFrameOfCrossing', {}, ...
+        'crossedTrackIds',{},...
         'age', {}, ...
         'totalVisibleCount', {}, ...
         'consecutiveInvisibleCount', {},...
@@ -790,8 +968,8 @@ classdef FishTracker < handle;
       segments = self.segments;
       clprob = self.classProb;
       
-      highCost = 50;
-      somewhatCostly = 10;
+      highCost = 2;
+      somewhatCostly = 1;
       
       if nDetections>0
         %mdist = min(pdist(double(centroids)));
@@ -804,8 +982,8 @@ classdef FishTracker < handle;
           %distmat = pdist2(double(center),double(centroids),'Euclidean');
           distmat = sqrt((centroids(:,1) - center(1)).^2 + (centroids(:,2) - center(2)).^2)';
 
-          highidx = distmat>self.maxVelocity*self.videoReader.frameRate; 
-          distmat(highidx) = highCost*distmat(highidx);
+          maxDist = self.maxVelocity/self.videoReader.frameRate;
+          distmat = min(distmat,maxDist);
           cost{end+1} = distmat;
           
           % cost of overlap
@@ -829,7 +1007,7 @@ classdef FishTracker < handle;
 
           overlap = bBoxXOverlap.*bBoxYOverlap./mnx./mny;
 
-          cost{end+1} = 1-overlap' + (overlap'==0)*highCost;
+          cost{end+1} = 1-overlap' + (overlap'==0)*somewhatCostly;
           
           
           % more costs
@@ -838,7 +1016,7 @@ classdef FishTracker < handle;
             %cost{end+1} = pdist2(tracks(i).classProb,clprob,'Euclidean');%correlation??!??
             cost{end+1} = sqrt(sum(bsxfun(@minus,tracks(i).classProb,clprob).^2,2))';
             cost{end}(isnan(cost{end})) = 1;
-            
+
             % make sure that at least one fishclass is reasonable probable
             msk = max(clprob,[],2)< self.opts.tracks.probThresForFish;
             cost{end}(msk) = highCost;
@@ -846,6 +1024,8 @@ classdef FishTracker < handle;
             % no prob. just constant;
             cost{end+1} = ones(1,nDetections);
           end
+          
+          
           
           % other features
           for j = 1:size(features,2)
@@ -856,6 +1036,7 @@ classdef FishTracker < handle;
         
           fcost(i,:) = 0;
           for k = 1:length(cost)
+
             fcost(i,:) = fcost(i,:) + cost{k}/self.medianCost(k)*self.scalecost(k); % scale cost
 
             % TRACKS ?
@@ -880,29 +1061,28 @@ classdef FishTracker < handle;
       self.unassignedDetections = [];
       
       
-      
+
       if nDetections
       
         % is there is currently a crossing then prob of non-assignement should be scaled down 
         costOfNonAssignment = self.opts.tracks.costOfNonAssignment;
+
         if ~isempty(self.tracks)
-          frameOfCross = cat(1,self.tracks.frameOfCurrentCrossing);
-          if ~isempty(frameOfCross) && self.currentFrame >  self.opts.classifier.minCrossingFrameDist;
-            currrentlyCrossing = self.currentFrame - frameOfCross<=1;
-            if any(currrentlyCrossing)
-              costOfNonAssignment = costOfNonAssignment/(sum(currrentlyCrossing)+1);
-            end
+          frameOfCross = cat(1,self.tracks.lastFrameOfCrossing);
+          currrentlyCrossing = self.currentFrame - frameOfCross<= 2  ;
+          if any(currrentlyCrossing)
+            costOfNonAssignment = costOfNonAssignment/min(max(sum(currrentlyCrossing),1),2);
           end
         end
         
         % determine cost of each assigment to tracks
         fcost = computeCostMatrix(self);
-        
+
         % Solve the assignment problem.
         [self.assignments, self.unassignedTracks, self.unassignedDetections] = ...
             assignDetectionsToTracks(fcost, costOfNonAssignment);
-        
-        outcost = Inf*zeros(1,size(fcost,2));
+          
+        outcost = nan(1,size(fcost,2));
         if ~isempty(self.assignments)
           for i = 1:size(self.assignments,1)
             outcost(self.assignments(i,2)) = fcost(self.assignments(i,1),self.assignments(i,2));
@@ -911,8 +1091,19 @@ classdef FishTracker < handle;
             outcost(self.unassignedDetections(i)) = min(fcost(:,self.unassignedDetections(i)));
           end
         end
-        
+          
         self.cost = outcost;
+
+        % save the median costs
+        costs = self.cost(~isnan(self.cost));
+        if ~isempty(costs)
+          mt = min(self.opts.tracks.medtau,self.currentFrame);
+          self.medianAssignmentCost = self.medianAssignmentCost*(mt-1)/mt  + 1/mt*median(costs);
+        end
+
+        % compute the class prob switching matrix
+        
+        
       end
     
     end
@@ -949,6 +1140,7 @@ classdef FishTracker < handle;
         
         % update classifier 
         % if isempty(tracks(trackIdx).classProb) || isempty(classprob)
+        tracks(trackIdx).lastClassProb =  tracks(trackIdx).classProb;
         tracks(trackIdx).classProb =  classprob;
           %    tracks(trackIdx).nClassProbUpdates = 1;
           % else
@@ -968,7 +1160,8 @@ classdef FishTracker < handle;
         tracks(trackIdx).segment = segm;
         tracks(trackIdx).features = feat;
 
-        if tracks(trackIdx).segment.bendingStdValue<self.opts.classifier.bendingThres
+        thres = self.opts.classifier.crossCostThres*self.medianAssignmentCost;
+        if tracks(trackIdx).segment.bendingStdValue<self.opts.classifier.bendingThres  &&  cost <= thres
           tracks(trackIdx).batchFeatures(tracks(trackIdx).nextBatchIdx,:)  = idfeat;
           tracks(trackIdx).nextBatchIdx = min(tracks(trackIdx).nextBatchIdx+1,self.opts.classifier.maxFramesPerBatch);
         end
@@ -1056,13 +1249,13 @@ classdef FishTracker < handle;
           'features',  self.features(i,:),...
           'segment',   self.segments(i),  ... 
           'classProb',clprob,...
+          'lastClassProb',clprob,...
           'batchFeatures',bfeat,          ...
           'nextBatchIdx', 1,              ...
           'predictor', pred,              ...
-          'frameOfCurrentCrossing', self.currentFrame, ...
-          'crossedCurrentTrackIds',[],...
-          'frameOfLastCrossing', self.currentFrame, ...
-          'crossedLastTrackIds',[],...
+          'firstFrameOfCrossing', self.currentFrame, ...
+          'lastFrameOfCrossing', self.currentFrame, ...
+          'crossedTrackIds',[],...
           'age',       1,                 ...
           'totalVisibleCount', 1,         ...
           'consecutiveInvisibleCount', 0, ...
@@ -1081,29 +1274,45 @@ classdef FishTracker < handle;
 
     function detectTrackCrossings(self)
       
-      self.crossings = false(length(self.tracks),length(self.tracks));
+      crossings = false(length(self.tracks),length(self.tracks));
       if length(self.tracks)<2
         return
       end
       bbox = double(cat(1,self.tracks.bbox));
       centroids = cat(1,self.tracks.centroid);
       dist = squareform(pdist(centroids));
-      bbox34 = bbox(:,3:4);
-
-      msk = dist<self.currentCrossBoxLengthScale*max(bbox34(:));
+      
+      msk = dist<self.currentCrossBoxLengthScale*self.fishlength;
 
       bBoxXOverlap = bsxfun(@ge,bbox(:,1) + bbox(:,3), bbox(:,1)') & bsxfun(@lt,bbox(:,1), bbox(:,1)');
       bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
       bBoxOverlap = bBoxXOverlap & bBoxYOverlap;
       
+      % using the class prob
+      crossidx = [];
+      if any(sum(msk,2)>1)
+        if length(self.tracks)==self.nfish 
+          cl1 = cat(1,self.tracks(:).classProb);
+          cl2 = cat(1,self.tracks(:).lastClassProb);
+          A = pdist2(cl1,cl2);
+          if ~any(isnan(A(:)))
+            as = assignDetectionsToTracks(A,1);
+            if ~isempty(as)
+              crossidx = find(as(:,1)~=as(:,2));
+            end
+          end
+        end
+      end
+
+      costThres = self.opts.classifier.crossCostThres*self.medianAssignmentCost;
       for i = 1:length(self.tracks)
         track = self.tracks(i);
 
-        if sum(msk(i,:))>1  
-          
-          if track.consecutiveInvisibleCount>0 || track.assignmentCost>self.opts.classifier.crossCostThres ...
-            || sum(bBoxOverlap(i,:))>1  
-            self.crossings(i,:) = msk(i,:);
+        if sum(msk(i,:))>1  || sum(bBoxOverlap(i,:))>1  
+
+          %sum(bBoxOverlap(i,:))>1  ||
+          if track.consecutiveInvisibleCount>0 || track.assignmentCost>costThres || any(i==crossidx)
+            crossings(i,:) = msk(i,:);
           end
           
         end
@@ -1111,40 +1320,53 @@ classdef FishTracker < handle;
       end
       
       %make symmetric CAUTION: MIGHT NOT BE SYMMETRIC!
-      self.crossings = self.crossings | self.crossings';
-      self.crossings(find(eye(length(self.crossings)))) = any(self.crossings,1);
+      crossings = crossings | crossings';
+
+      [~,~,self.crossings] = networkComponents(crossings);
+      self.crossings(cellfun('length',self.crossings)==1) = []; % delete self-components
     
+      if ~isempty(self.crossings)
+        verbose('Found %d crossings\r',length(self.crossings));
+        %self.displayTrackingResults()
+      end
     end
     
     
     function updateTrackCrossings(self)
-    % detects and updated cross counter in tracks  
+    % detects and updates the crossing of the track. We want to have the
+    % tracks time of joining the cross and the time of the track leaving. 
 
       self.detectTrackCrossings();
       trackIds = cat(2,self.tracks.id);
 
-      for i = 1:length(self.tracks)
-        cross = self.crossings(i,:); 
+      for i_cross = 1:length(self.crossings) % now cell array of trackIndeces that cross
+      
+        crossedIndices = self.crossings{i_cross}(:)';
 
-        if any(cross)
+        for trackIndex = crossedIndices
+          % handle each trackIndex one by one
+          
+          if ~isempty(self.tracks(trackIndex).crossedTrackIds)
+            % if there is something in the current crossing field it is the same crossing.
+            % The time point of the crossing for each track should be the leaving
+            % time from the cross. So updated time. Since some tracks might join
+            % and then be mixed up, add those to the crossed IDs
 
-          % make sure that it is actually not the same crossing spanning multiple frames
-          dt = self.currentFrame - self.tracks(i).frameOfCurrentCrossing;
-          if dt<self.opts.classifier.minCrossingFrameDist
-            % seems to be the same crossing. Might be others involved, but their tracks will get handled anyway
-            % do nothing
-            self.tracks(i).frameOfCurrentCrossing = self.currentFrame; % update current
-            self.tracks(i).crossedCurrentTrackIds = union(self.tracks(i).crossedCurrentTrackIds,trackIds(find(cross)));
+            self.tracks(trackIndex).lastFrameOfCrossing = self.currentFrame;
+            self.tracks(trackIndex).crossedTrackIds = ...
+                union(trackIds(crossedIndices),self.tracks(trackIndex).crossedTrackIds);
+            self.resetBatchIdx(trackIndex);
           else  
             %new crossing. 
-            self.tracks(i).frameOfLastCrossing = self.tracks(i).frameOfCurrentCrossing;
-            self.tracks(i).frameOfCurrentCrossing = self.currentFrame;
-            
-            self.tracks(i).crossedLastTrackIds = self.tracks(i).crossedCurrentTrackIds;
-            self.tracks(i).crossedCurrentTrackIds = trackIds(find(cross));
+            self.tracks(trackIndex).crossedTrackIds = trackIds(crossedIndices);
+            self.tracks(trackIndex).firstFrameOfCrossing = self.currentFrame;
+            self.tracks(trackIndex).lastFrameOfCrossing = self.currentFrame;
+            self.resetBatchIdx(trackIndex);
           end
         end
       end
+
+   
     end
     
     
@@ -1164,7 +1386,7 @@ classdef FishTracker < handle;
         self.createNewTracks();
       end
 
-      self.updateTrackCrossings();
+      self.updatePos();
     end
     
     
@@ -1175,7 +1397,7 @@ classdef FishTracker < handle;
     %--------------------
     
     function generateResults(self,savedTracks)
-      
+
       if isempty(savedTracks)
         return;
       end
@@ -1189,8 +1411,14 @@ classdef FishTracker < handle;
       nFrames = self.currentFrame;
 
       self.res.pos = permute(self.pos(:,:,1:nFrames),[3,1,2]);      
-      f2t = self.fishId2TrackId(1:nFrames,:);
 
+      %apply a slight smoothing to the pos
+      sz = size(self.res.pos);
+      nconv = 3;
+      self.res.pos = reshape(conv2(self.res.pos(:,:),ones(nconv,1)/nconv,'same'),sz);
+
+
+      f2t = self.fishId2TrackId(1:nFrames,:);
       msk = reshape(arrayfun(@(x)~isempty(x.id),savedTracks),size(savedTracks));
       
       trackIdMat = zeros(nFrames,self.nfish);
@@ -1249,7 +1477,13 @@ classdef FishTracker < handle;
 
       minVisibleCount = 2;
       tracks = self.tracks;
-      uframe = repmat(self.videoReader.frame,[1,1,3]); % make color
+      if isempty(self.videoReader.oframe)
+        uframe = repmat(self.videoReader.frame,[1,1,3]); % make
+                                                         % color;
+      else
+        uframe = self.videoReader.oframe;
+      end
+      
       if ~isa(uframe,'uint8')
         uframe = uint8(uframe*255);
       end
@@ -1291,7 +1525,8 @@ classdef FishTracker < handle;
           cols = jet(self.nfish);
           
           clprob = cat(1,reliableTracks.classProb);
-          [cl,cli] = max(clprob,[],2);
+          lclprob = cat(1,reliableTracks.lastClassProb);
+          [cl,cli] = max((clprob+lclprob)/2,[],2);
           cl(isnan(cl)) = [];
           if length(cl)==length(reliableTracks)
             clabels = uint8(cols(cli,:)*255);
@@ -1306,7 +1541,7 @@ classdef FishTracker < handle;
           
           center = cat(1, reliableTracks.centroid);
           center = cat(2,center,max(self.fishlength/2,self.fishwidth)*ones(size(center,1),1));
-          cross = find(cat(1,reliableTracks.frameOfCurrentCrossing)==self.currentFrame);
+          cross = find(cat(1,reliableTracks.lastFrameOfCrossing)==self.currentFrame);
           uframe = insertObjectAnnotation(uframe, 'circle', center(cross,:), 'Crossing!','Color','red');
           
         
@@ -1331,7 +1566,7 @@ classdef FishTracker < handle;
             
             
             %% insert more markers
-            howmany = 10;
+            howmany = 40;
             trackpos = self.pos(:,:,max(self.currentFrame-howmany,1):self.currentFrame);
             trackpos(:,:,any(any(isnan(trackpos),1),2)) = [];
             if ~isempty(trackpos)
@@ -1376,21 +1611,22 @@ classdef FishTracker < handle;
       % blob anaylser
       self.opts(1).blob(1).overlapthres= 0.8; % just for init str
       self.opts.blob.minArea = 100;
-      self.opts.blob.colorfeature = false;
+      self.opts.blob.colorfeature = true; 
+                                           
       self.opts.blob.interpif = 1;
       
       % classifier 
-      self.opts(1).classifier.crossCostThres = 3;
-      self.opts(1).classifier.reassignProbThres = 0.05;
+      self.opts(1).classifier.crossCostThres = 1.5; % Times the median cost
+      self.opts(1).classifier.reassignProbThres = 0.5;
       self.opts(1).classifier.maxFramesPerBatch = 400; 
-      self.opts(1).classifier.minBatchN = 10; 
+      self.opts(1).classifier.minBatchN = 8; 
       self.opts(1).classifier.npca = 15; 
-      self.opts(1).classifier.nlfd = 3; 
-      self.opts(1).classifier.outliersif = 1; 
+      self.opts(1).classifier.nlfd = 0; 
+      self.opts(1).classifier.outliersif = 0; 
       self.opts(1).classifier.nFramesForInit = 120; % unique frames needed for init classifier
-      self.opts(1).classifier.minCrossingFrameDist = 5;
-      self.opts(1).classifier.nFramesAfterCrossing = 40;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 120; % all simultanously...
+      self.opts(1).classifier.minFramesAfterCrossing = 10;
+      self.opts(1).classifier.nFramesAfterCrossing = 25;
+      self.opts(1).classifier.nFramesForUniqueUpdate = 100; % all simultanously...
       self.opts(1).classifier.nFramesForSingleUpdate = 200; % single. should be larger than unique...
       self.opts(1).classifier.bendingThres = 1.5;
 
@@ -1400,8 +1636,8 @@ classdef FishTracker < handle;
       self.opts(1).tracks.probThresForFish = 0.2;
       self.opts(1).tracks.displayEveryNFrame = 8;
       self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
-      self.opts(1).tracks.crossBoxLengthScale = 1.5; % how many times the max bbox length is regarded as a crossing. 
-      self.opts(1).tracks.crossBoxLengthScalePreInit = 1; % before classifier init
+      self.opts(1).tracks.crossBoxLengthScale = 0.75; % how many times the max bbox length is regarded as a crossing. 
+      self.opts(1).tracks.crossBoxLengthScalePreInit = 0.75; % before classifier init
       
       %lost tracks
       self.opts(1).tracks.invisibleForTooLong = 5;
@@ -1429,8 +1665,19 @@ classdef FishTracker < handle;
         end
       end
       
+      if ~exist('vid','var') || isempty(vid)
+        [filename, pathname]  = uigetfile({'*.avi';'*.mp4';'*.mpg';'*.*'}, ...
+                                          'Pick a movie file for tracking');
+        vid = fullfile(pathname,filename);
+        if ~exist(vid)
+          error('Please select file');
+        end
+        verbose('Selected file %s',vid);
+      end
+      
       self.setupSystemObjects(vid);
-    
+
+      
     end
  
     
@@ -1472,16 +1719,18 @@ classdef FishTracker < handle;
           if ~mod(self.currentFrame-1,self.opts.tracks.displayEveryNFrame)
             self.displayTrackingResults();
           end
-        else
-          if ~mod(self.currentFrame,10)
-            t = datevec(seconds(self.videoReader.currentTime));
-            verbose('Currently at time %1.0fh %1.0fm %1.1fs                      \r',t(4),t(5),t(6));
-          end
+        end
+        if ~mod(self.currentFrame,10)
+          t = datevec(seconds(self.videoReader.currentTime));
+          verbose('Currently at time %1.0fh %1.0fm %1.1fs                      \r',t(4),t(5),t(6));
         end
       end
       
       %% CAUTION SHOULD handle latest crossings
-      
+
+      % just call again for now...
+      self.updateClassifier();
+
       % make correct output structure
       self.generateResults(savedTracks);
       
@@ -1717,7 +1966,7 @@ classdef FishTracker < handle;
       end
     end
     
-    function playVideo(self,timerange,delay)
+    function playVideo(self,timerange,writefile)
 
       res = self.getTrackingResults();      
       
@@ -1726,8 +1975,20 @@ classdef FishTracker < handle;
         timerange = t([1,end]);
       end
       
-      if ~exist('delay','var')
-        delay = 0;
+      if ~exist('writefile','var') || isempty(writefile)
+        writefile = '';
+      end
+      if isscalar(writefile) && writefile
+        [a,b,c] = fileparts(self.videoFile);
+        writefile = [a '/' b '_tracking_video' c];
+      end
+      videoWriter = [];
+      if ~isempty(writefile) 
+        if hasOpenCV()
+          videoWriter = cv.VideoWriter(writefile,self.videoReader.frameSize,'FPS',self.videoReader.frameRate);
+        else
+          error('writing videos not implemented yet in Matlab');
+        end
       end
 
       if isempty(self.videoPlayer)
@@ -1784,16 +2045,18 @@ classdef FishTracker < handle;
         end
 
         self.stepVideoPlayer(uframe);
+        if ~isempty(videoWriter)
+          videoWriter.write(uframe);
+        end
         
         d = seconds(t);
         d.Format = 'hh:mm:ss';
         verbose('CurrentTime %s\r',char(d))
-        pause(delay);
       end
 
       self.videoReader.timeRange = self.timerange;
       self.videoReader.reset();
-      
+      clear videoWriter
     end
     
     
@@ -1801,7 +2064,7 @@ classdef FishTracker < handle;
     % SELF.SAVE([SAVENAME,SAVEPATH,VNAME]) saves the object
 
       if ~exist('savename','var')
-        savename = 'FishTrackerSave';
+        [~,savename] = fileparts(self.videoFile);
       end
       
       if ~isempty(fileparts(savename))
@@ -1826,7 +2089,7 @@ classdef FishTracker < handle;
       fname = [savepath '/' savename '.mat'];
       save([savepath '/' savename],vname);
 
-      verbose('saved varible %s to %s',vname,fname);
+      verbose('saved variable %s to %s',vname,fname);
     end      
       
     

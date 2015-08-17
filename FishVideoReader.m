@@ -7,6 +7,8 @@ classdef FishVideoReader < handle;
     delta = [];  
     timeRange  = [];
     frameFormat = 'RGBU';
+    originalif = false; % if true will read the color frame into
+                        % the self.oframe field
   end
   
   properties(Abstract);
@@ -19,6 +21,7 @@ classdef FishVideoReader < handle;
     currentFrame = 1;
     currentTime = 0;
     frame = [];
+    oframe = [];
     videoFile = '';
     frameRate = [];
     duration = 0;
@@ -36,13 +39,17 @@ classdef FishVideoReader < handle;
    frameRate = a_getFrameRate(self);
    frameSize = a_getFrameSize(self);
    
-   frame     = a_readUFrame(self);      
-   frame     = a_readSFrame(self);      
-   frame     = a_readGrayUFrame(self);      
-   frame     = a_readGraySFrame(self);      
+   [frame,oframe] = a_readUFrame(self);      
+   [frame,oframe] = a_readSFrame(self);      
 
-   frame     = a_readScaledUFrame(self,scale,delta);      
-   frame     = a_readScaledSFrame(self,scale,delta);      
+   [frame,oframe] = a_readGrayUFrame(self);      
+   [frame,oframe] = a_readGraySFrame(self);      
+
+   [frame,oframe] = a_readInvertedGrayUFrame(self);      
+   [frame,oframe] = a_readInvertedGraySFrame(self);      
+
+   [frame,oframe] = a_readScaledUFrame(self,scale,delta);      
+   [frame,oframe] = a_readScaledSFrame(self,scale,delta);      
 
 
    a_setCurrentTime(self,time);
@@ -128,6 +135,7 @@ classdef FishVideoReader < handle;
       self.a_setCurrentTime(time);
       self.currentTime = time-1/self.frameRate;
       self.frame = [];
+      self.oframe = [];
     end
 
     
@@ -145,24 +153,30 @@ classdef FishVideoReader < handle;
       self.setCurrentTime(self.timeRange(1));
       self.currentFrame = 0;
       self.frame = [];
+      self.oframe = [];
     end
 
     
     function varargout = readFrameFormat(self,format);
-    % read increases frame counter. 
+    % read increases frame counter. if ORGINALIF also returns the
+    % original frame
       switch format
         case 'RGBS'
-          self.frame = a_readSFrame(self);
+          [self.frame self.oframe]= a_readSFrame(self);
         case 'RGBU'
-          self.frame = a_readUFrame(self);
+          [self.frame self.oframe] = a_readUFrame(self);
         case 'GRAYU'
-          self.frame = a_readGrayUFrame(self);
+          [self.frame self.oframe] = a_readGrayUFrame(self);
         case 'GRAYS'
-          self.frame = a_readGraySFrame(self);
+          [self.frame self.oframe] = a_readGraySFrame(self);
+        case 'IGRAYU'
+          [self.frame self.oframe] = a_readInvertedGrayUFrame(self);
+        case 'IGRAYS'
+          [self.frame self.oframe] = a_readInvertedGraySFrame(self);
         case 'SCALEDU'
-          self.frame = a_readScaledUFrame(self,self.scale,self.delta);
+          [self.frame self.oframe] = a_readScaledUFrame(self,self.scale,self.delta);
         case 'SCALEDS'
-          self.frame = a_readScaledSFrame(self,self.scale,self.delta);
+          [self.frame self.oframe] = a_readScaledSFrame(self,self.scale,self.delta);
         otherwise
           error('Format not known');
       end
@@ -171,19 +185,30 @@ classdef FishVideoReader < handle;
 
       if nargout
         varargout{1} = self.frame;
+        if self.originalif
+          varargout{2} = self.oframe;
+        else
+          varargout{2} = [];
+        end
       end
 
     end
     
     
     function varargout = readFrame(self);
-    % reads a gray 
-      self.frame = self.readFrameFormat(self.frameFormat);
+    % reads a frame format 
+      [self.frame self.oframe] = self.readFrameFormat(self.frameFormat);
       if nargout
         varargout{1} = self.frame;
+        if self.originalif
+          varargout{2} = self.oframe;
+        else
+          varargout{2} = [];
+        end
       end
-      
     end
+    
+    
     
     function play(self)
       vp = vision.VideoPlayer('Name',self.videoFile);

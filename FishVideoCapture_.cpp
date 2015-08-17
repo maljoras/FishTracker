@@ -49,7 +49,7 @@ const ConstMap<std::string,int> CapProp = ConstMap<std::string,int>
 void mexFunction( int nlhs, mxArray *plhs[],
                   int nrhs, const mxArray *prhs[] )
 {
-    if (nrhs<1 || nlhs>1)
+    if (nrhs<1 || nlhs>2)
         mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
     
     // Determine argument format between constructor or (id,method,...)
@@ -78,14 +78,14 @@ void mexFunction( int nlhs, mxArray *plhs[],
         obj_.erase(id);
     }
     else if (method == "open") {
-        if (nrhs!=3)
+        if (nrhs!=3 || nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         bool b = (rhs[2].isChar()) ?
             obj.open(rhs[2].toString()) : obj.open(rhs[2].toInt());
         plhs[0] = MxArray(b);
     }
     else if (method == "isOpened") {
-        if (nrhs!=2)
+        if (nrhs!=2|| nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         plhs[0] = MxArray(obj.isOpened());
     }
@@ -95,12 +95,12 @@ void mexFunction( int nlhs, mxArray *plhs[],
         obj.release();
     }
     else if (method == "grab") {
-        if (nrhs!=2)
+        if (nrhs!=2|| nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         plhs[0] = MxArray(obj.grab());
     }
     else if (method == "retrieve") {
-        if (nrhs!=2)
+        if (nrhs!=2|| nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         Mat frame;
         if (obj.retrieve(frame)) {
@@ -114,170 +114,213 @@ void mexFunction( int nlhs, mxArray *plhs[],
     else if (method == "read") {
         if (nrhs!=2)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        Mat frame;
-        if (obj.read(frame)) {
-            if (frame.type()==CV_8UC3)
-                cvtColor(frame,frame,cv::COLOR_BGR2RGB);
-            plhs[0] = MxArray(frame);
+	Mat oframe;
+        if (obj.read(oframe)) {
+            if (oframe.type()==CV_8UC3)
+                cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+            plhs[0] = MxArray(oframe);
+	    if (nlhs==2) 
+		plhs[1] = MxArray(oframe);
         }
         else
+	{
             plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	    if (nlhs==2) 
+		plhs[1] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	}
     }
     else if (method == "readSingle") {
         if (nrhs!=2)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+        Mat oframe;
         Mat frame;
-        if (obj.read(frame)) {
-	    if (frame.type()==CV_8UC3) {
-	      cvtColor(frame,frame,cv::COLOR_BGR2RGB);
-	      frame.convertTo(frame, CV_32FC3, 1/255.0);
+        if (obj.read(oframe)) {
+	    if (oframe.type()==CV_8UC3) {
+	      cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+	      oframe.convertTo(frame, CV_32FC3, 1/255.0);
 	      plhs[0] = MxArray(frame);
+	      if (nlhs==2) 
+		  plhs[1] = MxArray(oframe);
+
 	    } else {
  	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
 	    }
         }
         else
+	{
             plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
+	    if (nlhs==2) 
+		plhs[1] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	}
     }
     else if (method == "readGraySingle") {
         if (nrhs!=2)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         Mat frame;
-        if (obj.read(frame)) {
-	    if (frame.type()==CV_8UC3) {
-	      cvtColor(frame,frame,cv::COLOR_BGR2GRAY);
+        Mat oframe;
+        if (obj.read(oframe)) {
+	    if (oframe.type()==CV_8UC3) {
+	      cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
 	      frame.convertTo(frame, CV_32FC1, 1/255.0);
 	      plhs[0] = MxArray(frame);
+	      if (nlhs==2) 
+		{
+		  cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+		  plhs[1] = MxArray(oframe);
+		}
+
 	    } else {
  	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
 	    }
         }
         else
+	{
             plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
+	    if (nlhs==2) 
+		plhs[1] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	}
+
     }
+    else if (method == "readInvertedGraySingle") {
+        if (nrhs!=2)
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+        Mat frame;
+	Mat oframe;
+        if (obj.read(oframe)) {
+	    if (oframe.type()==CV_8UC3) {
+	      cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
+	      frame.convertTo(frame, CV_32FC1, 1/255.0);
+	      plhs[0] = MxArray(1.0 - frame);
+	      if (nlhs==2) 
+		{
+		  cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+		  plhs[1] = MxArray(oframe);
+		}
+	    } else {
+ 	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
+	    }
+        }
+        else
+	{
+            plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
+	    if (nlhs==2) 
+		plhs[1] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	}
+
+    }
+
     else if (method == "readGray") {
         if (nrhs!=2)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         Mat frame;
-        if (obj.read(frame)) {
-	    if (frame.type()==CV_8UC3) {
-	      cvtColor(frame,frame,cv::COLOR_BGR2GRAY);
-	      plhs[0] = MxArray(frame);
-	    } else {
- 	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
-	    }
-        }
-        else
-            plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
-    }
-
-    else if (method == "readScaledS") {
-        if (nrhs!=4)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        if (mxGetNumberOfElements(rhs[2]) !=3)
-             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB vector scale");
-        if (mxGetNumberOfElements(rhs[3]) !=3)
-             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB vector delta");
-
-        Mat frame;
-	Mat channel[3];
-	Mat output ;
-	double  *scale, *delta;
-	scale = mxGetPr(rhs[2]);
-	delta = mxGetPr(rhs[3]);
-
-        if (obj.read(frame)) {
-	    if (frame.type()==CV_8UC3) {
-
-	      split(frame, channel);
-	      for (int ii=0; ii<3; ii++) {
-		channel[ii].convertTo(channel[ii], CV_32FC1, (double) scale[2-ii]/255.0, (double) delta[2-ii]/1.0);
-	      }
-	      output = channel[0] + channel[1] + channel[2];
-	      
-	      plhs[0] = MxArray(output);
-	    } else {
- 	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
-	    }
-        }
-        else
-            plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
-    }
-    else if (method == "readScaledU") {
-        if (nrhs!=4)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        if (mxGetNumberOfElements(rhs[2]) !=3)
-             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB vector scale");
-        if (mxGetNumberOfElements(rhs[3]) !=3)
-             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB vector delta");
-
-        Mat frame;
-	Mat channel[3];
-	Mat output ;
-	double  *scale, *delta;
-	scale = mxGetPr(rhs[2]);
-	delta = mxGetPr(rhs[3]);
-
-        if (obj.read(frame)) {
-	    if (frame.type()==CV_8UC3) {
-
-	      split(frame, channel);
-	      for (int ii=0; ii<3; ii++) {
-		channel[ii].convertTo(channel[ii], CV_32FC1, (double) scale[2-ii]/255.0, (double) delta[2-ii]/1.0);
-	      }
-	      output = channel[0] + channel[1] + channel[2];
-	      output.convertTo(output, CV_8UC1, 255);	      
-
-	      plhs[0] = MxArray(output);
-	    } else {
- 	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
-	    }
-        }
-        else
-            plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
-    }
-
-    else if (method == "readScaledS2") {
-        if (nrhs!=4)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        if (mxGetNumberOfElements(rhs[2]) !=3)
-             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB vector scale");
-        if (mxGetNumberOfElements(rhs[3]) !=3)
-             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB vector delta");
-
-        Mat frame;
-	double  *scale, *delta;
-	scale = mxGetPr(rhs[2]);
-	delta = mxGetPr(rhs[3]);
-	int offset, offsetout;
-
-        if (obj.read(frame)) {
-	    if (frame.type()==CV_8UC3) {
-	      float cr=scale[0]/255.;
-	      float cg=scale[1]/255.;
-	      float cb=scale[2]/255.;
-
-	      Mat output(frame.rows,frame.cols,CV_32FC1);
-
-      
-	      for(int i = 0; i < frame.rows; i++)
+	Mat oframe;
+        if (obj.read(oframe)) {
+	    if (oframe.type()==CV_8UC3) {
+	      cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
+	      plhs[0] = MxArray(frame);	
+	      if (nlhs==2) 
 		{
-		  const uint8_t* framei = frame.ptr<uint8_t>(i);
-		  float* outputi = output.ptr<float>(i);
-
-		  for(int j = 0; j < frame.cols; j = j +3)
-		    outputi[j/3] = (framei[j]*cb + delta[2]) + (framei[j+1]*cg + delta[1]) + (framei[j+2]*cr + delta[0]);
+		  cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+		  plhs[1] = MxArray(oframe);
 		}
-      
-	      plhs[0] = MxArray(output);
-	    } else 
+	    } else {
  	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
-	    
+	    }
         }
         else
-            plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
+	{
+            plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	    if (nlhs==2) 
+		plhs[1] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	}
+    }
+    else if (method == "readInvertedGray") {
+        if (nrhs!=2)
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+        Mat frame;
+	Mat oframe;
+        if (obj.read(oframe)) {
+	    if (oframe.type()==CV_8UC3) {
+	      cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
+	      plhs[0] = MxArray(255-frame);
+	      if (nlhs==2) 
+		{
+		  cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+		  plhs[1] = MxArray(oframe);
+		}
+
+	    } else {
+ 	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
+	    }
+        }
+        else
+	{       
+	    plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	    if (nlhs==2) 
+		plhs[1] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	}
+
     }
 
+    else if ((method == "readScaledS") || (method == "readScaledU")) {
+        if (nrhs!=4)
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+        if ((mxGetNumberOfElements(rhs[2]) !=3) || (!mxIsClass(rhs[2],"double")))
+             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB single vector scale");
+        if ((mxGetNumberOfElements(rhs[3]) !=3)|| (!mxIsClass(rhs[3],"double")))
+             mexErrMsgIdAndTxt("mexopencv:error","Provide RGB single vector delta");
+
+
+        Mat oframe;
+	Mat channel[3];
+	Mat output ;
+	double  *scale, *delta; //!!!!!! NEEDS DOUBLE
+	scale = mxGetPr(rhs[2]);
+	delta = mxGetPr(rhs[3]);
+	float cr= (float) scale[0]/255.;
+	float cg= (float) scale[1]/255.;
+	float cb= (float) scale[2]/255.;
+	float z = (float) (delta[0] + delta[1] + delta[2]);
+
+        if (obj.read(oframe)) {
+	    if (oframe.type()==CV_8UC3) {
+
+	      split(oframe, channel);
+	      for (int ii=0; ii<3; ii++) {
+		channel[ii].convertTo(channel[ii], CV_32FC1);
+	      }
+	      output =  cb*channel[0] + cg*channel[1] + cr*channel[2] + z;
+
+	      // substract mean
+	      output = output - cv::mean(output);
+
+	      if  (method == "readScaledU") // rescale back to U
+		{ 
+		  output += 0.5; // between 0..1
+		  output.convertTo(output, CV_8UC1, 255);	      
+		}
+	      plhs[0] = MxArray(output);
+	      if (nlhs==2) 
+		{
+		  cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+		  plhs[1] = MxArray(oframe);
+		}
+
+	    } else {
+ 	      mexErrMsgIdAndTxt("mexopencv:error","Expect CV_8UC3 color movie");
+	    }
+        }
+        else
+	{	      
+	    if  (method == "readScaledU") // rescale back to U
+		plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	    else
+		plhs[0] = MxArray(mxCreateNumericMatrix(0,0,mxSINGLE_CLASS,mxREAL));
+	 
+	    if (nlhs==2) 
+		plhs[1] = MxArray(mxCreateNumericMatrix(0,0,mxUINT8_CLASS,mxREAL));
+	}
+    }
 
     else if (method == "get") {
         if (nrhs!=3)

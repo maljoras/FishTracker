@@ -14,6 +14,11 @@ classdef FishVideoReaderCV < FishVideoReader;
     
     function nframes = a_getNFrames(self);
       nframes = get(self.reader,'FrameCount');
+      if nframes==0
+        % strange. cannot find how many frames. Assume Inf
+        nframes = Inf;
+      end
+      
     end
     
     function frameRate = a_getFrameRate(self);
@@ -32,28 +37,78 @@ classdef FishVideoReaderCV < FishVideoReader;
       frameSize = [get(self.reader,'FrameHeight'),get(self.reader,'FrameWidth')];
     end
     
-    function frame = a_readScaledSFrame(self,scale,delta);      
-      frame = self.reader.readScaledS(scale,delta);
+    function [frame oframe] = a_readScaledSFrame(self,scale,delta);      
+      if self.originalif
+        [frame oframe]= self.reader.readScaledS(scale,delta);
+      else
+        [frame]= self.reader.readScaledS(scale,delta);
+        oframe = [];
+      end
     end
     
-    function frame = a_readScaledUFrame(self,scale,delta);      
-      frame = self.reader.readScaledU(scale,delta);
+    function [frame oframe] = a_readScaledUFrame(self,scale,delta);      
+      if self.originalif
+        [frame oframe] = self.reader.readScaledU(scale,delta);
+      else
+        frame = self.reader.readScaledU(scale,delta);
+        oframe = [];
+      end
+      
     end
 
-    function frame = a_readUFrame(self);      
-      frame = self.reader.read();
+    function [frame oframe] = a_readUFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.read();
+      else
+        frame = self.reader.read();
+        oframe = [];
+      end
+      
     end
     
-    function frame = a_readGraySFrame(self);      
-      frame = self.reader.readGraySingle();
+    function [frame oframe] = a_readGraySFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readGraySingle();
+      else
+        frame = self.reader.readGraySingle();
+        oframe = [];
+      end
     end
     
-    function frame = a_readGrayUFrame(self);      
-      frame = self.reader.readGray();
+    function [frame oframe] = a_readGrayUFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readGray();
+      else
+        frame = self.reader.readGray();
+        oframe = [];
+      end
     end
     
-    function frame = a_readSFrame(self);      
-      frame = self.reader.readSingle();
+    function [frame oframe] = a_readInvertedGraySFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readInvertedGraySingle();
+      else
+        frame = self.reader.readInvertedGraySingle();
+        oframe = [];
+      end
+    end
+    
+    function [frame oframe] = a_readInvertedGrayUFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readInvertedGray();
+      else
+        frame  = self.reader.readInvertedGray();
+        oframe = [];
+      end
+    end
+    
+    function [frame oframe] = a_readSFrame(self);      
+      if self.originalif
+        [frame oframe]= self.reader.readSingle();
+      else
+        frame = self.reader.readSingle();
+        oframe = [];
+      end
     end
     
     function bool = a_hasFrame(self);
@@ -92,11 +147,11 @@ classdef FishVideoReaderCV < FishVideoReader;
       end
       release(vp);
       self.reset();
-    
+      
     end
     
 
-      
+    
     
     function self = FishVideoReaderCV(vid,trange,varargin) 
     % SELF = FISHVIDEOREADERCV(VID,TRANGE,...) 
@@ -112,7 +167,7 @@ classdef FishVideoReaderCV < FishVideoReader;
 
       self@FishVideoReader(vid,varargin{:});
       
-      self.reader = cv.VideoCapture(vid);
+      self.reader = FishVideoCapture(vid);
       self.init();
       self.timeRange = trange;
 

@@ -1,11 +1,12 @@
-classdef VideoCapture < handle
-    %VIDEOCAPTURE  VideoCapture wrapper class
+classdef FishVideoCapture < handle
+    %FISHVIDEOCAPTURE  FishVideoCapture class. Modfied from
+    %cv.VideoCapture wrapper. 
     %
     % Class for video capturing from video files or cameras. The class
     % provides Matlab API for capturing video from cameras or for reading
     % video files. Here is how the class can be used:
     %
-    %    cap = cv.VideoCapture;
+    %    cap = FishVideoCapture;
     %    pause(3); % Note below
     %    for t = 1:30
     %       imshow(cap.read);
@@ -15,10 +16,10 @@ classdef VideoCapture < handle
     % ## Note
     % In some environment, there is a concurrency issue during camera
     % initialization. To avoid unexpected crash, pause for seconds after
-    % the initialization of VideoCapture object.
+    % the initialization of FishVideoCapture object.
     %
-    % See also cv.VideoCapture.VideoCapture cv.VideoCapture.read
-    % cv.VideoCapture.get cv.VideoCapture.set
+    % See also FishVideoCapture.FishVideoCapture FishVideoCapture.read
+    % FishVideoCapture.get FishVideoCapture.set
     %
     
     properties (SetAccess = private)
@@ -27,31 +28,31 @@ classdef VideoCapture < handle
     end
     
     methods
-        function this = VideoCapture(filename)
-            %VIDEOCAPTURE  Create a new VideoCapture object
+        function this = FishVideoCapture(filename)
+            %VIDEOCAPTURE  Create a new FishVideoCapture object
             %
-            %    cap = cv.VideoCapture
-            %    cap = cv.VideoCapture(devid)
-            %    cap = cv.VideoCapture(filename)
+            %    cap = FishVideoCapture
+            %    cap = FishVideoCapture(devid)
+            %    cap = FishVideoCapture(filename)
             %
-            % VideoCapture create a new instance. With no argument, it
+            % FishVideoCapture create a new instance. With no argument, it
             % connects to the default camera device found in the system.
             % You can specify camera devices by devid, an integer value
             % starting from 0. You can also specify a filename to open a
             % video file.
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
             if nargin < 1, filename = 0; end
-            this.id = VideoCapture_(filename);
+            this.id = FishVideoCapture_(filename);
         end
         
         function delete(this)
             %DELETE  Destructor of VideoCapture object
-            VideoCapture_(this.id, 'delete');
+            FishVideoCapture_(this.id, 'delete');
         end
         
-        function frame = read(this)
+        function varargout = read(this)
             %READ  Grabs, decodes and returns the next video frame
             %
             %    frame = cap.read()
@@ -59,12 +60,16 @@ classdef VideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
-            frame = VideoCapture_(this.id, 'read');
-        end
-        
-        function frame = readScaledS(this,rgbvec_scale,rgbvec_delta)
+            if nargout==1
+              varargout{1}  = FishVideoCapture_(this.id, 'read');
+            else
+              [varargout{1},varargout{2}]  = FishVideoCapture_(this.id, 'read');
+            end
+          end
+          
+        function varargout = readScaledS(this,rgbvec_scale,rgbvec_delta)
             %READ  Grabs, decodes and returns the next video frame
             %and scale each channel according to RGB values in
             %SCALE and shifts channels according to DELTA
@@ -74,11 +79,17 @@ classdef VideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture_
             %
-            frame = VideoCapture_(this.id, 'readScaledS', rgbvec_scale,rgbvec_delta);
-        end
-        function frame = readScaledU(this,rgbvec_scale,rgbvec_delta)
+            if nargout==1
+              varargout{1} = FishVideoCapture_(this.id, 'readScaledS', rgbvec_scale,rgbvec_delta);
+            else
+              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readScaledS', rgbvec_scale,rgbvec_delta);
+            end
+            
+          end
+          
+        function varargout = readScaledU(this,rgbvec_scale,rgbvec_delta)
             %READ  Grabs, decodes and returns the next video frame
             %and scale each channel according to RGB values in
             %SCALE and shifts channels according to DELTA. Returns UINT8. 
@@ -88,28 +99,18 @@ classdef VideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
-            frame = VideoCapture_(this.id, 'readScaledU', rgbvec_scale,rgbvec_delta);
-        end
+            if nargout==1
+              varargout{1} = FishVideoCapture_(this.id, 'readScaledU', rgbvec_scale,rgbvec_delta);
+            else
+              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readScaledU', rgbvec_scale,rgbvec_delta);
+            end
+            
+          end
+          
 
-        function frame = readScaledS2(this,rgbvec_scale,rgbvec_delta)
-            %READ  Grabs, decodes and returns the next video frame
-            %and scale each channel according to RGB values in
-            %SCALE and shifts channels according to DELTA
-            %
-            %    frame = cap.read(SCALE,DELTA)
-            %
-            % The method captures the next video frame and return it. If
-            % capturing fails, empty array will be returned instead.
-            %
-            % See also cv.VideoCapture
-            %
-            frame = VideoCapture_(this.id, 'readScaledS2', rgbvec_scale,rgbvec_delta);
-        end
-
-
-        function frame = readSingle(this)
+        function varargout = readSingle(this)
             %READ  Grabs, decodes and returns the next video
             %frame. Outputs in single format 
             %
@@ -118,12 +119,16 @@ classdef VideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
-            frame = VideoCapture_(this.id, 'readSingle');
-        end
-
-        function frame = readGraySingle(this)
+            if nargout==1
+              varargout{1} = FishVideoCapture_(this.id, 'readSingle');
+            else
+              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readSingle');
+            end
+          end
+          
+        function varargout = readGraySingle(this)
             %READ  Grabs, decodes and returns the next video frame
             %in gray and single format
             %
@@ -132,12 +137,35 @@ classdef VideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
-            frame = VideoCapture_(this.id, 'readGraySingle');
+            if nargout==1
+               varargout{1} = FishVideoCapture_(this.id, 'readGraySingle');
+            else
+              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readGraySingle');
+            end
+            
         end
         
-        function frame = readGray(this)
+        function varargout = readInvertedGraySingle(this)
+            %READ  Grabs, decodes and returns the next video frame
+            %in gray and single format
+            %
+            %    frame = cap.readGraySingle()
+            %
+            % The method captures the next video frame and return it. If
+            % capturing fails, empty array will be returned instead.
+            %
+            % See also FishVideoCapture
+            %
+            if nargout==1
+              varargout{1} = FishVideoCapture_(this.id, 'readInvertedGraySingle');
+            else
+              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readInvertedGraySingle');
+            end
+          end
+        
+        function varargout = readGray(this)
             %READ  Grabs, decodes and returns the next video frame
             %in gray and uint8 format
             %
@@ -146,17 +174,40 @@ classdef VideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
-            frame = VideoCapture_(this.id, 'readGray');
+            if nargout==1
+              varargout{1} = FishVideoCapture_(this.id, 'readGray');
+            else
+              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readGray');
+            end
+          end
+          
+        function varargout = readInvertedGray(this)
+            %READ  Grabs, decodes and returns the next video frame
+            %in gray and uint8 format
+            %
+            %    frame = cap.readGray()
+            %
+            % The method captures the next video frame and return it. If
+            % capturing fails, empty array will be returned instead.
+            %
+            % See also FishVideoCapture
+            %
+            if nargout==1
+              varargout{1} = FishVideoCapture_(this.id, 'readInvertedGray');
+            else
+              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readInvertedGray');
+            end
+
         end
 
         function value = get(this, key)
-            %GET  Returns the specified VideoCapture property
+            %GET  Returns the specified FishVideoCapture property
             %
             %   value = cap.get(PropertyName)
             %
-            % The method returns a Property value of VideoCapture.
+            % The method returns a Property value of FishVideoCapture.
             % PropertyName can be one of the followings:
             %
             %    'PosMsec'       Current position of the video file in milliseconds or video capture timestamp.
@@ -178,17 +229,17 @@ classdef VideoCapture < handle
             %    'ConvertRGB'    Boolean flags indicating whether images should be converted to RGB.
             %    'Rectification' Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
-            value = VideoCapture_(this.id, 'get', key);
+            value = FishVideoCapture_(this.id, 'get', key);
         end
         
         function set(this, key, value)
-            %SET  Sets a property in the VideoCapture.
+            %SET  Sets a property in the FishVideoCapture.
             %
             %    cap.set(PropertyName, value)
             %
-            % The method set a Property value of VideoCapture.
+            % The method set a Property value of FishVideoCapture.
             % PropertyName can be one of the followings:
             %
             %    'PosMsec'       Current position of the video file in milliseconds or video capture timestamp.
@@ -210,9 +261,9 @@ classdef VideoCapture < handle
             %    'ConvertRGB'    Boolean flags indicating whether images should be converted to RGB.
             %    'Rectification' Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
             %
-            % See also cv.VideoCapture
+            % See also FishVideoCapture
             %
-            VideoCapture_(this.id, 'set', key, value);
+            FishVideoCapture_(this.id, 'set', key, value);
         end
     end
 
@@ -226,10 +277,10 @@ classdef VideoCapture < handle
             % The methods release() to close the already opened file or camera.
             % Parameters are the same as in the constructor.
             %
-            % See also cv.VideoCapture.isOpened
+            % See also FishVideoCapture.isOpened
             %
             if nargin < 1, filename = 0; end
-            successFlag = VideoCapture_(this.id, 'open', filename);
+            successFlag = FishVideoCapture_(this.id, 'open', filename);
         end
 
         function flag = isOpened(this)
@@ -240,9 +291,9 @@ classdef VideoCapture < handle
             %
             % If the previous call to constructor or open() succeeded, the method returns true.
             %
-            % See also cv.VideoCapture.open
+            % See also FishVideoCapture.open
             %
-            flag = VideoCapture_(this.id, 'isOpened');
+            flag = FishVideoCapture_(this.id, 'isOpened');
         end
 
         function release(this)
@@ -250,9 +301,9 @@ classdef VideoCapture < handle
             %
             % The methods are automatically called by subsequent open() and by destructor.
             %
-            % See also cv.VideoCapture.open
+            % See also FishVideoCapture.open
             %
-            VideoCapture_(this.id, 'release');
+            FishVideoCapture_(this.id, 'release');
         end
 
         function successFlag = grab(this)
@@ -271,9 +322,9 @@ classdef VideoCapture < handle
             % or motion jpeg decompression etc. is eliminated and the retrieved frames
             % from different cameras will be closer in time.
             %
-            % See also cv.VideoCapture.read cv.VideoCapture.retrieve
+            % See also FishVideoCapture.read FishVideoCapture.retrieve
             %
-            successFlag = VideoCapture_(this.id, 'grab');
+            successFlag = FishVideoCapture_(this.id, 'grab');
         end
 
         function frame = retrieve(this)
@@ -283,9 +334,9 @@ classdef VideoCapture < handle
             % been grabbed (camera has been disconnected, or there are no more frames
             % in video file), the function returns an empty matrix.
             %
-            % See also cv.VideoCapture.read cv.VideoCapture.grab
+            % See also FishVideoCapture.read FishVideoCapture.grab
             %
-            frame = VideoCapture_(this.id, 'retrieve');
+            frame = FishVideoCapture_(this.id, 'retrieve');
         end
     end
 

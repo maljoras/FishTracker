@@ -12,7 +12,7 @@ classdef FishBlobAnalysis < handle;
 
     computeMSER = 1;
     minMSERDistance = 3; % in pixels
-    computeMSERthres = 4.5; % when to compute MSER (extent larger than computerMSERthres*fishwidth*fishlength)
+    computeMSERthres = 2.5; % when to compute MSER (extent larger than computerMSERthres*fishwidth*fishlength)
     overlapthres = 0.8;
 
     fishwidth = 20;% approximate value in pixels
@@ -97,7 +97,7 @@ classdef FishBlobAnalysis < handle;
         region.MSERregionsOffset = [];
 
         if self.computeMSER &&  bb(3)*bb(4)>self.computeMSERthres*self.fishwidth*self.fishlength
-          verbose('%d>%f1.0',bb(3)*bb(4),self.computeMSERthres*self.fishwidth*self.fishlength)
+          verbose('%d>%f1.0\r',bb(3)*bb(4),self.computeMSERthres*self.fishwidth*self.fishlength)
           region = self.a_computeMSERregions(region,bb2);
         end
           
@@ -210,7 +210,7 @@ classdef FishBlobAnalysis < handle;
         figure(1);
       end
 
-      fixedwidth = self.fishwidth*2;
+      fixedwidth = self.fishwidth*3;
       fixedheight = self.fishlength;
 
       smallerwidth = self.featurewidth;
@@ -232,8 +232,13 @@ classdef FishBlobAnalysis < handle;
             oimg_col = seg.FilledImageCol2x;
           end
           
-          ori = -seg.MSERregions(1).Orientation+ 90;
+          ori = -seg.MSERregions(1).Orientation+ 90; %! why take
+                                                     %the first?
           lst = seg.MSERregions(1).PixelList;
+          if ~lst(end)
+            % somehow zeros at the end ? WHY ?
+            lst(~any(lst,2),:) =  [];
+          end
           omsk = zeros(size(oimg));
           omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
         else
@@ -299,7 +304,7 @@ classdef FishBlobAnalysis < handle;
         % get updated bounding box of the fish
         [bb,center] = self.a_getMaxAreaRegion(msk);
 
-        
+
         % get direction of movement (assuming the fish get's "thinner")
         y =sum(msk,2);
         inds = find(y);
@@ -331,7 +336,7 @@ classdef FishBlobAnalysis < handle;
           oimg_col = oimg_col(startidx:end,:,:);
           oimg_col(max(end-startidx+2,1):end,:,:) = mback_col;
         end
-        
+
         
         % select fixed window
         fbb = [center,fixedwidth,fixedheight];
@@ -449,8 +454,9 @@ classdef FishBlobAnalysis < handle;
           else
             imagesc(foimg);
           end
+
           
-          daspect([1,1,1]);
+          %daspect([1,1,1]);
           axis off;
           hold on ;
           plot(com,1:fixedheight,'r','linewidth',2)
@@ -462,7 +468,7 @@ classdef FishBlobAnalysis < handle;
           else
             imagesc(final_oimg);
           end
-          daspect([1,1,1]);
+          %daspect([1,1,1]);
           axis off;
           
         end

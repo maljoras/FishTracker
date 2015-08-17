@@ -149,8 +149,12 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
       end
       
       bb =  cv.boundingRect(c);
-      info = cv.fitEllipse(c);      
-      center = info.center;
+      if length(c)>4
+        info = cv.fitEllipse(c);      
+        center = info.center([1,2]);
+      else
+        center = bb([1,2])+ bb([3,4])/2;
+      end
       
     end
     
@@ -187,8 +191,14 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
         s = s+1;
         % BoundingBox
         bb = cv.boundingRect(contours{i});
-        info = cv.fitEllipse(contours{i});
-
+        if length(contours{i})>4
+          info = cv.fitEllipse(contours{i});
+        else
+          info.center = bb([1,2]) + bb([3,4])/2;
+          info.size = bb([3,4]);
+          info.angle = 0;
+        end
+        
         rp(s,1).Area = area;
 
         rp(s,1).Centroid = info.center;

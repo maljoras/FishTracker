@@ -33,10 +33,12 @@ classdef FishBatchClassifier < handle;
     function initialize(self,batchsample)
     % gets the data from the first sample. 
     % CAUTION: also computes the pca from it....
+
       
       if ~iscell(batchsample) || length(batchsample)~=self.nfish || ...
             all(cellfun('isempty',batchsample))
         warning('provide a batch for each fish!');
+        keyboard
         return
       end
       
@@ -329,8 +331,20 @@ classdef FishBatchClassifier < handle;
       
     end
     
-
+    function [classprob] = predictBatch(self,batchsamples)
+      
+      if ~iscell(batchsamples)
+        classprob = mean(self.predict(batchsamples),1);
+      else
+      
+        for i = 1:length(batchsamples)
+          classprob{i} = mean(self.predict(batchsamples{i}),1);
+        end
+      end
+    end
     
+      
+      
     function [classprob] = predict(self,sample)
     % sample needs to be n x dim. Calculates the class probabilities for
     % each sample according to a Gaussian mixture model (naive bayesian)

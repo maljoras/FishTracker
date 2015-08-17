@@ -71,7 +71,7 @@ classdef FishForegroundDetectorCV < FishForegroundDetector;
       end
 
       % to exclude general light effects
-      frame1 = frame1 - mean(frame1(:));
+      frame1 = frame1 - mean2(frame1);
 
       if  self.framecounter>min(self.history,self.nAutoThres)
         bwmsk = self.applyThres(frame1);

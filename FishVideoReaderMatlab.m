@@ -24,39 +24,51 @@ classdef FishVideoReaderMatlab < FishVideoReader;
      framerate = self.reader.FrameRate;
    end
    
-   function frame = a_readScaledSFrame(self,scale,delta);      
-     frame = self.reader.readFrame();
-     frame = im2single(frame);
+   function [frame oframe] = a_readScaledSFrame(self,scale,delta);      
+     oframe = self.reader.readFrame();
+     frame = im2single(oframe);
      frame = bsxfun(@plus,bsxfun(@times,frame,shiftdim(scale(:),-2)),shiftdim(delta(:),-2));
      frame = sum(frame,3);
    end
    
-   function frame = a_readScaledUFrame(self,scale,delta);      
-     frame = self.reader.readFrame();
-     frame = im2single(frame);
+   function [frame oframe] = a_readScaledUFrame(self,scale,delta);      
+     oframe = self.reader.readFrame();
+     frame = im2single(oframe);
      frame = bsxfun(@plus,bsxfun(@times,frame,shiftdim(scale(:),-2)),shiftdim(delta(:),-2));
      frame = uint8(255*sum(frame,3));
    end
 
-   function frame = a_readUFrame(self);      
+   function [frame,oframe] = a_readUFrame(self);      
      % returns uint color frame
-     frame = self.reader.readFrame();
+     oframe = self.reader.readFrame();
+     frame = oframe;
    end
    
-   function frame = a_readGrayUFrame(self);      
-     frame = self.reader.readFrame();
-     frame = rgb2gray(frame);
+   function [frame oframe] = a_readGrayUFrame(self);      
+     oframe = self.reader.readFrame();
+     frame = rgb2gray(oframe);
    end
    
-   function frame = a_readGraySFrame(self);      
-     frame = self.reader.readFrame();
-     frame = im2single(rgb2gray(frame));
+   function [frame oframe] = a_readGraySFrame(self);      
+     oframe = self.reader.readFrame();
+     frame = im2single(rgb2gray(oframe));
    end
    
-   function frame = a_readSFrame(self);      
+   function [frame oframe]= a_readInvertedGrayUFrame(self);      
+     oframe = self.reader.readFrame();
+     frame = uint8(255) - rgb2gray(oframe);
+   end
+   
+   function [frame oframe] = a_readInvertedGraySFrame(self);      
+     oframe = self.reader.readFrame();
+     frame = single(1.0) - im2single(rgb2gray(oframe));
+   end
+
+   
+   function [frame oframe] = a_readSFrame(self);      
      % returns single color frame 
-     frame = self.reader.readFrame();
-     frame = im2single(frame);
+     oframe = self.reader.readFrame();
+     frame = im2single(oframe);
    end
    
    function bool = a_hasFrame(self);

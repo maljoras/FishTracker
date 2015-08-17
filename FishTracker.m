@@ -1611,7 +1611,7 @@ classdef FishTracker < handle;
       % blob anaylser
       self.opts(1).blob(1).overlapthres= 0.8; % just for init str
       self.opts.blob.minArea = 100;
-      self.opts.blob.colorfeature = true; 
+      self.opts.blob.colorfeature = false; 
                                            
       self.opts.blob.interpif = 1;
       

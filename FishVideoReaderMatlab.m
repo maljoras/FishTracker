@@ -72,7 +72,7 @@ classdef FishVideoReaderMatlab < FishVideoReader;
    end
    
    function bool = a_hasFrame(self);
-     bool = self.reader.hasFrame()
+     bool = self.reader.hasFrame();
    end
    
    

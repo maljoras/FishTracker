@@ -24,7 +24,7 @@ static void help()
 {
     cout
         << "------------------------------------------------------------------------------" << endl
-        << "Capturing of videos from the Grashopper. Codecs: [MP4V] X264 MPEG DIVX  "       << endl
+        << "Capturing of videos from the Grashopper. Codecs: X264 MPEG DIVX               "       << endl
         << "if WAITMSEC=0 no display is shown. Otherwise to number of msec to wait. "       << endl
         << "Usage:"                                                                         << endl
         << "         ./SaveVideo inputvideoName [CODEC WAITMSEC] "                          << endl
@@ -172,7 +172,7 @@ int main(int argc, const char *argv[])
 
     std::string fourcc;
     if (argc==2) {
-      fourcc = string("MP4V");
+      fourcc = string("X264");
     } else {
       fourcc = argv[2];
     }

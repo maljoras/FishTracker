@@ -15,8 +15,7 @@ classdef FishTracker < handle;
     maxVelocity = [];
     displayif = 0;
 
-    useGpu = 0;
-    useScaledFormat = 1;
+    useScaledFormat = 0;
     useOpenCV = 1;
     
     grayFormat = 'GRAY';

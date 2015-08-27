@@ -909,6 +909,21 @@ classdef FishTracker < handle;
     end
 
     
+    function cleanupCrossings(self)
+    % handle crossing at the end
+      notHandled = ~arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
+      self.handlePreviouslyCrossedTracks(find(notHandled));
+      self.fishClassifierUpdate(1:self.nfish,0);
+      % test
+      notHandled = ~arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
+      if any(notHandled)
+        warning('There might be unhandled crossings at the end of the tracking result');
+      end
+    end
+    
+
+    
+    
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
   % Track related functions
   %---------------------------------------------------
@@ -1763,22 +1778,18 @@ classdef FishTracker < handle;
     % Main tracking loop
     %--------------------
   
-    function track(self,continueif)
-    % Detect objects, and track them across video frames.
-
-      if isempty(self.res) || ~exist('continueif','var') || ~continueif 
-
-        self.initTracking();
-        verbose('Start tracking of %d fish  in the time range [%1.0f %1.0f]...',...
-                self.nfish,self.timerange(1),self.timerange(2));
-      else
-        verbose('Continue tracking ...');
-      end
+    function track(self,trange)
+    % TRACK(TIMERANGE). Detect objects, and track them across video frames. CAUTION:
+    % Old tracking data will be overwritten
+      
+      self.initTracking();
+      verbose('Start tracking of %d fish  in the time range [%1.0f %1.0f]...',...
+              self.nfish,self.timerange(1),self.timerange(2));
 
       if self.displayif && ~isOpen(self.videoPlayer)
         self.videoPlayer.show();
       end
-      
+
       
       while  hasFrame(self.videoReader) && (~self.displayif || (self.displayif && isOpen(self.videoPlayer)))
 
@@ -1804,21 +1815,12 @@ classdef FishTracker < handle;
         end
       end
       
-      % handle crossing at the end
-      notHandled = ~arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
-      self.handlePreviouslyCrossedTracks(find(notHandled));
-      self.updateClassifier(1:self.nfish);
-
-      % test
-      notHandled = ~arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
-      if any(notHandled)
-        warning('There might be unhandled crossings at the end of the tracking result');
-      end
-      
+      self.cleanupCrossings();
       
       % make correct output structure
-      self.generateResults(savedTracks);
-      
+      if exist('savedTracks','var')
+        self.generateResults(savedTracks);
+      end
       %self.closeVideoObjects();
     end
     

@@ -13,8 +13,8 @@ classdef FishForegroundDetectorCV <FishForegroundDetector;
   methods
   
     function a_init(self);
-      self.detector = cv.BackgroundSubtractorMOG2();
-    %  self.detector = cv.BackgroundSubtractorKNN();
+    %self.detector = cv.BackgroundSubtractorMOG2();
+      self.detector = cv.BackgroundSubtractorKNN();
       self.detector.DetectShadows = self.detectShadows;
       self.detector.History = self.history;
     end

@@ -11,7 +11,7 @@ classdef FishTracker < handle;
     saveFields = {'centroid','classProb','bbox','assignmentCost','consecutiveInvisibleCount', ...
                   'segment.Orientation','segment.bendingStdValue'};
     maxVelocity = [];
-    displayif = 0;
+    displayif = 2;
 
     useScaledFormat = 0;
 
@@ -169,13 +169,12 @@ classdef FishTracker < handle;
     % might become overloaded
       if hasOpenCV() && self.useOpenCV
         % detector = FishForegroundDetectorMatlab(varargin{:});
-        detector = FishForegroundDetectorMatlab(varargin{:}); % MOG2/KNN seems somewhat WORSE 
+        detector = FishForegroundDetectorCV(varargin{:}); % MOG2/KNN seems somewhat WORSE 
 
       else
         detector = FishForegroundDetectorMatlab(varargin{:});
       end
     end
-    
     
     
     function blobAnalyzer=newBlobAnalyzer(self,opts);
@@ -231,19 +230,19 @@ classdef FishTracker < handle;
 
       %% look for objects 
       [nfish,fishSize] = self.findObjectSizes();
-      
+
       if isempty(self.fishlength) % otherwise already set by hand
         self.fishlength = fishSize(1);
       end
       if isempty(self.fishwidth) 
         self.fishwidth = fishSize(2); 
       end
-
       if isempty(self.nfish) 
         self.nfish = nfish;
       end
       assert(self.fishlength>self.fishwidth);
 
+      
     end
 
     
@@ -734,7 +733,7 @@ classdef FishTracker < handle;
           
           % signal that things are handled if enough confidence
           if (min(prob)>self.opts.classifier.reassignProbThres && minsteps>=self.opts.classifier.nFramesAfterCrossing)...
-                || minsteps>3*self.opts.classifier.nFramesForInit % to avoid very long crossings
+                || minsteps>self.opts.classifier.nFramesForInit % to avoid very long crossings
 
             [self.tracks(thisTrackIndices).crossedTrackIds] = deal([]);
           
@@ -1233,8 +1232,8 @@ classdef FishTracker < handle;
         tracks(ind).consecutiveInvisibleCount = ...
             tracks(ind).consecutiveInvisibleCount + 1;
       
-        tracks(trackIdx).classProb = nan(1,self.nfish);;
-        tracks(trackIdx).classProbHistory.update(classprob,tracks(trackIdx).classProbHistory.lambda);
+        tracks(ind).classProb = nan(1,self.nfish);
+        tracks(ind).classProbHistory.update(nan(1,self.nfish),tracks(ind).classProbHistory.lambda);
 
       end
 
@@ -1704,7 +1703,7 @@ classdef FishTracker < handle;
 
       % blob anaylser
       self.opts(1).blob(1).computeMSERthres= 3; % just for init str
-      self.opts.blob.colorfeature = false; 
+      self.opts.blob.colorfeature = true; 
       self.opts.blob.interpif = 1;
       
       % classifier 

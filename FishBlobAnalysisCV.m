@@ -13,9 +13,7 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
     function a_init(self);
       % initialize mser
       self.mser = [];
-      area = 1.5*self.fishwidth*self.fishlength;
-      range =  [self.minArea,max(area,self.minArea+10)];
-      self.mser  =  cv.MSER('MinArea',range(1),'MaxArea',range(2),'MaxVariation',0.6);
+      self.mser  =  cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
     end
 
     
@@ -46,7 +44,6 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
   
 
     function [region] = a_computeMSERregions(self,region,bb2)
-    % not yet implemented. USE MATLAB VERSION FOR NOW
 
       featim = region.FilledImage2x;
       if ~isa(featim,'uint8')

@@ -3,7 +3,7 @@ classdef FishForegroundDetectorCV <FishForegroundDetector;
   properties
     detector = [];
     detectShadows = 0;
-    history = 200;
+    history = 500;
     expectedFrameFormat = 'U';
   end
   

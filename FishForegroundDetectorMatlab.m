@@ -12,7 +12,7 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
     meanSkip = 10;  
     nAutoThres = 30;
 
-    subtractTotalMean = 1;
+    subtractTotalMean = 0; % ALREADY DONE IN C
   end
 
   properties (SetAccess = private);

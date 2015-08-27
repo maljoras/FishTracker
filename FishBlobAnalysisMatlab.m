@@ -98,8 +98,9 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
     end
 
     function a_init(self)
-      area = 1.5*self.fishwidth*self.fishlength;
-      self.range =  [self.minArea,max(area,self.minArea+10)];
+    %area = 1.5*self.fishwidth*self.fishlength;
+    %self.range =  [self.minArea,self.minArea+10];
+      self.range =  [self.minArea,self.maxArea];
     end
 
     function self = FishBlobAnalysisMatlab(varargin) % constructor

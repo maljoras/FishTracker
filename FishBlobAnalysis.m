@@ -3,16 +3,12 @@ classdef FishBlobAnalysis < handle;
   properties 
     
     rprops = {'Centroid','BoundingBox','Orientation','Area'};
-    minArea = 50;
-    minextent = 50;
-    maxextent = 1000;
-    minWidth = 5;
     minmaxintensity = [0.1,0.5];
     nhistbins = 25;
 
     computeMSER = 1;
     minMSERDistance = 3; % in pixels
-    computeMSERthres = 2.5; % when to compute MSER (extent larger than computerMSERthres*fishwidth*fishlength)
+    computeMSERthres = 3; % when to compute MSER (extent larger than computerMSERthres*fishwidth*fishlength)
     overlapthres = 0.8;
 
     fishwidth = 20;% approximate value in pixels
@@ -29,6 +25,12 @@ classdef FishBlobAnalysis < handle;
   properties (SetAccess = private)
     segm = [];
     frame = [];
+    minArea = []; % will be set below
+    maxArea = [];
+    minextent = [];
+    maxextent = [];
+    minWidth = [];
+
   end
   
   
@@ -115,7 +117,7 @@ classdef FishBlobAnalysis < handle;
       if nspots
         bbox =  cat(1,rp.BoundingBox);
         area = cat(1,rp.Area);
-        extent = bbox(:,3) + bbox(:,4);
+        extent = cat(1,rp.MajorAxisLength) + cat(1,rp.MinorAxisLength);
         width = min(bbox(:,[3,4]),[],2);
         delidx =  extent<self.minextent | extent>self.maxextent | self.minArea>area | self.minWidth>width;
         goodmsk(delidx) = false;
@@ -183,10 +185,10 @@ classdef FishBlobAnalysis < handle;
           newspots.PixelIdxList(delsp==1) =[];
           newspots.NumObjects = length(newspots.PixelIdxList);
           
+
+          
           newrp = regionprops(newspots,Iframe,[self.rprops,{'Image','MajorAxisLength','MinorAxisLength'}]);
-
           newrp = self.getMoreFeatures(newrp,Iframe, Cframe);
-
           newrplist = cat(1,newrplist, newrp);
           
         end
@@ -196,8 +198,6 @@ classdef FishBlobAnalysis < handle;
 
 
       rp = [rp(~splitif);newrplist];
-      
-      
     end
     
     
@@ -493,6 +493,8 @@ classdef FishBlobAnalysis < handle;
       % compute more features
       rp = self.getMoreFeatures(rp(goodmsk),Iframe, Cframe);
       rp = self.splitRegions(rp,Iframe, Cframe);
+      %goodmsk = self.getGoodMsk(rp);
+      %rp = rp(goodmsk);
       rp = self.getFishFeatures(rp);
 
       segm = rp;
@@ -508,10 +510,7 @@ classdef FishBlobAnalysis < handle;
       self = self@handle();
 
       
-      self.featurewidth = self.fishwidth;
-      self.featureheight = floor(self.fishlength);
-
-      
+     
       nargs = length(varargin);
       if nargs>0 && mod(nargs,2)
         error('expected arguments of the type ("PropName",pvalue)');
@@ -524,26 +523,39 @@ classdef FishBlobAnalysis < handle;
         end
       end
       
-      self.a_init();
-      
-      verbose('Initiated %s with fish features.',upper(class(self)))
-      verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
+      self.setFishSize([], []);
+     
     end
     
     
       
-    
-    function set.fishwidth(self,fw)
-      self.fishwidth = fw;
-      self.a_init();
-    
-    end
-    
-    function set.fishlength(self,fl)
-      self.fishlength = fl;
-      self.a_init();
-    end
+    function setFishSize(self,fishlength,fishwidth)
+    % adjust paremeters according to the fishsize
+      
+      if ~isempty(fishlength) && ~isempty(fishwidth) 
+        verbose('Initiated %s with fish features.',upper(class(self)))
+        verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
+      end
+      
+      if ~isempty(fishlength)
+        self.fishlength = fishlength;
+      end
+      if ~isempty(fishwidth)
+        self.fishwidth = fishwidth;        
+      end
 
+      
+      self.featurewidth = self.fishwidth;
+      self.featureheight = floor(self.fishlength);
+
+      self.maxextent = 3*(self.fishlength+self.fishwidth);
+      self.minextent = 0.5*(self.fishlength+self.fishwidth);
+      self.minWidth = 0.5*self.fishwidth;
+      self.minArea  = 0.1*self.fishlength*self.fishwidth;
+      self.maxArea  = 2*self.fishlength*self.fishwidth;
+
+      self.a_init();
+    end
       
     function segm = step(self,bwimg, Iframe, Cframe)
     % SEGM = STEP(SELF,BWIMG, IFRAME, CFRAME).  IFRAME is an intensity

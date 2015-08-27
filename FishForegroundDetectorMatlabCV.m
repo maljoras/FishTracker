@@ -1,14 +1,13 @@
-classdef FishForegroundDetectorCV < FishForegroundDetector;
+classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
   
  
     
   properties 
     
     history = 100; % former mtau
-    inverse = 0;
 
     plotif = 0;
-    expectedFrameFormat = 'S';
+    expectedFrameFormat = 'U';
 
     meanSkip = 5;  
     nAutoThres = 30;
@@ -42,9 +41,9 @@ classdef FishForegroundDetectorCV < FishForegroundDetector;
     function [bwimg, thres] = applyAutoThres(self,frame)
     % use the Autothresholder
       if self.inverse
-        [bwimg, thresh] = cv.threshold(-frame, 'auto', 'Method', 'Binary');
+        [bwimg, thres] = cv.threshold(frame, 'auto', 'Method', 'Binary');
       else
-        [bwimg, thresh] = cv.threshold(-frame, 'auto', 'Method', 'BinaryInv');
+        [bwimg, thres] = cv.threshold(frame, 'auto', 'Method', 'BinaryInv');
       end
     end
     
@@ -53,7 +52,7 @@ classdef FishForegroundDetectorCV < FishForegroundDetector;
 
   methods    
     
-    function self = FishForegroundDetectorCV(varargin)
+    function self = FishForegroundDetectorMatlabCV(varargin)
       self = self@FishForegroundDetector(varargin{:});
       % will call a_init
     end
@@ -70,13 +69,11 @@ classdef FishForegroundDetectorCV < FishForegroundDetector;
         frame1 = frame;
       end
 
-      % to exclude general light effects
-      frame1 = frame1 - mean2(frame1);
 
       if  self.framecounter>min(self.history,self.nAutoThres)
         bwmsk = self.applyThres(frame1);
       else
-        [bwmsk,self.thres] = self.applyAutoThres(-frame1);
+        [bwmsk,self.thres] = self.applyAutoThres(frame1);
         self.thres = -self.thres;
       end
       

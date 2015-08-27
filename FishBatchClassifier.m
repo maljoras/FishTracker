@@ -243,6 +243,7 @@ classdef FishBatchClassifier < handle;
 
       validclasses = l(:)>=minBatchN;
       if ~any(validclasses) || isempty(fishidx)
+        warning('no valid classes')
         return
       end
       
@@ -255,6 +256,7 @@ classdef FishBatchClassifier < handle;
         
         if any(assignedFishIdx(validclasses)~=fishidx(validclasses))
           warning('mixed up classes.')
+          %return !?!?!?
         end
       end
       

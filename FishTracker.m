@@ -537,12 +537,12 @@ classdef FishTracker < handle;
         self.resetBatchIdx(trackIndices(~isnan(assignedFishIds)));
       elseif ~all(same) && min(prob)>=self.opts.classifier.reassignProbThres ...
             && minsteps>self.opts.classifier.nFramesAfterCrossing
-        verbose('mixed and min prob is %1.2f\n\n',min(prob));
+        verbose('mixed and min prob is %1.2f',min(prob));
         % mixed up classes
         if all(ismember(assignedFishIds,fishIds)) ...
             && all(self.currentFrame - [self.tracks.lastFrameOfCrossing]>self.opts.classifier.nFramesAfterCrossing) ...
             && self.currentFrame > 5*self.opts.classifier.nFramesForInit % need some time for learning
-
+          
           % only permute if true permutation  only switch if currently no crossing
             self.switchTracks(trackIndices,assignedFishIds);
             self.resetBatchIdx(trackIndices);
@@ -734,8 +734,9 @@ classdef FishTracker < handle;
           
           % signal that things are handled if enough confidence
           if (min(prob)>self.opts.classifier.reassignProbThres && minsteps>=self.opts.classifier.nFramesAfterCrossing)...
-            %        || minsteps>self.opts.classifier.nFramesForUniqueUpdate
-                [self.tracks(thisTrackIndices).crossedTrackIds] = deal([]);
+                || minsteps>3*self.opts.classifier.nFramesForInit % to avoid very long crossings
+
+            [self.tracks(thisTrackIndices).crossedTrackIds] = deal([]);
           
             %delete these ids from all others. They should not currently cross. 
             for i = 1:length(self.tracks)
@@ -866,12 +867,8 @@ classdef FishTracker < handle;
       end
 
       %% handle the crossings
-      if ~hasFrame(self.videoReader)
-        % last frame
-        updateIndices = find(notHandled);
-      else
-        updateIndices = find(hitBound & notHandled);
-      end
+      updateIndices = find(hitBound & notHandled);
+
       
       if self.displayif>2 && ~isempty(updateIndices)
         self.plotCrossings_(1,updateIndices);
@@ -1807,11 +1804,18 @@ classdef FishTracker < handle;
         end
       end
       
-      %% CAUTION SHOULD handle latest crossings
+      % handle crossing at the end
+      notHandled = ~arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
+      self.handlePreviouslyCrossedTracks(find(notHandled));
+      self.updateClassifier(1:self.nfish);
 
-      % just call again for now...
-      self.updateClassifier();
-
+      % test
+      notHandled = ~arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
+      if any(notHandled)
+        warning('There might be unhandled crossings at the end of the tracking result');
+      end
+      
+      
       % make correct output structure
       self.generateResults(savedTracks);
       

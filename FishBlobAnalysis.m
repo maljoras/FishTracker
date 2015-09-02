@@ -3,8 +3,6 @@ classdef FishBlobAnalysis < handle;
   properties 
     
     rprops = {'Centroid','BoundingBox','Orientation','Area'};
-    minmaxintensity = [0.1,0.5];
-    nhistbins = 25;
 
     computeMSER = 1;
     minMSERDistance = 3; % in pixels
@@ -14,7 +12,7 @@ classdef FishBlobAnalysis < handle;
     fishwidth = 20;% approximate value in pixels
     fishlength = 100; 
 
-    interpif = 0; % much better effect it seems
+    interpif = 1; % much better effect it seems
     plotif = 0;
     featurewidth = [];
     featureheight = [];
@@ -56,8 +54,6 @@ classdef FishBlobAnalysis < handle;
       end
       
       regionext = [];
-      mm = self.minmaxintensity;
-      scale = diff(mm)/(self.nhistbins-1);
 
       
         

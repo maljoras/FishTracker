@@ -292,7 +292,7 @@ classdef FishTracker < handle;
       self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScalePreInit;
       
       if isempty(self.maxVelocity)
-        self.maxVelocity = self.fishlength*5*self.videoReader.frameRate;
+        self.maxVelocity = self.fishlength*10*self.videoReader.frameRate;
       end
     end
     
@@ -1109,7 +1109,7 @@ classdef FishTracker < handle;
 
         % Solve the assignment problem.
         [self.assignments, self.unassignedTracks, self.unassignedDetections] = ...
-            assignDetectionsToTracks(fcost, costOfNonAssignment);
+            assignDetectionsToTracks(fcost,  self.opts.tracks.costOfNonAssignmentScale*costOfNonAssignment);
           
         outcost = nan(1,size(fcost,2));
         if ~isempty(self.assignments)
@@ -1751,38 +1751,43 @@ classdef FishTracker < handle;
       end
       
       % some additional defaults [can be overwritten by eg 'detector.thres' name]
-      self.opts(1).detector.history = 300;
+
+      % background change time scale
+      self.opts(1).detector.history = 200;  %[nframes]
 
       % blob anaylser
-      self.opts(1).blob(1).computeMSERthres= 3; % just for init str
-      self.opts.blob.colorfeature = true; 
+      self.opts(1).blob(1).computeMSERthres= 2.5; % just for init str
       self.opts.blob.interpif = 1;
+      self.opts.blob.colorfeature = true; % set blob to color if color might help in classifying
+                                          % the fish
       
       % classifier 
-      self.opts(1).classifier.crossCostThres = 2.5; % Times the median cost
-      self.opts(1).classifier.bendingThres = 1.5;
+      self.opts(1).classifier.crossCostThres = 2.2; % Times the median cost
+      self.opts(1).classifier.bendingThres = 1.7;
+      self.opts(1).classifier.reassignProbThres = 0.5; % MAYBE NEED TO BE SET LOWER FOR NOISY DATA...
 
-      self.opts(1).classifier.reassignProbThres = 0.4; % MAYBE NEED TO BE SET LOWER FOR NOISY DATA...
-      self.opts(1).classifier.maxFramesPerBatch = 400;
-      self.opts(1).classifier.minBatchN = 5; 
       self.opts(1).classifier.npca = 15; 
       self.opts(1).classifier.nlfd = 0; 
       self.opts(1).classifier.outliersif = 0; 
-      self.opts(1).classifier.nFramesForInit = 120; % unique frames needed for init classifier
-      self.opts(1).classifier.nFramesAfterCrossing = 10;
+
+      % update of the classifier
+      self.opts(1).classifier.minBatchN = 8; 
+      self.opts(1).classifier.nFramesForInit = 150; % unique frames needed for init classifier
+      self.opts(1).classifier.nFramesAfterCrossing = 16;
       self.opts(1).classifier.nFramesForUniqueUpdate = 60; % all simultanously...
       self.opts(1).classifier.nFramesForSingleUpdate = 300; % single. should be larger than unique...
-
+      self.opts(1).classifier.maxFramesPerBatch = 400;
 
       % tracks
       self.opts(1).tracks.medtau = 200;
-      self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
-      self.opts(1).tracks.probThresForFish = 0.2;
-      self.opts(1).tracks.displayEveryNFrame = 10;
-      self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
+      self.opts(1).tracks.probThresForFish = 0.1;
       self.opts(1).tracks.crossBoxLengthScale = 0.5; % how many times the max bbox length is regarded as a crossing. 
       self.opts(1).tracks.crossBoxLengthScalePreInit = 0.5; % before classifier init
 
+      self.opts(1).tracks.displayEveryNFrame = 10;
+      self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
+      self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
+      self.opts(1).tracks.costOfNonAssignmentScale = 2; % if many non assigned detection, increase
       %lost tracks
       self.opts(1).tracks.invisibleForTooLong = 50;
       self.opts(1).tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later for very noisy
@@ -1811,21 +1816,17 @@ classdef FishTracker < handle;
       end
       
       if ~exist('vid','var') || isempty(vid)
-        [filename, pathname]  = uigetfile({'*.avi';'*.mp4';'*.mpg';'*.*'}, ...
-                                          'Pick a movie file for tracking');
-        vid = fullfile(pathname,filename);
-        if ~exist(vid)
-          error('Please select file');
-        end
-        verbose('Selected file %s',vid);
+        vid = self.getVideoFile();
       end
-      
-      self.setupSystemObjects(vid);
 
       
+      self.setupSystemObjects(vid);
+      
+      
     end
- 
+
     
+       
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Main tracking loop
     %--------------------
@@ -2115,10 +2116,45 @@ classdef FishTracker < handle;
       end
     end
     
+    
+    function vid = getVideoFile(self,fname)
+
+      if exist('fname','var') && ~isempty(fname)
+        [~,a,b] = fileparts(fname);
+        fname = [a,b];
+      else
+        fname = '';
+      end
+
+      [filename, pathname]  = uigetfile({'*.avi';'*.mp4';'*.mpg';'*.*'}, ...
+                                        sprintf('Pick movie file %s for tracking',fname));
+      vid = fullfile(pathname,filename);
+      if ~exist(vid)
+        error('Please select file');
+      end
+      verbose('Selected file %s',vid);
+    end
+
+  
+    function checkVideoReader(self)
+    % checks wether the videoReader is still OK
+
+      [reader, timerange] = newVideoReader(self,self.videoFile,self.timerange);
+      if isinf(reader.duration)
+        verbose('Cannot find videofile: %s',self.videoFile);
+        self.videoFile = getVideoFile(self,self.videoFile);
+        self.videoReader = [];
+        self.videoReader = self.newVideoReader(self.videoFile,self.timerange);
+      end
+    end
+
+    
     function playVideo(self,timerange,writefile)
 
       res = self.getTrackingResults();      
       
+      self.checkVideoReader()
+
       if ~exist('timerange','var')
         t = cat(1,res.tracks(:,1).t);
         timerange = t([1,end]);

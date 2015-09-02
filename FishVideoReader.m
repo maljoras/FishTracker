@@ -96,15 +96,17 @@ classdef FishVideoReader < handle;
     end
     
     function set.timeRange(self,trange)
-      if isempty(trange) || ~diff(trange)
+      if isempty(trange) || diff(trange)<=0
         self.timeRange= [0,self.duration];
       else
         assert(length(trange)==2);
-        trange(2) = min(trange(2),self.duration);
+        if self.duration
+          trange(2) = min(trange(2),self.duration);
+        end
         trange(1) = max(trange(1),0);
-        assert(diff(trange)>0)
         self.timeRange = trange;
       end
+
     end
     
     

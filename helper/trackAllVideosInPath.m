@@ -45,7 +45,7 @@ function trackAllVideosInPath(path,varargin)
       if opts.excludeDone && exist(matname,'file');
         continue;
       end
-
+      keyboard
       if opts.parallelif
         parfeval(@subTrack,0,fname,matname,opts.args{:});
       else

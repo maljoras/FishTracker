@@ -40,12 +40,12 @@ function trackAllVideosInPath(path,varargin)
     for j = 1:length(d)
       fname = [p{i} filesep d(j).name];
       [a,b,c] = fileparts(fname);
-      matname = [opts.nameadd, b,'.mat'];
+      matname = [p{i} filesep opts.nameadd, b,'.mat'];
       
       if opts.excludeDone && exist(matname,'file');
-        continue;
+        continue
       end
-      keyboard
+
       if opts.parallelif
         parfeval(@subTrack,0,fname,matname,opts.args{:});
       else

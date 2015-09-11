@@ -2140,12 +2140,18 @@ classdef FishTracker < handle;
     % checks wether the videoReader is still OK
 
       [reader, timerange] = newVideoReader(self,self.videoFile,self.timerange);
-      if isinf(reader.duration)
+      if isinf(reader.duration) 
         verbose('Cannot find videofile: %s',self.videoFile);
         self.videoFile = getVideoFile(self,self.videoFile);
         self.videoReader = [];
         self.videoReader = self.newVideoReader(self.videoFile,self.timerange);
       end
+      
+      if isempty(self.videoReader.readFrame())
+        % take new instance
+        self.videoReader = reader;
+      end
+
     end
 
     

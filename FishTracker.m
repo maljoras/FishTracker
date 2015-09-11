@@ -230,7 +230,17 @@ classdef FishTracker < handle;
 
       %% look for objects 
       [nfish,fishSize] = self.findObjectSizes();
-
+      
+      if nfish>25 && isempty(self.nfish)% too many... something wrong
+        warning('The fish size and number cannot be determined')
+        if self.displayif
+          self.nfish = chooseNFish(vid,1); % only if interactively
+          fishSize = [100,20]; % wild guess;
+        else
+          error('Please manual provide fishlength, fishwidth and nfish');
+        end
+      end
+      
       if isempty(self.fishlength) % otherwise already set by hand
         self.fishlength = fishSize(1);
       end
@@ -1817,6 +1827,7 @@ classdef FishTracker < handle;
       
       if ~exist('vid','var') || isempty(vid)
         vid = self.getVideoFile();
+        self.nfish = chooseNFish(vid,1);
       end
 
       

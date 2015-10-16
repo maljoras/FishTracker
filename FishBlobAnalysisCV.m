@@ -14,6 +14,10 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
       % initialize mser
       self.mser = [];
       self.mser  =  cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
+      if isa(self.se,'strel')
+        self.se = getnhood(self.se);
+      end
+      
     end
 
     
@@ -155,7 +159,7 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
       
     end
     
-    %% NEED TO BE UPDATED TO REMAP!!!!
+
     function doimg = a_interp(self,foimg,xshift,mback,type)
 
       [h,w] = size(foimg);
@@ -168,11 +172,16 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
       doimg = cv.remap(foimg,indxI,indy,'BorderType','Constant','BorderValue',mback,'Interpolation',type);
 
     end
-    %%
 
+    function msk = a_closeHoles(self,msk);
+    % not needed. Contours are filled.
+    %msk = cv.dilate(msk,'Element',self.se,'BorderValue',0);
+    %  msk = cv.erode(msk,'BorderValue',0);
+    end
+    
     
     function rp = a_getRegions(self,bwimg,Iframe,rprops);
-
+      
       contours = cv.findContours(bwimg,'Mode','External','Method','Simple');
 % $$$       isuint = isa(Iframe,'uint8');
 
@@ -203,8 +212,9 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
         rp(s,1).MajorAxisLength = max(info.size);
         rp(s,1).MinorAxisLength = min(info.size);
         rp(s,1).Orientation = -info.angle + 90;
-        smallmask = bwimg(bb(2)+1:bb(2)+bb(4),bb(1)+1:(bb(1)+bb(3)));
-        rp(s,1).Image =  smallmask;
+        %smallmask = bwimg(bb(2)+1:bb(2)+bb(4),bb(1)+1:(bb(1)+bb(3)));
+        msk = zeros(bb([4,3]));
+        rp(s,1).Image =  cv.drawContours(msk,contours(i),'Offset',-bb([1,2]),'Thickness',-1,'MaxLevel',2);
 
         
         % COULD USE THIS FUNCTION: cv.getRectSubPix % but maybe overkill

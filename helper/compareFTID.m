@@ -1,6 +1,6 @@
 % comparse the FT and ID tracker
 
-LOAD = 0;
+LOAD = 1;
 COMPUTE = 0;
 PLOT = 1;
 

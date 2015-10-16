@@ -18,6 +18,8 @@ classdef FishBlobAnalysis < handle;
     featureheight = [];
     colorfeature = true;
     readjustposition = false;
+  
+    se = [];
   end
 
   properties (SetAccess = private)
@@ -37,9 +39,10 @@ classdef FishBlobAnalysis < handle;
     [outregion] = a_computeMSERregions(self,inregion,bb2);
     
     regions = a_getRegions(self,bwimg,Iframe,rprops);
+
     [boundingBox,centroid] = a_getMaxAreaRegion(self,bwimg);
     doimg = a_interp(self,foimg,xshift,mback,type);
-  
+    msk = a_closeHoles(self,msk);
     a_init(self);
   end
   
@@ -84,12 +87,17 @@ classdef FishBlobAnalysis < handle;
           region.FilledImageCol2x = region.FilledImage2x;
         end
         
+
         % enlarge mask
         region.Image2x = logical(zeros(bb2([4,3])));
         offset = bb(1:2)-bb2(1:2);
         region.Image2x(offset(2)+1:offset(2)+bb(4),offset(1)+1:offset(1)+bb(3)) = region.Image;
         
 
+        % NOTE: close the holes of the msk
+        %region.Image = self.a_closeHoles(region.Image);
+        region.Image2x= self.a_closeHoles(region.Image2x); % better borders
+        
         %% compute MSER features
         region.MSERregions = []; % field is expected by some functions...
         region.MSERregionsOffset = [];
@@ -180,15 +188,12 @@ classdef FishBlobAnalysis < handle;
           end
           newspots.PixelIdxList(delsp==1) =[];
           newspots.NumObjects = length(newspots.PixelIdxList);
-          
 
-          
           newrp = regionprops(newspots,Iframe,[self.rprops,{'Image','MajorAxisLength','MinorAxisLength'}]);
           newrp = self.getMoreFeatures(newrp,Iframe, Cframe);
           newrplist = cat(1,newrplist, newrp);
           
         end
-        
         
       end
 
@@ -222,35 +227,34 @@ classdef FishBlobAnalysis < handle;
         segments(i).bendingStdValue = [];
 
 
-        if ~isempty(seg.MSERregions)
+% $$$         if ~isempty(seg.MSERregions)
+% $$$           oimg = seg.FilledImage2x;
+% $$$           if self.colorfeature && isfield(seg,'FilledImageCol2x')
+% $$$             oimg_col = seg.FilledImageCol2x;
+% $$$           end
+% $$$           
+% $$$           ori = -seg.MSERregions(1).Orientation+ 90; %! why take
+% $$$                                                      %the first?
+% $$$           lst = seg.MSERregions(1).PixelList;
+% $$$           if ~lst(end)
+% $$$             % somehow zeros at the end ? WHY ?
+% $$$             lst(~any(lst,2),:) =  [];
+% $$$           end
+% $$$           omsk = zeros(size(oimg));
+% $$$           omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
+% $$$         else
+% $$$           % take normal regions
+          
           oimg = seg.FilledImage2x;
-          if self.colorfeature && isfield(seg,'FilledImageCol2x')
-            oimg_col = seg.FilledImageCol2x;
-          end
-          
-          ori = -seg.MSERregions(1).Orientation+ 90; %! why take
-                                                     %the first?
-          lst = seg.MSERregions(1).PixelList;
-          if ~lst(end)
-            % somehow zeros at the end ? WHY ?
-            lst(~any(lst,2),:) =  [];
-          end
-          omsk = zeros(size(oimg));
-          omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
-        else
-          % take normal regions
-          
-
-          oimg = seg.FilledImage2x;
-          omsk =  seg.Image2x;
-          
+          omsk =  seg.Image2x; % Note: Image has no closed borders
+                               % (only Image2x)
           if self.colorfeature && isfield(seg,'FilledImageCol2x')
             oimg_col = seg.FilledImageCol2x;
           end
           
 
           ori = -seg.Orientation + 90;
-        end
+% $$$         end
 
         % need single for the features
         if isa(oimg,'uint8')
@@ -519,8 +523,11 @@ classdef FishBlobAnalysis < handle;
         end
       end
       
+      if isempty(self.se)
+        self.se = strel('disk',1);
+      end
       self.setFishSize([], []);
-     
+
     end
     
     
@@ -542,7 +549,7 @@ classdef FishBlobAnalysis < handle;
 
       
       self.featurewidth = self.fishwidth;
-      self.featureheight = floor(self.fishlength);
+      self.featureheight = floor(self.fishlength*0.6);
 
       self.maxextent = 3*(self.fishlength+self.fishwidth);
       self.minextent = 0.5*(self.fishlength+self.fishwidth);

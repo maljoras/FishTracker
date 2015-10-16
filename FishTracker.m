@@ -48,6 +48,7 @@ classdef FishTracker < handle;
     blobAnalyzer = [];
     fishClassifier = [];
 
+    writefile = '';
   end
   
   properties (SetAccess = private, GetAccess=private);
@@ -71,7 +72,7 @@ classdef FishTracker < handle;
     unassignedTracks = [];
     unassignedDetections = [];
 
-    writefile = '';
+
   end
   
 
@@ -83,15 +84,18 @@ classdef FishTracker < handle;
 
     function closeVideoObjects(self)
 
-      self.videoReader.delete()
-
-      if ~isempty(self.videoPlayer)
-        release(self.videoPlayer);
+      if ~isempty(self.videoWriter)
+        % close writer
+        if ~hasOpenCV()
+          relaese(self.videoWriter);
+        else
+          v = self.videoWriter;
+          clear v;
+        end
+        self.videoWriter = [];
+        self.writefile = '';
       end
       
-      if ~isempty(self.videoWriter)
-        release(self.videoWriter);
-      end
     end
     
     function stepVideoPlayer(self,frame);
@@ -104,14 +108,24 @@ classdef FishTracker < handle;
     
     function stepVideoWriter(self,frame);
       if ~isempty(self.videoWriter)
-        self.videoWriter.step(frame);
+        if hasOpenCV()
+          self.videoWriter.write(frame);
+        else
+          self.videoWriter.step(frame);
+        end
       end
     end
     
     
     function [writer] = newVideoWriter(self,vidname)
-      writer = vision.VideoFileWriter(vidname,'FrameRate',self.videoReader.frameRate);
+      verbose('Init VideoWriter "%s"',vidname);
+      if hasOpenCV()
+        writer = cv.VideoWriter(vidname,self.videoReader.frameSize([2,1]),'FPS',self.videoReader.frameRate,'fourcc','X264');
+      else
+        writer = vision.VideoFileWriter(vidname,'FrameRate',self.videoReader.frameRate);
+      end
     end
+    
     
     function [player] = newVideoPlayer(self,vidname)
       player = vision.VideoPlayer();
@@ -210,14 +224,6 @@ classdef FishTracker < handle;
       [self.videoReader,self.timerange] = self.newVideoReader(vid,self.timerange);
       self.videoFile = vid;
 
-      if ~isempty(self.writefile) && self.displayif
-        self.videoWriter = self.newVideoWriter(self.writefile);
-      else
-        if ~isempty(self.writefile)
-          warning('set displayif>0 for writing a video file!');
-        end
-        self.videoWriter = [];
-      end
       
       %% get new detector
       args = {};
@@ -263,7 +269,20 @@ classdef FishTracker < handle;
       self.timerange = self.videoReader.timeRange; % to get the boundaries right;
       self.videoReader.setCurrentTime(self.timerange(1));
       
-      
+      if isscalar(self.writefile) && self.writefile
+        [a,b,c] = fileparts(self.videoFile);
+        self.writefile = [a '/' b '_trackingVideo' c];
+      end
+
+      if ~isempty(self.writefile) && self.displayif
+        self.videoWriter = self.newVideoWriter(self.writefile);
+      else
+        if ~isempty(self.writefile)
+          warning('set displayif>0 for writing a video file!');
+        end
+        self.videoWriter = [];
+      end
+
       %% get new blobAnalyzer (because fishlength might haven changed)
       self.blobAnalyzer = newBlobAnalyzer(self, self.opts.blob);
       self.videoReader.originalif = self.opts.blob.colorfeature;
@@ -399,8 +418,8 @@ classdef FishTracker < handle;
     % calls the detectors
       
       bwmsk = self.detector.step(self.videoReader.frame);
-
       segm = self.blobAnalyzer.step(bwmsk,self.videoReader.frame,self.videoReader.oframe);
+      
       
       if ~isempty(segm)
         self.centroids = cat(1,segm.Centroid);
@@ -1773,7 +1792,7 @@ classdef FishTracker < handle;
       
       % classifier 
       self.opts(1).classifier.crossCostThres = 2.2; % Times the median cost
-      self.opts(1).classifier.bendingThres = 1.7;
+      self.opts(1).classifier.bendingThres = 4;
       self.opts(1).classifier.reassignProbThres = 0.5; % MAYBE NEED TO BE SET LOWER FOR NOISY DATA...
 
       self.opts(1).classifier.npca = 15; 
@@ -1826,7 +1845,7 @@ classdef FishTracker < handle;
       end
       
       if ~exist('vid','var') || isempty(vid)
-        vid = self.getVideoFile();
+        vid = getVideoFile();
         self.nfish = chooseNFish(vid,1);
       end
 
@@ -1842,9 +1861,14 @@ classdef FishTracker < handle;
     % Main tracking loop
     %--------------------
   
-    function track(self,trange)
+    function track(self,trange,writefile)
     % TRACK(TIMERANGE). Detect objects, and track them across video frames. CAUTION:
     % Old tracking data will be overwritten
+      
+      if exist('writefile','var')
+        self.writefile = writefile;
+      end
+      
       
       if exist('trange','var') && ~isempty(trange)
         self.timerange = trange;
@@ -1862,9 +1886,10 @@ classdef FishTracker < handle;
       while  hasFrame(self.videoReader) && (~self.displayif || (self.displayif && isOpen(self.videoPlayer)))
 
         self.currentFrame = self.currentFrame + 1;
+       
         self.videoReader.readFrame();
-
         self.detectObjects();
+        
         
         self.handleTracks();
         
@@ -1887,7 +1912,7 @@ classdef FishTracker < handle;
       if exist('savedTracks','var')
         self.generateResults(savedTracks);
       end
-      %self.closeVideoObjects();
+      self.closeVideoObjects();
     end
     
     
@@ -2128,23 +2153,6 @@ classdef FishTracker < handle;
     end
     
     
-    function vid = getVideoFile(self,fname)
-
-      if exist('fname','var') && ~isempty(fname)
-        [~,a,b] = fileparts(fname);
-        fname = [a,b];
-      else
-        fname = '';
-      end
-
-      [filename, pathname]  = uigetfile({'*.avi';'*.mp4';'*.mpg';'*.*'}, ...
-                                        sprintf('Pick movie file %s for tracking',fname));
-      vid = fullfile(pathname,filename);
-      if ~exist(vid)
-        error('Please select file');
-      end
-      verbose('Selected file %s',vid);
-    end
 
   
     function checkVideoReader(self)
@@ -2153,7 +2161,7 @@ classdef FishTracker < handle;
       [reader, timerange] = newVideoReader(self,self.videoFile,self.timerange);
       if isinf(reader.duration) 
         verbose('Cannot find videofile: %s',self.videoFile);
-        self.videoFile = getVideoFile(self,self.videoFile);
+        self.videoFile = getVideoFile(self.videoFile);
         self.videoReader = [];
         self.videoReader = self.newVideoReader(self.videoFile,self.timerange);
       end
@@ -2182,15 +2190,11 @@ classdef FishTracker < handle;
       end
       if isscalar(writefile) && writefile
         [a,b,c] = fileparts(self.videoFile);
-        writefile = [a '/' b '_tracking_video' c];
+        writefile = [a '/' b '_playVideo' c];
       end
       videoWriter = [];
       if ~isempty(writefile) 
-        if hasOpenCV()
-          videoWriter = cv.VideoWriter(writefile,self.videoReader.frameSize,'FPS',self.videoReader.frameRate);
-        else
-          error('writing videos not implemented yet in Matlab');
-        end
+        videoWriter = self.newVideoWriter();
       end
 
       if isempty(self.videoPlayer)
@@ -2296,7 +2300,7 @@ classdef FishTracker < handle;
       end
       eval([vname '=self;']);
       fname = [savepath '/' savename '.mat'];
-      save([savepath '/' savename],vname);
+      save([savepath '/' savename],vname,'-v7.3');
 
       verbose('saved variable %s to %s',vname,fname);
     end      

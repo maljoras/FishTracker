@@ -39,7 +39,7 @@
 # ============================================================================
 
 # programs
-MATLABDIR  ?= /opt/MATLAB/R2014b
+MATLABDIR  ?= /opt/MATLAB/R2015b
 MEX        ?= $(MATLABDIR)/bin/mex
 MATLAB     ?= $(MATLABDIR)/bin/matlab
 DOXYGEN    ?= doxygen
@@ -51,6 +51,9 @@ INCLUDEDIR = $(MEXOPENCVDIR)/include
 LIBDIR     = $(MEXOPENCVDIR)/lib
 SRCDIR     = .
 
+#boost dependencies
+INCLUDEDIR2 = /usr/include/boost
+
 # file extensions
 OBJEXT     ?= o
 LIBEXT     ?= a
@@ -60,10 +63,13 @@ ifeq ($(MEXEXT),)
 endif
 
 # mexopencv files and targets
-HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp)
+HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
 SRCS1      := FishVideoCapture_.cpp
 TARGETS1   := $(SRCS1:.cpp=.$(MEXEXT))
-
+SRCS2      := VideoHandler.cpp
+OBJECTS    := $(SRCS2:.cpp=.$(OBJEXT))
+SRCS3      := FishVideoHandler_.cpp 
+TARGETS2   := $(SRCS3:.cpp=.$(MEXEXT))
 
 # OpenCV flags
 ifneq ($(shell pkg-config --exists --atleast-version=3 opencv; echo $$?), 0)
@@ -81,28 +87,23 @@ CV_LDFLAGS := $(filter-out $(LIB_SUFFIX),$(CV_LDFLAGS)) \
 endif
 
 # compiler/linker flags
-override CFLAGS  += -cxx -largeArrayDims -I$(INCLUDEDIR) $(CV_CFLAGS)
-override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS)
-
-# search path for prerequisites of pattern rules
-# Note that VPATH/vpath are designed to find sources, not targets!
-# (http://make.mad-scientist.net/papers/how-not-to-use-vpath/)
-vpath %.cpp $(SRCDIR)/$(TARGETDIR)
+override CFLAGS  += -cxx -largeArrayDims -I$(INCLUDEDIR) -I$(INCLUDEDIR2) $(CV_CFLAGS) 
+override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) -lboost_thread  
 
 
 # targets
-all: $(TARGETS1)
+all: $(OBJECTS) $(TARGETS1) $(TARGETS2)
+
+#  objects
+$(OBJECTS): $(SRCS2)
+	$(MEX) -c $(CFLAGS)  $<
 
 # MEX-files
-$(TARGETDIR)/%.$(MEXEXT) \
-: %.cpp $(TARGETS1)
+$(TARGETS1): $(SRCS1) 
 	$(MEX) $(CFLAGS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
 
+$(TARGETS2): $(SRCS3)
+	$(MEX) $(CFLAGS) $(OBJECTS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
+
 clean:
-	$(TARGETDIR)/$(TARGETS1) 
-
-doc:
-	$(DOXYGEN) Doxyfile
-
-test:
-	$(MATLAB) -nodisplay -r "addpath(pwd);cd test;try,UnitTest;catch e,disp(e.getReport);end;exit;"
+	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS)

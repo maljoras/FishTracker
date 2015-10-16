@@ -19,8 +19,12 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
     end
     
     function rp = a_getRegions(self,bwimg,Iframe,rprops);
-      bwimg = bwareaopen(bwimg,self.minArea); % needed ?
-      spots=bwconncomp(bwimg,8);
+      if ~isstruct(bwimg)
+        bwimg = bwareaopen(bwimg,self.minArea); % needed ?
+        spots=bwconncomp(bwimg,8);
+      else
+        spots = bwimg;
+      end
       rp = regionprops(spots,Iframe,[self.rprops,{'Image','MajorAxisLength','MinorAxisLength'}]);
     end
     
@@ -29,6 +33,11 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
       [~,midx] = max(cat(1,rp.Area));
       bb = max(floor(rp(midx).BoundingBox),1);
       center = rp(midx).Centroid;
+    end
+    
+    function msk = a_closeHoles(msk);
+      msk = imdilate(msk,self.se);
+      msk = imerode(msk,self.se);
     end
     
     function doimg = a_interp(self,foimg,xshift,mback,type)
@@ -101,6 +110,7 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
     %area = 1.5*self.fishwidth*self.fishlength;
     %self.range =  [self.minArea,self.minArea+10];
       self.range =  [self.minArea,self.maxArea];
+      self.se = strel('disk',1);
     end
 
     function self = FishBlobAnalysisMatlab(varargin) % constructor

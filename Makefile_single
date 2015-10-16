@@ -1,0 +1,17 @@
+CC=g++
+CFLAGS=-c -Wall -Wno-sign-compare  -I/usr/local/include/opencv -I/usr/local/include/ -I/usr/include/boost 
+LDFLAGS=  -lflycapture -L/usr/local/lib -lopencv_core -lopencv_objdetect -lopencv_video  -lopencv_imgproc -lopencv_highgui -lopencv_videoio -lboost_thread -lstdc++
+SOURCES=VideoHandler.cpp 
+OBJECTS=$(SOURCES:.cpp=.o)
+EXECUTABLE=VideoHandler
+
+
+all: $(SOURCES) $(EXECUTABLE)
+
+$(EXECUTABLE): $(OBJECTS) 
+	$(CC) $(LDFLAGS) $(DEBUG) $(OBJECTS) -o $@
+
+.cpp.o:
+	$(CC) $(CFLAGS) $< -o $@
+clean:
+	rm *.o VideoHandler

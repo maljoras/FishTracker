@@ -7,7 +7,7 @@ tr = [0,600]; % 10 minutes
 
 for i = 1:length(fnames)
   ft =  FishTracker(fnames{i},'nfish',nfish(i),'displayif',0,'detector.thres',-0.044,'fishlength',110,'fishwidth',35);
-  ft.saveFields = {ft.saveFields{:} 'segment.FilledImageCol2x','segment.fishFeature','segment.Image2x'};\
+  ft.saveFields = {ft.saveFields{:} 'segment.FilledImageCol2x','segment.fishFeature','segment.Image2x'};
 
   ft.timerange = tr;
   

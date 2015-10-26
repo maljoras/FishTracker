@@ -39,7 +39,7 @@
 # ============================================================================
 
 # programs
-MATLABDIR  ?= /opt/MATLAB/R2015b
+MATLABDIR  ?= /opt/MATLAB/R2014b
 MEX        ?= $(MATLABDIR)/bin/mex
 MATLAB     ?= $(MATLABDIR)/bin/matlab
 DOXYGEN    ?= doxygen
@@ -87,7 +87,7 @@ CV_LDFLAGS := $(filter-out $(LIB_SUFFIX),$(CV_LDFLAGS)) \
 endif
 
 # compiler/linker flags
-override CFLAGS  += -cxx -largeArrayDims -I$(INCLUDEDIR) -I$(INCLUDEDIR2) $(CV_CFLAGS) 
+override CFLAGS  += -cxx  -largeArrayDims -I$(INCLUDEDIR) -I$(INCLUDEDIR2) $(CV_CFLAGS) 
 override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) -lboost_thread  
 
 

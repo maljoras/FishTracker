@@ -29,16 +29,22 @@ public:
 
     cv::Mat Image;
     cv::Mat FilledImage;
-    cv::Mat FilledColImage;
     cv::Mat RotImage;
     cv::Mat RotFilledImage;
-    cv::Mat RotFilledColImage;
-
+    cv::Mat FishFeature;
+    cv::Mat FishFeatureRemap;
+    cv::Mat CenterLine;    
+    Scalar mback;
+    
     cv::Rect Bbox;
     float Orientation;
-    cv::Point2f Center;
+    cv::Point2f Centroid;
+    double MajorAxisLength;
+    double MinorAxisLength;
+    double Area;
+    double bendingStdValue;
     cv::Size2f Size;
-    vector<cv::Point> CenterLine;
+
     vector<double> Thickness;
 };
 
@@ -68,47 +74,78 @@ public:
     /**
      * sets the scaling of RGB.
      */
-    void setScale(vector<float> scale, vector<float> delta);
+    void setScale(vector<float> scale);
+
+    /**
+     * gets the scaling of RGB.
+     */
+    vector<float> getScale();
 
     /**
      * sets the time for video to start
      */
     void setTime(double msec);
 
-
+    /**
+     * sets properties
+     */
+    int set(const string prop, double value);
+    
+    /**
+     * gets the properties
+     */
+    double get(const string prop);
+    
+    
     //properties
     cv::Ptr<cv::BackgroundSubtractorKNN> pBackgroundSubtractor;
     cv::Ptr<cv::VideoCapture>  pVideoCapture;
 
-
-
     cv::Mat OFrame;
     cv::Mat Frame;
     cv::Mat BWImg;
-    vector<vector<cv::Point> > Contours;
+
     vector<Segment> Segments;
+    int ngoodmsk;
+    vector<bool> goodmsk;
 
-    bool scaled;
-    bool plotif;
-    int minContourSize ;
-    int nprobe;
-
+   
 private:
+    void stopAndInitialize();
+    void startThread();
     int _readNextFrameThread();
     void getSegment(Segment * segm, vector<cv::Point>inContour, cv::Mat inBwImg, cv::Mat inFrame,cv::Mat inOFrame);
     void plotCurrentFrame();
+    void makeGoodMsk();
+
+    cv::Size featureSize; 
 
 protected:
 
     cv::Mat m_NextFrame;
     cv::Mat m_NextOFrame;
     cv::Mat m_NextBWImg;
-    vector<vector<cv::Point> > m_NextContours;
-    vector<Segment> m_NextSegments;
+//    vector<vector<cv::Point> > m_NextContours;
+    vector<vector<cv::Point> > Contours;
+    //   vector<Segment> m_NextSegments;
 
     vector<float> m_Scale;
     float m_Delta;
 
     boost::mutex m_FrameMutex;
+
+    bool scaled;
+    bool plotif;
+    int nprobe;
+
+    bool colorfeature;
+    int minWidth; // pixels for patch
+    int minExtent;
+    int maxExtent;
+    int minArea;
+    int maxArea;
+
+    int featurewidth;
+    int featureheight;
 };
 

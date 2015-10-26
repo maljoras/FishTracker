@@ -13,24 +13,23 @@ classdef FishBlobAnalysis < handle;
     fishlength = 100; 
 
     interpif = 1; % much better effect it seems
-    plotif = 0;
-    featurewidth = [];
-    featureheight = [];
-    colorfeature = true;
     readjustposition = false;
-  
+    plotif = 0;    
     se = [];
   end
 
-  properties (SetAccess = private)
+  properties (SetAccess=private)
     segm = [];
-    frame = [];
-    minArea = []; % will be set below
-    maxArea = [];
-    minextent = [];
-    maxextent = [];
-    minWidth = [];
-
+  end
+  properties (Abstract)
+    minArea 
+    maxArea 
+    minextent
+    maxextent
+    minWidth 
+    featurewidth
+    featureheight
+    colorfeature
   end
   
   
@@ -47,8 +46,8 @@ classdef FishBlobAnalysis < handle;
   end
   
   
-  methods (Access=private)
-  
+  methods (Access=protected)
+    
     function regionext = getMoreFeatures(self,regions,Iframe,Cframe)
       
       if isempty(regions)
@@ -59,7 +58,7 @@ classdef FishBlobAnalysis < handle;
       regionext = [];
 
       
-        
+      
       for i = 1:length(regions)
         region = regions(i);
         
@@ -81,7 +80,7 @@ classdef FishBlobAnalysis < handle;
         if ~isempty(Cframe)
           region.FilledImageCol = Cframe(bb(2)+1:(bb(2)+bb(4)),bb(1)+1:(bb(1)+bb(3)),:);
           region.FilledImageCol2x = Cframe(bb2(2)+1:(bb2(2)+bb2(4)),bb2(1)+1:(bb2(1)+bb2(3)),:);
-        
+          
         else % needed?
           region.FilledImageCol = region.FilledImage;
           region.FilledImageCol2x = region.FilledImage2x;
@@ -106,7 +105,7 @@ classdef FishBlobAnalysis < handle;
           verbose('%d>%f1.0\r',bb(3)*bb(4),self.computeMSERthres*self.fishwidth*self.fishlength)
           region = self.a_computeMSERregions(region,bb2);
         end
-          
+        
         %% add 
         regionext = cat(1,regionext,region);
       end
@@ -223,38 +222,38 @@ classdef FishBlobAnalysis < handle;
       for i = 1:length(segments)
         seg = segments(i);
 
-        segments(i).fishFeature = [];
+        segments(i).FishFeature = [];
         segments(i).bendingStdValue = [];
 
 
-% $$$         if ~isempty(seg.MSERregions)
-% $$$           oimg = seg.FilledImage2x;
-% $$$           if self.colorfeature && isfield(seg,'FilledImageCol2x')
-% $$$             oimg_col = seg.FilledImageCol2x;
-% $$$           end
-% $$$           
-% $$$           ori = -seg.MSERregions(1).Orientation+ 90; %! why take
-% $$$                                                      %the first?
-% $$$           lst = seg.MSERregions(1).PixelList;
-% $$$           if ~lst(end)
-% $$$             % somehow zeros at the end ? WHY ?
-% $$$             lst(~any(lst,2),:) =  [];
-% $$$           end
-% $$$           omsk = zeros(size(oimg));
-% $$$           omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
-% $$$         else
-% $$$           % take normal regions
-          
-          oimg = seg.FilledImage2x;
-          omsk =  seg.Image2x; % Note: Image has no closed borders
-                               % (only Image2x)
-          if self.colorfeature && isfield(seg,'FilledImageCol2x')
-            oimg_col = seg.FilledImageCol2x;
-          end
-          
+    % $$$         if ~isempty(seg.MSERregions)
+    % $$$           oimg = seg.FilledImage2x;
+    % $$$           if self.colorfeature && isfield(seg,'FilledImageCol2x')
+    % $$$             oimg_col = seg.FilledImageCol2x;
+    % $$$           end
+    % $$$           
+    % $$$           ori = -seg.MSERregions(1).Orientation+ 90; %! why take
+    % $$$                                                      %the first?
+    % $$$           lst = seg.MSERregions(1).PixelList;
+    % $$$           if ~lst(end)
+    % $$$             % somehow zeros at the end ? WHY ?
+    % $$$             lst(~any(lst,2),:) =  [];
+    % $$$           end
+    % $$$           omsk = zeros(size(oimg));
+    % $$$           omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
+    % $$$         else
+    % $$$           % take normal regions
+        
+        oimg = seg.FilledImage2x;
+        omsk =  seg.Image2x; % Note: Image has no closed borders
+                             % (only Image2x)
+        if self.colorfeature && isfield(seg,'FilledImageCol2x')
+          oimg_col = seg.FilledImageCol2x;
+        end
+        
 
-          ori = -seg.Orientation + 90;
-% $$$         end
+        ori = -seg.Orientation + 90;
+    % $$$         end
 
         % need single for the features
         if isa(oimg,'uint8')
@@ -266,7 +265,7 @@ classdef FishBlobAnalysis < handle;
         end
         
         
-                
+        
         if plotif
           subplot(2,length(segments),i)
           if self.colorfeature
@@ -363,7 +362,7 @@ classdef FishBlobAnalysis < handle;
         com = [com(1:floor(bw/2));com;com(end-floor(bw/2)+1:end)];
 
         
-       
+        
         
         if ~self.interpif
           [indy,indx] = ndgrid(single(1:fixedheight),single(1:fixedwidth));
@@ -413,7 +412,7 @@ classdef FishBlobAnalysis < handle;
           end
         end
         
-          
+        
 
         if plotif>2
           figure(3);
@@ -435,9 +434,9 @@ classdef FishBlobAnalysis < handle;
 
         if self.colorfeature
           final_oimg_col = doimg_col(min(idx1,end),min(idx2,end),:);
-          segments(i).fishFeature = final_oimg_col;
+          segments(i).FishFeature = final_oimg_col;
         else
-          segments(i).fishFeature = final_oimg;
+          segments(i).FishFeature = final_oimg;
         end
         
         %final_oimg = (final_oimg(:,1:smallerwidth/2) + final_oimg(:,end:-1:smallerwidth/2+1))/2;
@@ -485,7 +484,7 @@ classdef FishBlobAnalysis < handle;
     
     function segm = detect(self, bwimg, Iframe, Cframe)
       
-      % get the spots from the binary image
+    % get the spots from the binary image
       rp = self.a_getRegions(bwimg,Iframe,[self.rprops,{'Image'}]);
       
       goodmsk = self.getGoodMsk(rp);
@@ -526,10 +525,12 @@ classdef FishBlobAnalysis < handle;
       if isempty(self.se)
         self.se = strel('disk',1);
       end
-      self.setFishSize([], []);
 
     end
     
+    function featureSize = getFeatureSize(self);
+      featureSize  = [self.featureheight,self.featurewidth];
+    end
     
       
     function setFishSize(self,fishlength,fishwidth)
@@ -551,16 +552,16 @@ classdef FishBlobAnalysis < handle;
       self.featurewidth = self.fishwidth;
       self.featureheight = floor(self.fishlength*0.6);
 
-      self.maxextent = 3*(self.fishlength+self.fishwidth);
-      self.minextent = 0.5*(self.fishlength+self.fishwidth);
-      self.minWidth = 0.5*self.fishwidth;
+      self.maxextent = 5*(self.fishlength+self.fishwidth);
+      self.minextent = 0.1*(self.fishlength+self.fishwidth);
+      self.minWidth = 0.1*self.fishwidth;
       self.minArea  = 0.1*self.fishlength*self.fishwidth;
-      self.maxArea  = 2*self.fishlength*self.fishwidth;
+      self.maxArea  = 5*self.fishlength*self.fishwidth;
 
       self.a_init();
     end
       
-    function segm = step(self,bwimg, Iframe, Cframe)
+    function segm = stepBlob(self,bwimg, Iframe, Cframe)
     % SEGM = STEP(SELF,BWIMG, IFRAME, CFRAME).  IFRAME is an intensity
     % based frame (i.e. one channel) and CFRAME can be color frame
     % and is optional. 
@@ -574,33 +575,10 @@ classdef FishBlobAnalysis < handle;
 
       % save for plotting
       self.segm = segm;
-      self.frame = Iframe;
      end
 
     
-     
-    function plot(self)
-
-      if isempty(self.segm)
-        error('Call "step" first');
-      end
-      
-      assert(any(strcmp(self.rprops,'BoundingBox')));
-      assert(any(strcmp(self.rprops,'Centroid')));
-      
-      cla;
-      imagesc(self.frame);
-      hold on;
-      plot(self.segm.Centroid(:,1),self.segm.Centroid(:,2),'xr','markersize',10,'linewidth',2);
-      
-      if ~isempty(self.segm.BoundingBox)
-        z = bbox2points(self.segm.BoundingBox);
-        plot(squeeze(z(:,1,:)),squeeze(z(:,2,:)),'r');
-      end
-      
-      drawnow;
-    end
-
+  
     
   end
 

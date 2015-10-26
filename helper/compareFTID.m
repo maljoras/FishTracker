@@ -30,13 +30,13 @@ if PLOT
 
   for i = 1:nfish
     for j = 1:nfish
-      dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,i) - idres.pos(:,:,j)).^2,2)));
+      dist(i,j) = nanmean(sqrt(sum((ftres.pos(1:1000,:,i) - idres.pos(1:1000,:,j)).^2,2)));
     end
   end
-  assignments = assignDetectionsToTracks(dist,1e10);
+  assignments = assignDetectionsToTracks(dist,1e3);
 
-  ftpos = ftres.pos;
-  idpos = idres.pos(:,:, assignments(assignments(:,1),2));
+  idpos = idres.pos(1:end-1,:,:);
+  ftpos = ftres.pos(:,:, assignments(assignments(:,1),2));
   
   
   %distances

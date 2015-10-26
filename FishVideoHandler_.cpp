@@ -9,6 +9,7 @@
 #include "VideoHandler.h"
 using namespace std;
 using namespace cv;
+using namespace boost::posix_time;
 
 // Persistent objects
 
@@ -42,8 +43,8 @@ const ConstMap<std::string,int> CapProp = ConstMap<std::string,int>
 ;
 
 /// Field names for VideoHandler::Segments.
-#define NSEGMENTFIELD 12
-const char *segments_fields[NSEGMENTFIELD] = { "Bbox","Center","Orientation","Size","Image","FilledImage","FilledColImage","RotImage","RotFilledImage","RotFilledColImage","CenterLine","Thickness"};
+#define NSEGMENTFIELD 18
+const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeature","FishFeatureRemap","CenterLine","Thickness","mback","bendingStdValue","MSERregions"};
 
 /**
  * Main entry called from Matlab
@@ -88,94 +89,73 @@ void mexFunction( int nlhs, mxArray *plhs[],
     }
     else if (method == "step") {
         if (nrhs!=2 || nlhs>4)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments. Outputs: [seg,cont,bwimg,frame]");
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments. Outputs: [seg,bwimg,frame,oframe]");
 
-        obj.step();
+	obj.step();
 
 	if (nlhs>0) {
 	    int n =0;
-	    for (int i=0;i<obj.Segments.size();i++)
-		if ((obj.Segments[i].Size.width>0) && (obj.Segments[i].Size.height>0))
-		    n++;
-	    mxArray * p = mxCreateStructMatrix(n,1,NSEGMENTFIELD, segments_fields);
+	    mxArray * p = mxCreateStructMatrix(obj.ngoodmsk,1,NSEGMENTFIELD, segments_fields);
 	    if (!p)
 		mexErrMsgIdAndTxt("mexopencv:error", "Allocation error");
 
 	    int j = 0;
 	    for (int i=0; i<obj.Segments.size(); i++) {
-		if ((obj.Segments[i].Size.width>0)  && (obj.Segments[i].Size.height>0)) {
-		    mxSetField(p,j,"Bbox",MxArray(obj.Segments[i].Bbox));
+		if (obj.goodmsk[i]) {
+		    mxSetField(p,j,"BoundingBox",MxArray(obj.Segments[i].Bbox));
 		    mxSetField(p,j,"Orientation",MxArray(obj.Segments[i].Orientation));
 		    mxSetField(p,j,"Size",MxArray(obj.Segments[i].Size));
-		    mxSetField(p,j,"Center",MxArray(obj.Segments[i].Center));
+		    mxSetField(p,j,"MajorAxisLength",MxArray(obj.Segments[i].MajorAxisLength));
+		    mxSetField(p,j,"MinorAxisLength",MxArray(obj.Segments[i].MinorAxisLength));
+		    mxSetField(p,j,"Centroid",MxArray(obj.Segments[i].Centroid));
 		    mxSetField(p,j,"Image",MxArray(obj.Segments[i].Image,mxLOGICAL_CLASS));
 		    mxSetField(p,j,"FilledImage",MxArray(obj.Segments[i].FilledImage));
-		    mxSetField(p,j,"FilledColImage",MxArray(obj.Segments[i].FilledColImage));
 		    mxSetField(p,j,"RotImage",MxArray(obj.Segments[i].RotImage,mxLOGICAL_CLASS));
 		    mxSetField(p,j,"RotFilledImage",MxArray(obj.Segments[i].RotFilledImage));
-		    mxSetField(p,j,"RotFilledColImage",MxArray(obj.Segments[i].RotFilledColImage));
+		    mxSetField(p,j,"FishFeature",MxArray(obj.Segments[i].FishFeature));
+		    mxSetField(p,j,"FishFeatureRemap",MxArray(obj.Segments[i].FishFeatureRemap));
 		    mxSetField(p,j,"CenterLine",MxArray(obj.Segments[i].CenterLine));
 		    mxSetField(p,j,"Thickness",MxArray(obj.Segments[i].Thickness));
+		    mxSetField(p,j,"Area",MxArray(obj.Segments[i].Area));
+		    mxSetField(p,j,"mback",MxArray(obj.Segments[i].mback));
+		    mxSetField(p,j,"bendingStdValue",MxArray(obj.Segments[i].bendingStdValue));
+		    //mxSetField(p,j,"MSERregions",MxArray(NULL));
 		    j++;
 		}
 	    }
 	    plhs[0] = p;
 	}
 	if (nlhs>1) 
-	    plhs[1] = MxArray(obj.Contours);
+	    plhs[1] = MxArray(obj.BWImg,mxLOGICAL_CLASS);
 	if (nlhs>2) 
-	    plhs[2] = MxArray(obj.BWImg,mxLOGICAL_CLASS);
+	    plhs[2] = MxArray(obj.Frame);
 	if (nlhs>3) 
-	    plhs[3] = MxArray(obj.Frame);
-	if (nlhs>4) 
-	    plhs[4] = MxArray(obj.OFrame);
+	    plhs[3] = MxArray(obj.OFrame);
+	
     }
     else if (method == "getframe") {
         if (nrhs!=2 || nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
 	
-	plhs[0] = MxArray(obj.Frame);
+	plhs[0] = MxArray(obj.OFrame);
     }
-    else if (method == "setMinContourSize") {
-	if (nrhs!=3 || nlhs!=0)
-	    mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	obj.minContourSize = rhs[2].toInt();
-    }
-    else if (method == "getMinContourSize") {
-	if (nrhs!=2 || nlhs!=1)
-	    mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	plhs[0] =MxArray(obj.minContourSize);
-    }
+
     else if (method == "setScale") {
-        if (nrhs<3 || nlhs!=0)
+        if (nrhs!=5 || nlhs!=0)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	if (!rhs[2].isNumeric()) {
-	    if (rhs[2].toString()=="on")
-		obj.scaled = true;
-	    else 
-		obj.scaled = false;
-	} else if (nrhs=6) {
-	    vector<float> v(3);
-	    for (int i=0; i<3;i++) 
+	
+	vector<float> v(3);
+	for (int i=0; i<3;i++) 
 		v[i] = rhs[2+i].toFloat();
-	    vector<float> delta(1);
-	    delta[0] = rhs[5].toFloat();
-	    obj.setScale(v,delta);
-	} else
-	    mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+	obj.setScale(v);
     }
-    else if (method == "isScaled") {
+    else if (method == "getScale") {
         if (nrhs!=2 || nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
 	
-	plhs[0] = MxArray(obj.scaled);
+	plhs[0] = MxArray(obj.getScale());
     }
-    else if (method == "isPlotting") {
-        if (nrhs!=2 || nlhs!=1)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	
-	plhs[0] = MxArray(obj.plotif);
-    }
+
     else if (method == "setTimePos") {
         if (nrhs!=3 || nlhs!=0)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
@@ -187,27 +167,28 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	plhs[0] = MxArray(obj.pVideoCapture->get(cv::CAP_PROP_POS_MSEC));
     }
 
-    else if (method == "setPlotting") {
-        if (nrhs!=3 || nlhs!=0)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	if (!rhs[2].isNumeric()) {
-	    if (rhs[2].toString()=="on")
-		obj.plotif = true;
-	    else 
-		obj.plotif = false;
-	} else
-	    obj.plotif = rhs[2].toBool();
-    }
-    else if ((method == "get") ||  (method == "capget")) {
+    else if (method == "capget") {
         if (nrhs!=3)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         plhs[0] = MxArray(obj.pVideoCapture->get(CapProp[rhs[2].toString()]));
     }
 
-    else if ((method == "set")|| (method == "capset")) {
+    else if (method == "capset") {
         if (nrhs!=4)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
         plhs[0] = MxArray(obj.pVideoCapture->set(CapProp[rhs[2].toString()],rhs[3].toDouble()));
+    }
+    else if (method == "get") { // calls directly yhe properties ov VideoHandler
+        if (nrhs!=3)
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+	plhs[0] = MxArray(obj.get(rhs[2].toString()));
+    }
+    else if (method == "set") { // calls directly yhe properties ov VideoHandler
+        if (nrhs!=4)
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+	if (obj.set(rhs[2].toString(),rhs[3].toDouble())!=0) {
+	    mexErrMsgIdAndTxt("mexopencv:error","Got an error returned");
+	}
     }
     else if (method == "bsget") {
         if (nrhs!=3 || nlhs>1)

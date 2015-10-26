@@ -2,6 +2,14 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
   
   properties;
     range = [];
+    minArea  = [];
+    maxArea  = [];
+    minextent = [];
+    maxextent = [];
+    minWidth  = [];
+    featurewidth = [];
+    featureheight = [];
+    colorfeature = false;
   end
   
     
@@ -116,6 +124,7 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
     function self = FishBlobAnalysisMatlab(varargin) % constructor
       
       self = self@FishBlobAnalysis(varargin{:});
+      self.setFishSize([], []);
     end
   
   end

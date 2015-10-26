@@ -3,10 +3,15 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
   
   properties 
     mser = [];
+    minArea  = [];
+    maxArea  = [];
+    minextent = [];
+    maxextent = [];
+    minWidth  = [];
+    featurewidth = [];
+    featureheight = [];
+    colorfeature = false;
   end
-  
-
-  
   
   methods
     
@@ -237,7 +242,7 @@ classdef FishBlobAnalysisCV < FishBlobAnalysis;
     function self = FishBlobAnalysisCV(varargin) % constructor
       
       self = self@FishBlobAnalysis(varargin{:});
-    
+      self.setFishSize([], []);
 
     end
   

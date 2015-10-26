@@ -4,6 +4,9 @@ classdef FishVideoReaderMatlab < FishVideoReader;
   
   properties 
     reader = [];
+    originalif = false;
+    scale = [1,1,1]/3;
+    delta = 0;  
   end
   
   methods

@@ -3,19 +3,21 @@ classdef FishVideoReader < handle;
   
   
   properties 
-    scale = [];
-    delta = [];  
-    timeRange  = [];
     frameFormat = 'RGBU';
-    originalif = false; % if true will read the color frame into
-                        % the self.oframe field
+    grayFormat = 'GRAY';
+    timeRange  = [];
   end
   
-  properties(Abstract);
-    reader;
 
+  properties(Abstract);
+    reader 
+    originalif 
+    scale ;
+    delta ;  
+    
   end
   
+    
   properties(SetAccess=private);
 
     currentFrame = 1;
@@ -59,36 +61,42 @@ classdef FishVideoReader < handle;
   end
   
   
-  methods(Access=private);
     
-    function increaseCounters(self,time);
-      self.currentTime = self.currentTime + 1/self.frameRate;
-      self.currentFrame = self.currentFrame + 1;
-    end
-
-  end
-  
-  
   methods
+  
     
     function self = FishVideoReader(vid,trange,varargin) 
     % constructor
       self = self@handle();
 
       self.videoFile = vid;
-
-      nargs = length(varargin);
-      if nargs>0 && mod(nargs,2)
-        error('expected arguments of the type ("PropName",pvalue)');
+      if nargin>1
+        self.timeRange = trange;
       end
-      for i = 1:2:nargs
-        if ~ischar(varargin{i}) 
+      if nargin>2
+        nargs = length(varargin);
+        if nargs>0 && mod(nargs,2)
           error('expected arguments of the type ("PropName",pvalue)');
-        else
-          self.(varargin{i}) = varargin{i+1};
+        end
+        for i = 1:2:nargs
+          if ~ischar(varargin{i}) 
+            error('expected arguments of the type ("PropName",pvalue)');
+          else
+            self.(varargin{i}) = varargin{i+1};
+          end
         end
       end
+    end
+    
+      
+    function increaseCounters(self);
+      self.currentTime = self.currentTime + 1/self.frameRate;
+      self.currentFrame = self.currentFrame + 1;
+    end
 
+    
+    function frame = getCurrentFrame(self);
+      frame = self.frame;
     end
 
     function delete(self)
@@ -131,16 +139,18 @@ classdef FishVideoReader < handle;
       verbose('%s using "%s" ',upper(class(self)),[b,c]);
       verbose('FPS: %gHz, NFrames: %d, selected range:  %1.1fs-%1.1fs',self.frameRate,self.nFrames,self.timeRange);
     end
+      
     
+
     function setCurrentTime(self,time)
       assert(time<self.timeRange(2) && time>=self.timeRange(1))
+      time = max(time,0);
       self.a_setCurrentTime(time);
       self.currentTime = time-1/self.frameRate;
       self.frame = [];
       self.oframe = [];
     end
 
-    
     function bool = hasFrame(self);
       if ~isempty(self.timeRange)
         bool = self.currentTime<=self.timeRange(2);

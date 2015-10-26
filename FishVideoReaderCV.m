@@ -4,6 +4,10 @@ classdef FishVideoReaderCV < FishVideoReader;
   
   properties 
     reader = [];
+    originalif = false;
+    scale = [1,1,1]/3;
+    delta = 0;  
+
   end
   
   methods
@@ -171,7 +175,7 @@ classdef FishVideoReaderCV < FishVideoReader;
       self.init();
       self.timeRange = trange;
 
-      self.reset();
+      %self.reset();
       self.verbose();
 
     end

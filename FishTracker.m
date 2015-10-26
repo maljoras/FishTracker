@@ -15,7 +15,7 @@ classdef FishTracker < handle;
     maxVelocity = [];
     displayif = 2;
     
-    scalecost = [20,5,5,0.25,0.25,3,3,1];
+    scalecost = [20,2,5,0.25,0.25];
   end
 
   properties (SetAccess = private)
@@ -33,7 +33,7 @@ classdef FishTracker < handle;
     useMex = 1;
     useScaledFormat = 0;
     
-    costinfo= {'Location','CenterLine','Pixel overlap','Classifier','Orientation','MajorAxisLength','MinorAxisLength','Area'};
+    costinfo= {'Location','CenterLine','Pixel overlap','Classifier','Orientation'};
     medianAssignmentCost =1;
     tracks = [];
     cost = [];
@@ -358,8 +358,8 @@ classdef FishTracker < handle;
 
       if ~isempty(segm)
         if self.useMex
-          %self.centroids = cat(1,segm.Centroid);
-          self.centroids = shiftdim(self.centerLine(1,:,:),1)'; % Head position
+          self.centroids = cat(1,segm.Centroid);
+          %self.centroids = shiftdim(self.centerLine(1,:,:),1)'; % Head position
         else
           self.centroids = cat(1,segm.Centroid);
           for i = 1:length(segm)
@@ -374,7 +374,7 @@ classdef FishTracker < handle;
         self.bboxes = int32(cat(1,segm.BoundingBox));
         %self.features = [cat(1,segm.MeanIntensity), cat(1,segm.Orientation)];
 
-        self.features = [cos([ cat(1,segm.Orientation)]/180*pi),cat(1,segm.MinorAxisLength),cat(1,segm.MajorAxisLength),cat(1,segm.Area)];
+        self.features = [cos([ cat(1,segm.Orientation)]/180*pi)];%,cat(1,segm.MinorAxisLength),cat(1,segm.MajorAxisLength),cat(1,segm.Area)];
 
         
         self.idfeatures =  permute(cat(4,segm.FishFeature),[4,1,2,3]);
@@ -1563,8 +1563,11 @@ classdef FishTracker < handle;
             eval(sprintf('[trackinfo(:).%s] = deal([]);',f(1:find(f=='.',1,'first')-1)));
           else
             for i = 1:length(self.tracks)
-              eval(sprintf('trackinfo(i).%s = self.tracks(i).%s;',f,f));
+              try
+                eval(sprintf('trackinfo(i).%s = self.tracks(i).%s;',f,f));
+              end
             end
+            
           end
         else
           [trackinfo(:).(f)] = deal(self.tracks.(f));
@@ -1758,8 +1761,8 @@ classdef FishTracker < handle;
       
       % classifier 
       self.opts(1).classifier.crossCostThres = 2.2; % Times the median cost
-      self.opts(1).classifier.bendingThres = 4; % fishwidth/fishheight
-      self.opts(1).classifier.reassignProbThres = 0.3; % MAYBE NEED TO BE SET LOWER FOR NOISY DATA...
+      %self.opts(1).classifier.bendingThres = 4; % fishwidth/fishheight
+      self.opts(1).classifier.reassignProbThres = 0.5; % MAYBE NEED TO BE SET LOWER FOR NOISY DATA...
 
       self.opts(1).classifier.npca = 15; 
       self.opts(1).classifier.nlfd = 0; 
@@ -1767,16 +1770,16 @@ classdef FishTracker < handle;
 
       % update of the classifier
       self.opts(1).classifier.minBatchN = 8; 
-      self.opts(1).classifier.nFramesForInit = 175; % unique frames needed for init classifier
+      self.opts(1).classifier.nFramesForInit = 150; % unique frames needed for init classifier
       self.opts(1).classifier.nFramesAfterCrossing = 16;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 80; % all simultanously...
+      self.opts(1).classifier.nFramesForUniqueUpdate = 60; % all simultanously...
       self.opts(1).classifier.nFramesForSingleUpdate = 300; % single. should be larger than unique...
       self.opts(1).classifier.maxFramesPerBatch = 400;
 
       % tracks
       self.opts(1).tracks.medtau = 200;
       self.opts(1).tracks.probThresForFish = 0.1;
-      self.opts(1).tracks.crossBoxLengthScale = 0.5; % how many times the max bbox length is regarded as a crossing. 
+      self.opts(1).tracks.crossBoxLengthScale = 1; % how many times the max bbox length is regarded as a crossing. 
       self.opts(1).tracks.crossBoxLengthScalePreInit = 0.5; % before classifier init
 
       self.opts(1).tracks.displayEveryNFrame = 10;

@@ -16,38 +16,260 @@ classdef FishBlobAnalysis < handle;
     readjustposition = false;
     plotif = 0;    
     se = [];
-  end
-
-  properties (SetAccess=private)
     segm = [];
-  end
-  properties (Abstract)
-    minArea 
-    maxArea 
-    minextent
-    maxextent
-    minWidth 
-    featurewidth
-    featureheight
-    colorfeature
-  end
+    colorfeature = false;
   
-  
-  methods (Abstract);
-    [oimg,msk,oimg_col] = a_imrotate(self,ori,oimg,mback,omsk,oimg_col,mback_col);
-    [outregion] = a_computeMSERregions(self,inregion,bb2);
-    
-    regions = a_getRegions(self,bwimg,Iframe,rprops);
+  end
 
-    [boundingBox,centroid] = a_getMaxAreaRegion(self,bwimg);
-    doimg = a_interp(self,foimg,xshift,mback,type);
-    msk = a_closeHoles(self,msk);
-    a_init(self);
+
+  properties (Access=protected)
+    mser = [];
+    minArea  = [];
+    maxArea = [];
+    minextent = [];
+    maxextent = [];
+    minWidth  = [];
+    featurewidth = [];
+    featureheight = [];
+
   end
   
+% $$$   
+% $$$   methods (Abstract);
+% $$$     [oimg,msk,oimg_col] = a_imrotate(self,ori,oimg,mback,omsk,oimg_col,mback_col);
+% $$$     [outregion] = a_computeMSERregions(self,inregion,bb2);
+% $$$     
+% $$$     regions = a_getRegions(self,bwimg,Iframe,rprops);
+% $$$ 
+% $$$     [boundingBox,centroid] = a_getMaxAreaRegion(self,bwimg);
+% $$$     doimg = a_interp(self,foimg,xshift,mback,type);
+% $$$     msk = a_closeHoles(self,msk);
+% $$$     a_init(self);
+% $$$   end
+% $$$   
   
-  methods (Access=protected)
+  methods (Access=protected) %%% THIS FUNCTIONS CAN BE OVERLOADED
     
+    function a_init(self);
+    % initialize mser
+      if isempty(self.mser)
+        self.mser  =  cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
+        if isa(self.se,'strel')
+          self.se = getnhood(self.se);
+        end
+      end
+      
+    end
+    
+
+    
+    function  [oimg,msk,oimg_col] = a_imrotate(self,ori,oimg,mback,msk,oimg_col,mback_col)
+    % rotate fish to axes
+      
+      sz = size(oimg);
+      p = ori/180*pi;
+      a = cos(p);
+      b = sin(p);
+
+      szin = sz([2,1]);
+      szout = [szin(1)*abs(a)+szin(2)*abs(b),szin(1)*abs(b)+szin(2)*abs(a)];
+
+      %T = cv.getRotationMatrix2D(sz/2,ori,1.);
+      x = szin(1)/2;
+      y = szin(2)/2;
+      offs = (szout-szin)/2;
+      T = [ a, b, (1-a)*x-b*y + offs(1); -b, a, b*x+(1-a)*y + offs(2) ];
+
+      oimg = cv.warpAffine(oimg,T,'DSize',szout,'Interpolation','Linear','BorderValue',mback);
+      msk = cv.warpAffine(msk,T,'DSize',szout,'Interpolation','Nearest','BorderValue',0);
+      
+      if ~isempty(oimg_col)
+        oimg_col = cv.warpAffine(oimg_col,T,'DSize',szout,'Interpolation','Linear','BorderValue',mback_col);
+      end
+    end
+  
+
+    function [region] = a_computeMSERregions(self,region,bb2)
+
+      featim = region.FilledImage2x;
+      if ~isa(featim,'uint8')
+        featim = uint8(featim*255);
+      end
+
+      [p,bboxes] = self.mser.detectRegions(featim);
+      loc = zeros(length(p),2);
+      ori = zeros(length(p),1);
+      pixelList = cell(length(p),1);
+
+      for i = 1:length(p)
+        info = cv.fitEllipse(p{i});
+        ori(i) = info.angle;
+        pixelList{i} = cat(1,p{i}{:});
+        loc(i,:) = info.center;
+      end
+      idxmsk = [];
+      if size(loc,1)>1
+        % select some of the regions
+        idxmsk =  all(bsxfun(@ge,loc,bb2(3:4)/4) & bsxfun(@le,loc,3*bb2(3:4)/4),2);
+      
+        if any(idxmsk)
+          % delete very near points
+          d = tril(squareform(pdist(loc)));
+          x = 1;
+          while ~isempty(x)
+            [x,y] = find(d<self.minMSERDistance & d>0,1);
+            if ~isempty(x)
+              if length(pixelList{x})>length(pixelList{y})
+                z = y;
+              else
+                z = x;
+              end
+              idxmsk(z) = 0;
+              d(:,y) = 0; % y still deleted
+            end
+          end
+        end
+        
+        
+        %region.MSERregions = points;
+        s = 0;
+        for ii = find(idxmsk)'
+          s = s+1;
+          region.MSERregions(s).Location = loc(ii,:);
+          region.MSERregions(s).Orientation = ori(ii);
+          region.MSERregions(s).PixelList = pixelList{ii};
+        end
+        
+        region.MSERregionsOffset = bb2(1:2);
+      end
+      
+      
+      DEBUG = 0;
+      if DEBUG
+
+        p1= detectMSERFeatures(featim,'MaxAreaVariation',0.6);
+
+        subplot(1,2,1);
+        cla;
+        imshow(featim);hold on;
+        plot(p1, 'showPixelList', true, 'showEllipses', false);      
+        title('matlab')
+        subplot(1,2,2);
+        cla;
+        imshow(featim);hold on;
+        idx =find(idxmsk);
+        if ~isempty(idx)
+          pixelList =cellfun(@int32,pixelList,'uni',0);
+          pcv = MSERRegions(pixelList(idx));
+          plot(pcv, 'showPixelList', true, 'showEllipses', false);
+        end
+        title('openCV')
+        keyboard
+      end
+      
+      
+      
+      
+    end
+
+    
+    
+    function [bb,center] = a_getMaxAreaRegion(self,bwimg);
+    % only area,centroid,boundarybos from the max
+      
+      contours = cv.findContours(bwimg,'Mode','External','Method','Simple');
+      
+      if length(contours)>1
+        area = zeros(length(contours),1);
+        % only from largest needed
+        for i = 1:length(contours)
+          area(i) =  cv.contourArea(contours{i});;
+        end
+        [~,imxarea] = max(area);
+        c =contours{imxarea};
+      else
+        c =contours{1};
+      end
+      
+      bb =  cv.boundingRect(c);
+      if length(c)>4
+        info = cv.fitEllipse(c);      
+        center = info.center([1,2]);
+      else
+        center = bb([1,2])+ bb([3,4])/2;
+      end
+      
+    end
+    
+
+    function doimg = a_interp(self,foimg,xshift,mback,type)
+
+      [h,w] = size(foimg);
+      indw = single(0:w-1);
+      indh = single(0:h-1)';
+      indxI = max(min(bsxfun(@plus,indw,xshift),w),1);
+      indy = repmat(indh,[1,w]);
+
+      % color should work, too.
+      doimg = cv.remap(foimg,indxI,indy,'BorderType','Constant','BorderValue',mback,'Interpolation',type);
+
+    end
+
+    function msk = a_closeHoles(self,msk);
+    % not needed. Contours are filled.
+    %msk = cv.dilate(msk,'Element',self.se,'BorderValue',0,'Iterations',1);
+    %  msk = cv.erode(msk,'BorderValue',0,'Iterations',2);
+    %  msk = cv.dilate(msk,'Element',self.se,'BorderValue',0,'Iterations',1);
+    %  msk = logical(msk);
+    end
+    
+    
+    function rp = a_getRegions(self,bwimg,Iframe,rprops);
+      
+      contours = cv.findContours(bwimg,'Mode','External','Method','Simple');
+% $$$       isuint = isa(Iframe,'uint8');
+
+      rp = [];
+      sizei = size(bwimg,1);
+      s = 0;
+      for i = 1:length(contours)
+        
+        area = cv.contourArea(contours{i});;
+        if area< self.minArea
+          continue;
+        end
+        s = s+1;
+        % BoundingBox
+        bb = cv.boundingRect(contours{i});
+        if length(contours{i})>4
+          info = cv.fitEllipse(contours{i});
+        else
+          info.center = bb([1,2]) + bb([3,4])/2;
+          info.size = bb([3,4]);
+          info.angle = 0;
+        end
+        
+        rp(s,1).Area = area;
+
+        rp(s,1).Centroid = info.center;
+        rp(s,1).BoundingBox = bb;
+        rp(s,1).MajorAxisLength = max(info.size);
+        rp(s,1).MinorAxisLength = min(info.size);
+        rp(s,1).Orientation = -info.angle + 90;
+        %smallmask = bwimg(bb(2)+1:bb(2)+bb(4),bb(1)+1:(bb(1)+bb(3)));
+        msk = zeros(bb([4,3]));
+        rp(s,1).Image =  cv.drawContours(msk,contours(i),'Offset',-bb([1,2]),'Thickness',-1,'MaxLevel',2);
+
+      end
+    end
+    
+  end
+
+  
+  
+  
+  methods % GENERAL ACCESS METHODS
+
     function regionext = getMoreFeatures(self,regions,Iframe,Cframe)
       
       if isempty(regions)
@@ -61,10 +283,10 @@ classdef FishBlobAnalysis < handle;
       
       for i = 1:length(regions)
         region = regions(i);
-        
-
-        % save some features 
         bb = floor(double(region.BoundingBox));
+        
+        % save some features 
+        
         bb(1:2) = max(bb(1:2),0);
         bb2 = bb;
         bb2(1:2) = max(floor(bb(1:2)-bb(3:4)/2),0);
@@ -76,7 +298,7 @@ classdef FishBlobAnalysis < handle;
         
         region.FilledImage =   Iframe(bb(2)+1:bb(2)+bb(4),bb(1)+1:(bb(1)+bb(3)));
         region.FilledImage2x =   Iframe(bb2(2)+1:(bb2(2)+bb2(4)),bb2(1)+1:(bb2(1)+bb2(3)));
-
+        
         if ~isempty(Cframe)
           region.FilledImageCol = Cframe(bb(2)+1:(bb(2)+bb(4)),bb(1)+1:(bb(1)+bb(3)),:);
           region.FilledImageCol2x = Cframe(bb2(2)+1:(bb2(2)+bb2(4)),bb2(1)+1:(bb2(1)+bb2(3)),:);
@@ -86,16 +308,17 @@ classdef FishBlobAnalysis < handle;
           region.FilledImageCol2x = region.FilledImage2x;
         end
         
-
+        
         % enlarge mask
         region.Image2x = logical(zeros(bb2([4,3])));
         offset = bb(1:2)-bb2(1:2);
         region.Image2x(offset(2)+1:offset(2)+bb(4),offset(1)+1:offset(1)+bb(3)) = region.Image;
         
-
+        
         % NOTE: close the holes of the msk
         %region.Image = self.a_closeHoles(region.Image);
         region.Image2x= self.a_closeHoles(region.Image2x); % better borders
+        
         
         %% compute MSER features
         region.MSERregions = []; % field is expected by some functions...
@@ -197,8 +420,23 @@ classdef FishBlobAnalysis < handle;
       end
 
 
-      rp = [rp(~splitif);newrplist];
+      try % the strucutres might have different fields so first
+          % have a try
+        rp = [rp(~splitif);newrplist];
+      catch 
+        f = fieldnames(rp)';
+        rp = rp(~splitif);
+        for i = 1:length(newrplist)
+          rpnew = cell2struct(cell(length(f),1),f);
+          for ff = fieldnames(newrplist)'
+            rpnew.(ff{1}) = newrplist(i).(ff{1});
+          end
+          rp = [rp;rpnew];
+        end
+      end
     end
+    
+    
     
     
     function segments = getFishFeatures(self,segments);
@@ -299,6 +537,7 @@ classdef FishBlobAnalysis < handle;
         else
           [oimg,msk] = self.a_imrotate(ori,oimg,mback,omsk,[],[]);
         end
+
         
         % get updated bounding box of the fish
         [bb,center] = self.a_getMaxAreaRegion(msk);
@@ -447,19 +686,25 @@ classdef FishBlobAnalysis < handle;
         
         if plotif
           figure(1)
+
           subplot(2,length(segments)*2,2*(i-1)+length(segments)*2+1);
-          if self.colorfeature
-            imagesc(foimg_col);
-          else
-            imagesc(foimg);
-          end
-
           
-          %daspect([1,1,1]);
+          if isfield(seg,'FishFeatureC')
+            imagesc(seg.FishFeatureCRemap);
+            title('C')
+          else
+            
+            if self.colorfeature
+              imagesc(foimg_col);
+            else
+              imagesc(foimg);
+            end
+            %daspect([1,1,1]);
+            hold on ;
+            plot(com,1:fixedheight,'r','linewidth',2)
+          
+          end
           axis off;
-          hold on ;
-          plot(com,1:fixedheight,'r','linewidth',2)
-
 
           subplot(2,length(segments)*2,2*(i-1)+length(segments)*2+2);
           if self.colorfeature
@@ -507,8 +752,6 @@ classdef FishBlobAnalysis < handle;
     function self = FishBlobAnalysis(varargin) % constructor
       
       self = self@handle();
-
-      
      
       nargs = length(varargin);
       if nargs>0 && mod(nargs,2)
@@ -526,13 +769,18 @@ classdef FishBlobAnalysis < handle;
         self.se = strel('disk',1);
       end
 
+      initialize(self);
     end
     
     function featureSize = getFeatureSize(self);
       featureSize  = [self.featureheight,self.featurewidth];
     end
     
-      
+    function initialize(self)
+      setFishSize(self,self.fishlength,self.fishwidth);
+    end
+    
+    
     function setFishSize(self,fishlength,fishwidth)
     % adjust paremeters according to the fishsize
       

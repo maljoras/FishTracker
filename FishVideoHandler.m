@@ -1,4 +1,4 @@
-classdef FishVideoHandler < handle & FishVideoReaderCV & FishBlobAnalysisCV
+classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
 %FISHVIDEOHANDER  wrapper class
 %
 % Class for video reading of the FishTracker
@@ -18,9 +18,15 @@ classdef FishVideoHandler < handle & FishVideoReaderCV & FishBlobAnalysisCV
     function self = FishVideoHandler(vidname,timerange,opts)
     %VIDEOCAPTURE  Create a new FishVideoHandler object
     %
-      self@FishBlobAnalysisCV(); 
-      self@FishVideoReaderCV(vidname,timerange); 
-      self.detector = FishForegroundDetectorCV();  
+      if iscell(vidname)
+        error('Capture not supported');
+        vidname = vidname{1}; % capture device might be suported by
+                              % open cv
+      end
+      
+      self@FishBlobAnalysis(); 
+      self@FishVideoReader(vidname,timerange); 
+      self.detector = FishForegroundDetector();  
 
       if exist('opts','var')
         self.setOpts(opts);
@@ -37,6 +43,7 @@ classdef FishVideoHandler < handle & FishVideoReaderCV & FishBlobAnalysisCV
           if isprop(self,f{1})
             self.(f{1}) = opts.blob.(f{1});
             setif = 1;
+            verbose('Set BLOB option "%s" to "%s"',f{1},num2str(opts.blob.(f{1})));
           end
         end
       end
@@ -46,6 +53,7 @@ classdef FishVideoHandler < handle & FishVideoReaderCV & FishBlobAnalysisCV
           if isprop(self,f{1})
             self.(f{1}) = opts.reader.(f{1});
             setif = 1;
+            verbose('Set READER option "%s" to "%s"',f{1},num2str(opts.reader.(f{1})));
           end
         end
       end
@@ -55,6 +63,7 @@ classdef FishVideoHandler < handle & FishVideoReaderCV & FishBlobAnalysisCV
           if isprop(self.detector,f{1})
             self.detector.(f{1}) = opts.detector.(f{1});
             setif = 1;
+            verbose('Set DETECTOR option "%s" to "%s"',f{1},num2str(opts.detector.(f{1})));
           end
         end
       end

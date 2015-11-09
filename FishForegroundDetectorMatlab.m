@@ -2,17 +2,13 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
   
  
     
-  properties 
+  properties
     
-    history = 100; % former mtau
-
     plotif = 0;
-    expectedFrameFormat = 'S';
-
     meanSkip = 10;  
     nAutoThres = 30;
 
-    subtractTotalMean = 0; % ALREADY DONE IN C
+    subtractTotalMean = 1; % ALREADY DONE IN C
   end
 
   properties (SetAccess = private);
@@ -29,7 +25,7 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
   
   methods (Access=private)
     
-    
+
     function bwimg = applyThres(self,frame)
       
       % bw image
@@ -61,13 +57,11 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
   end     
 
   
-  methods    
-    
-    function self = FishForegroundDetectorMatlab(varargin)
-      self = self@FishForegroundDetector(varargin{:});
-      % will call a_init
-    end
 
+  methods(Access=protected)
+      
+    function a_setHistory(self,value);
+    end
     
     function  bwmsk = a_step(self,frame);
 
@@ -108,13 +102,21 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
       
     end
 
-        
+    
     function a_init(self);
+      self.expectedFrameFormat = 'S';
       self.framecounter = 0;
       self.thresholder  = vision.Autothresholder('ThresholdOutputPort',1);
       self.mframe = 0;
     end
+  end
+  
+  methods    
     
+    function self = FishForegroundDetectorMatlab(varargin)
+      self = self@FishForegroundDetector(varargin{:});
+      % will call a_init
+    end
     
   end
 end

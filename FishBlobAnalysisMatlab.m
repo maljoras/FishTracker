@@ -1,19 +1,21 @@
 classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
-  
-  properties;
-    range = [];
-    minArea  = [];
-    maxArea  = [];
-    minextent = [];
-    maxextent = [];
-    minWidth  = [];
-    featurewidth = [];
-    featureheight = [];
-    colorfeature = false;
-  end
+% $$$   
+   properties;
+     range = [];
+   end
+   
+% $$$     minArea  = [];
+% $$$     maxArea  = [];
+% $$$     minextent = [];
+% $$$     maxextent = [];
+% $$$     minWidth  = [];
+% $$$     featurewidth = [];
+% $$$     featureheight = [];
+% $$$     colorfeature = false;
+% $$$   end
   
     
-  methods
+  methods(Access=protected)
 
     function  [oimg,msk,oimg_col] = a_imrotate(self,ori,oimg,mback,omsk,omsk_back,oimg_col,mback_col)
     % rotate fish to axes
@@ -43,7 +45,7 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
       center = rp(midx).Centroid;
     end
     
-    function msk = a_closeHoles(msk);
+    function msk = a_closeHoles(self,msk);
       msk = imdilate(msk,self.se);
       msk = imerode(msk,self.se);
     end
@@ -121,6 +123,10 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
       self.se = strel('disk',1);
     end
 
+  end
+
+  methods
+    
     function self = FishBlobAnalysisMatlab(varargin) % constructor
       
       self = self@FishBlobAnalysis(varargin{:});

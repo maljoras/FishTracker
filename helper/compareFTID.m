@@ -30,7 +30,7 @@ if PLOT
 
   for i = 1:nfish
     for j = 1:nfish
-      dist(i,j) = nanmean(sqrt(sum((ftres.pos(1:1000,:,i) - idres.pos(1:1000,:,j)).^2,2)));
+      dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,i) - idres.pos(1:end-1,:,j)).^2,2)));
     end
   end
   assignments = assignDetectionsToTracks(dist,1e3);

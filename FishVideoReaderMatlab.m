@@ -2,12 +2,12 @@ classdef FishVideoReaderMatlab < FishVideoReader;
 % implements the reader using the matlab included video reader
   
   
-  properties 
-    reader = [];
-    originalif = false;
-    scale = [1,1,1]/3;
-    delta = 0;  
-  end
+% $$$   properties(Access=protected)
+% $$$     reader = [];
+% $$$     originalif = false;
+% $$$     scale = [1,1,1]/3;
+% $$$     delta = 0;  
+% $$$   end
   
   methods
       
@@ -102,6 +102,15 @@ classdef FishVideoReaderMatlab < FishVideoReader;
       self.reset()
     end
     
+  end
+  
+  function a_startReader()
+    self.reader = VideoReader(self.videoFile);
+  end
+  
+  
+  methods
+    
  
    function self = FishVideoReaderMatlab(vid,trange,varargin) 
      
@@ -111,13 +120,9 @@ classdef FishVideoReaderMatlab < FishVideoReader;
      end
        
      self@FishVideoReader(vid,varargin{:});
-     self.reader = VideoReader(self.videoFile);
 
-     self.init();
-     self.timeRange = trange;
-     self.reset();
-     self.verbose();
-     
+
+      
    end
    
   end

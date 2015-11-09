@@ -10,9 +10,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
-// Include Boost headers for system time and threading
-#include "boost/thread.hpp"
+#include <glibmm/threads.h>
+#include <glibmm/timer.h>
+#include <glibmm/init.h>
+
+#include "SaveVideoClass.h"
+#include "FlyCapture2.h"
 
 using namespace std;
 using namespace cv;
@@ -58,9 +63,10 @@ class VideoHandler
 public:
 
     /**
-     * initializes video
+     * initializes video/camera
      */
     VideoHandler(const string fname);
+    VideoHandler(int camIdx, const string fname);
 
     /** Destructor. */
     virtual ~VideoHandler();
@@ -95,12 +101,21 @@ public:
      * gets the properties
      */
     double get(const string prop);
-    
-    
-    //properties
-    cv::Ptr<cv::BackgroundSubtractorKNN> pBackgroundSubtractor;
-    cv::Ptr<cv::VideoCapture>  pVideoCapture;
 
+    /**
+     * stops the grabbing  (and deletd the capture/savevideo object etc )
+     */
+    void stop();
+    
+    /**
+     * starts the grabbing/ writing etc (and builds the objects)
+     */
+    int start();
+
+    
+    /**
+     * public properties (will be updated after each call of step())
+     */
     cv::Mat OFrame;
     cv::Mat Frame;
     cv::Mat BWImg;
@@ -111,16 +126,24 @@ public:
 
    
 private:
-    void stopAndInitialize();
+    void initialize();
     void startThread();
-    int _readNextFrameThread();
+    void deleteThread();
+    void waitThread();
+    void _readNextFrameThread();
     void getSegment(Segment * segm, vector<cv::Point>inContour, cv::Mat inBwImg, cv::Mat inFrame,cv::Mat inOFrame);
     void plotCurrentFrame();
     void makeGoodMsk();
-
+    void initPars();
+    
     cv::Size featureSize; 
-
+    bool camera;
+    bool stopped;
+    
 protected:
+    cv::Ptr<cv::VideoCapture>  pVideoCapture;
+    cv::Ptr<VideoSaver> pVideoSaver;
+    cv::Ptr<cv::BackgroundSubtractorKNN> pBackgroundSubtractor;
 
     cv::Mat m_NextFrame;
     cv::Mat m_NextOFrame;
@@ -129,11 +152,16 @@ protected:
     vector<vector<cv::Point> > Contours;
     //   vector<Segment> m_NextSegments;
 
+    string m_fname;
+    int m_camIdx;
+    
     vector<float> m_Scale;
     float m_Delta;
 
-    boost::mutex m_FrameMutex;
-
+    Glib::Threads::Thread * m_readThread;
+    Glib::Threads::Mutex m_FrameMutex;
+    bool m_threadExists;
+    
     bool scaled;
     bool plotif;
     int nprobe;
@@ -147,5 +175,7 @@ protected:
 
     int featurewidth;
     int featureheight;
+
+
 };
 

@@ -9,42 +9,19 @@
 #include "VideoHandler.h"
 using namespace std;
 using namespace cv;
-using namespace boost::posix_time;
+
 
 // Persistent objects
 
 /// Last object id to allocate
 int last_id = 0;
 /// Object container
-map<int,VideoHandler *> obj_;
+map<int,Ptr<VideoHandler> > obj_;
 
-/** Capture Property map for option processing
- */
-const ConstMap<std::string,int> CapProp = ConstMap<std::string,int>
-    ("PosMsec",       cv::CAP_PROP_POS_MSEC)       //!< Current position of the video file in milliseconds or video capture timestamp.
-    ("PosFrames",     cv::CAP_PROP_POS_FRAMES)     //!< 0-based index of the frame to be decoded/captured next.
-    ("AVIRatio",      cv::CAP_PROP_POS_AVI_RATIO)  //!< Relative position of the video file: 0 - start of the film, 1 - end of the film.
-    ("FrameWidth",    cv::CAP_PROP_FRAME_WIDTH)    //!< Width of the frames in the video stream.
-    ("FrameHeight",   cv::CAP_PROP_FRAME_HEIGHT)   //!< Height of the frames in the video stream.
-    ("FPS",           cv::CAP_PROP_FPS)            //!< Frame rate.
-    ("FourCC",        cv::CAP_PROP_FOURCC)         //!< 4-character code of codec.
-    ("FrameCount",    cv::CAP_PROP_FRAME_COUNT)    //!< Number of frames in the video file.
-    ("Format",        cv::CAP_PROP_FORMAT)         //!< Format of the Mat objects returned by retrieve() .
-    ("Mode",          cv::CAP_PROP_MODE)           //!< Backend-specific value indicating the current capture mode.
-    ("Brightness",    cv::CAP_PROP_BRIGHTNESS)     //!< Brightness of the image (only for cameras).
-    ("Contrast",      cv::CAP_PROP_CONTRAST)       //!< Contrast of the image (only for cameras).
-    ("Saturation",    cv::CAP_PROP_SATURATION)     //!< Saturation of the image (only for cameras).
-    ("Hue",           cv::CAP_PROP_HUE)            //!< Hue of the image (only for cameras).
-    ("Gain",          cv::CAP_PROP_GAIN)           //!< Gain of the image (only for cameras).
-    ("Exposure",      cv::CAP_PROP_EXPOSURE)       //!< Exposure (only for cameras).
-    ("ConvertRGB",    cv::CAP_PROP_CONVERT_RGB)    //!< Boolean flags indicating whether images should be converted to RGB.
-    //("WhiteBalance",cv::CAP_PROP_WHITE_BALANCE)  //!< Currently not supported
-    ("Rectification", cv::CAP_PROP_RECTIFICATION)  //!< Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
-;
 
 /// Field names for VideoHandler::Segments.
 #define NSEGMENTFIELD 18
-const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeature","FishFeatureRemap","CenterLine","Thickness","mback","bendingStdValue","MSERregions"};
+const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeatureC","FishFeatureCRemap","CenterLine","Thickness","mback","bendingStdValue","MSERregions"};
 
 /**
  * Main entry called from Matlab
@@ -64,20 +41,31 @@ void mexFunction( int nlhs, mxArray *plhs[],
     int id = 0;
     string method;
 
+   
+    if ((nrhs==3) && (rhs[0].isChar() && (rhs[0].toString()=="camera"))){
+        // CApture Constructor is called. Create a new object from argument
+	if (!obj_.empty())
+	    mexErrMsgIdAndTxt("mexopencv:error","Only one camera instance supported");
+	obj_[++last_id] =  new VideoHandler(rhs[1].toInt(),rhs[2].toString());
+        plhs[0] = MxArray(last_id);
+        return;
 
-    if (nrhs==1) {
+    } else if (nrhs==1) {
         // Constructor is called. Create a new object from argument
-        obj_[++last_id] =  new VideoHandler(rhs[0].toString());
+	obj_[++last_id] =  new VideoHandler(rhs[0].toString());
         plhs[0] = MxArray(last_id);
         return;
     }
     else if (rhs[0].isNumeric() && rhs[0].numel()==1 && nrhs>1) {
-        id = rhs[0].toInt();
+
+	id = rhs[0].toInt();
+	if (obj_.find(id)==obj_.end())
+	    return; // no object availalbe
+
         method = rhs[1].toString();
     }
     else
         mexErrMsgIdAndTxt("mexopencv:error","Invalid arguments");
-
 
 
     // Big operation switch
@@ -85,6 +73,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
     if (method == "delete") {
         if (nrhs!=2 || nlhs!=0)
             mexErrMsgIdAndTxt("mexopencv:error","Output not assigned");
+	obj_[id].release();
         obj_.erase(id);
     }
     else if (method == "step") {
@@ -103,7 +92,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	    for (int i=0; i<obj.Segments.size(); i++) {
 		if (obj.goodmsk[i]) {
 		    mxSetField(p,j,"BoundingBox",MxArray(obj.Segments[i].Bbox));
-		    mxSetField(p,j,"Orientation",MxArray(obj.Segments[i].Orientation));
+		    mxSetField(p,j,"Orientation",MxArray(-obj.Segments[i].Orientation + 90.));
 		    mxSetField(p,j,"Size",MxArray(obj.Segments[i].Size));
 		    mxSetField(p,j,"MajorAxisLength",MxArray(obj.Segments[i].MajorAxisLength));
 		    mxSetField(p,j,"MinorAxisLength",MxArray(obj.Segments[i].MinorAxisLength));
@@ -112,8 +101,12 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		    mxSetField(p,j,"FilledImage",MxArray(obj.Segments[i].FilledImage));
 		    mxSetField(p,j,"RotImage",MxArray(obj.Segments[i].RotImage,mxLOGICAL_CLASS));
 		    mxSetField(p,j,"RotFilledImage",MxArray(obj.Segments[i].RotFilledImage));
-		    mxSetField(p,j,"FishFeature",MxArray(obj.Segments[i].FishFeature));
-		    mxSetField(p,j,"FishFeatureRemap",MxArray(obj.Segments[i].FishFeatureRemap));
+		    transpose(obj.Segments[i].FishFeature,obj.Segments[i].FishFeature);
+		    flip(obj.Segments[i].FishFeature,obj.Segments[i].FishFeature,0);
+		    mxSetField(p,j,"FishFeatureC",MxArray(obj.Segments[i].FishFeature));
+		    transpose(obj.Segments[i].FishFeatureRemap,obj.Segments[i].FishFeatureRemap);
+		    flip(obj.Segments[i].FishFeatureRemap,obj.Segments[i].FishFeatureRemap,0);
+		    mxSetField(p,j,"FishFeatureCRemap",MxArray(obj.Segments[i].FishFeatureRemap));
 		    mxSetField(p,j,"CenterLine",MxArray(obj.Segments[i].CenterLine));
 		    mxSetField(p,j,"Thickness",MxArray(obj.Segments[i].Thickness));
 		    mxSetField(p,j,"Area",MxArray(obj.Segments[i].Area));
@@ -133,7 +126,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	    plhs[3] = MxArray(obj.OFrame);
 	
     }
-    else if (method == "getframe") {
+    else if (method == "getFrame") {
         if (nrhs!=2 || nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
 	
@@ -146,38 +139,38 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	
 	vector<float> v(3);
 	for (int i=0; i<3;i++) 
-		v[i] = rhs[2+i].toFloat();
+	    v[i] = rhs[2+i].toFloat();
 	obj.setScale(v);
     }
     else if (method == "getScale") {
         if (nrhs!=2 || nlhs!=1)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	
 	plhs[0] = MxArray(obj.getScale());
     }
-
-    else if (method == "setTimePos") {
-        if (nrhs!=3 || nlhs!=0)
+    else if (method == "start") {
+        if (nrhs!=2 || nlhs!=0)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	obj.setTime(rhs[2].toDouble());
+	if (obj.start()!=0)
+	    mexErrMsgIdAndTxt("mexopencv:error"," Could not start the VideoHandler");
+	
     }
-    else if (method == "getTimePos") {
-        if (nrhs!=2 || nlhs!=1)
+    else if (method == "stop") {
+        if (nrhs!=2 || nlhs!=0)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	plhs[0] = MxArray(obj.pVideoCapture->get(cv::CAP_PROP_POS_MSEC));
-    }
-
-    else if (method == "capget") {
-        if (nrhs!=3)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        plhs[0] = MxArray(obj.pVideoCapture->get(CapProp[rhs[2].toString()]));
+	obj.stop();
     }
 
-    else if (method == "capset") {
-        if (nrhs!=4)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        plhs[0] = MxArray(obj.pVideoCapture->set(CapProp[rhs[2].toString()],rhs[3].toDouble()));
-    }
+    // else if (method == "capget") {
+    //     if (nrhs!=3)
+    //         mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+    //     plhs[0] = MxArray(obj.pVideoCapture->get(CapProp[rhs[2].toString()]));
+    // }
+
+    // else if (method == "capset") {
+    //     if (nrhs!=4)
+    //         mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+    //     plhs[0] = MxArray(obj.pVideoCapture->set(CapProp[rhs[2].toString()],rhs[3].toDouble()));
+    // }
     else if (method == "get") { // calls directly yhe properties ov VideoHandler
         if (nrhs!=3)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
@@ -189,48 +182,6 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	if (obj.set(rhs[2].toString(),rhs[3].toDouble())!=0) {
 	    mexErrMsgIdAndTxt("mexopencv:error","Got an error returned");
 	}
-    }
-    else if (method == "bsget") {
-        if (nrhs!=3 || nlhs>1)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        string prop(rhs[2].toString());
-        if (prop == "DetectShadows")
-            plhs[0] = MxArray(obj.pBackgroundSubtractor->getDetectShadows());
-        else if (prop == "Dist2Threshold")
-            plhs[0] = MxArray(obj.pBackgroundSubtractor->getDist2Threshold());
-        else if (prop == "History")
-            plhs[0] = MxArray(obj.pBackgroundSubtractor->getHistory());
-        else if (prop == "kNNSamples")
-            plhs[0] = MxArray(obj.pBackgroundSubtractor->getkNNSamples());
-        else if (prop == "NSamples")
-            plhs[0] = MxArray(obj.pBackgroundSubtractor->getNSamples());
-        else if (prop == "ShadowThreshold")
-            plhs[0] = MxArray(obj.pBackgroundSubtractor->getShadowThreshold());
-        else if (prop == "ShadowValue")
-            plhs[0] = MxArray(obj.pBackgroundSubtractor->getShadowValue());
-        else
-            mexErrMsgIdAndTxt("mexopencv:error","Unrecognized property");
-    }
-    else if (method == "bsset") {
-        if (nrhs!=4 || nlhs!=0)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-        string prop(rhs[2].toString());
-        if (prop == "DetectShadows")
-            obj.pBackgroundSubtractor->setDetectShadows(rhs[3].toBool());
-        else if (prop == "Dist2Threshold")
-            obj.pBackgroundSubtractor->setDist2Threshold(rhs[3].toDouble());
-        else if (prop == "History")
-            obj.pBackgroundSubtractor->setHistory(rhs[3].toInt());
-        else if (prop == "kNNSamples")
-            obj.pBackgroundSubtractor->setkNNSamples(rhs[3].toInt());
-        else if (prop == "NSamples")
-            obj.pBackgroundSubtractor->setNSamples(rhs[3].toInt());
-        else if (prop == "ShadowThreshold")
-            obj.pBackgroundSubtractor->setShadowThreshold(rhs[3].toDouble());
-        else if (prop == "ShadowValue")
-            obj.pBackgroundSubtractor->setShadowValue(rhs[3].toDouble());
-        else
-            mexErrMsgIdAndTxt("mexopencv:error","Unrecognized property");
     }
     else
         mexErrMsgIdAndTxt("mexopencv:error","Unrecognized operation");

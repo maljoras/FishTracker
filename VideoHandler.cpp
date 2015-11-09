@@ -1,12 +1,11 @@
 
 
 #include "VideoHandler.h"
-#include <iostream>
-#include <unistd.h>
+
 
 using namespace std;
 using namespace cv;
-using namespace boost::posix_time;
+
 
 Segment::Segment() {}
 Segment::~Segment() {};
@@ -14,11 +13,44 @@ Segment::~Segment() {};
 
 VideoHandler::VideoHandler(const string fname)
 {
+  camera = false;
+  m_fname = fname;
+  stopped = true;
+  m_threadExists = false;
+  
+  Glib::init();
+  initPars();
+};
+
+/****************************************************************************************/
+VideoHandler::VideoHandler(int camIdx, const string fname)
+{
+  camera = true;
+  stopped = true;
+  m_camIdx = camIdx;
+  m_fname = fname;
+  m_threadExists = false;
+
+  Glib::init();
+  initPars();
+}
+
+
+/****************************************************************************************/
+VideoHandler::~VideoHandler()
+{
+  if (!stopped)
+    stop();
+};
+
+
+/****************************************************************************************/
+void VideoHandler::initPars() {
 
   scaled = false;
   plotif = false;
   colorfeature = false;
-
+  
   nprobe = 7;
   m_Delta = 0;
 
@@ -36,31 +68,276 @@ VideoHandler::VideoHandler(const string fname)
   for (int i; i<3;i++)
     m_Scale[i] = 0.33333;
 
-  pVideoCapture = new VideoCapture(fname);
-  pBackgroundSubtractor =  cv::createBackgroundSubtractorKNN(250,400,false);
+}
 
-  _readNextFrameThread(); // directly fill to avoid time stuff
+/****************************************************************************************/
+void VideoHandler::makeGoodMsk() {
+
+  vector<bool> msk(Segments.size());
+  ngoodmsk = 0;
+
+  for (int i=0;i<Segments.size();i++){ 
+    double  extent = Segments[i].MajorAxisLength + Segments[i].MinorAxisLength;
+    if ((extent<minExtent) || (extent>maxExtent) || (Segments[i].Area<minArea)|| (Segments[i].Area>maxArea) || (Segments[i].MinorAxisLength<minWidth)) 
+      msk[i] = false;
+    else {
+      msk[i] = true;
+      ngoodmsk++;
+    }
+  }
+  goodmsk = msk;
+}
+
+/****************************************************************************************/
+void VideoHandler::plotCurrentFrame() {
+
+  namedWindow( "Frame", WINDOW_AUTOSIZE );
+  imshow( "Frame", Frame);
+   //waitKey(100);
+}
+
+/****************************************************************************************/
+void VideoHandler::startThread() {
+
+  ///deleteThread();
+  m_readThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoHandler::_readNextFrameThread));
+}
+/****************************************************************************************/
+void VideoHandler::waitThread() {
+  Glib::Threads::Mutex::Lock lock(m_FrameMutex);
+}
+
+/****************************************************************************************/
+void VideoHandler::deleteThread() {
+
+  waitThread();
+  if (m_threadExists) {
+    //m_readThread->join();
+      m_threadExists = false;
+  }
+}
+
+
+/****************************************************************************************/
+void VideoHandler::initialize() {
+
+  if (!stopped) {
+
+    waitThread();
+    
+    if (!camera) {
+      int iframe;
+      iframe = pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
+      if (iframe>0)
+	iframe = iframe-1; // step one back;
+      pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,iframe);
+    }
+
+    // start a new thread
+    startThread();
+  }
+}
+
+/****************************************************************************************/
+int VideoHandler::start() {
+
+  if (stopped) {
+    if ( camera) {
+      FlyCapture2::BusManager busMgr;
+      FlyCapture2::Error error;
+      FlyCapture2::PGRGuid guid;
+      
+      cout << m_camIdx << endl;
+      error = busMgr.GetCameraFromIndex( m_camIdx, &guid );
+      if (error != PGRERROR_OK)
+      {
+	error.PrintErrorTrace();
+	return -1;
+      }
+      cout << "got camera from index" << endl;
+      pVideoSaver = new VideoSaver();
+      cout << "created VideoSaver" << endl;
+      if (pVideoSaver->init(guid)!=0){
+	cout << "Warning: Error in initializing the camera\n" ;
+	return -1;
+      }
+      if (m_fname.empty()) {
+	cout << "start capture thread" << endl;
+	if (pVideoSaver->startCapture()!=0) {
+	  cout << "Warning: Error in starting the capture thread the camera \n";
+	  return -1;
+	}
+      }
+      else {
+	cout << "start capture and write threads" << endl;
+	if (pVideoSaver->startCaptureAndWrite(m_fname,string("X264"))!=0) {
+	  cout << "Warning: Error in starting the writing thread the camera \n";
+	  return -1;
+	}
+      }
+    }
+      else  {
+      pVideoCapture = new VideoCapture(m_fname);
+    }
+
+    pBackgroundSubtractor =  cv::createBackgroundSubtractorKNN(250,400,false);
+
+    stopped=false;
+    startThread();
+    Glib:usleep(50); // need to wait a bit to acquire the lock in the thread
+    waitThread();
+  }
+  return 0;
+}
+
+/****************************************************************************************/
+void VideoHandler::stop() {
+
+  deleteThread();
+  
+  if (!stopped) {
+
+    if (!camera)
+      pVideoCapture.release();
+    else {
+      pVideoSaver.release();
+    }
+    pBackgroundSubtractor.release();
+  } else {
+    cout << "Warning: VideoHandler already stopped" << endl;
+  }
+  stopped = true;
+}
+
+/****************************************************************************************/
+void VideoHandler::step(){
+
+  if (stopped) {
+    if (start()!=0) {
+      cout << "WARNING: step not excecuted" << endl;
+      return;
+    }
+  }
+  
+  waitThread();
+
+  OFrame = m_NextOFrame;
+  Frame = m_NextFrame;
+  BWImg = m_NextBWImg;
+
+
+  // start a new thread to load in the background
+  startThread();
+  
+
+  // // finding contours
+  Glib::Timer timer;
+  timer.start();
+  vector<Vec4i> hierarchy;
+  findContours(BWImg,Contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+  cout << "counters: " <<  timer.elapsed() << endl;
+
+  // get the fish patches and segments
+  timer.start();
+  vector<Segment> segms(Contours.size());
+  for( int i = 0; i< Contours.size(); i++ )
+    getSegment(&(segms[i]),Contours[i],BWImg,Frame,OFrame);
+  Segments = segms;
+
+  cout << "segments: " <<  timer.elapsed() << endl;  
+  // make mask
+  makeGoodMsk();
+
+  // thisTime = microsec_clock::local_time();
+  // td = thisTime - thatTime;	
+  // cout << td.total_milliseconds() << "\n";
+
+  
+  if (plotif)
+    plotCurrentFrame();
+
 };
 
-
-VideoHandler::~VideoHandler()
+/****************************************************************************************/
+void VideoHandler::_readNextFrameThread()
 {
-  m_FrameMutex.lock(); // wait for lock
-  usleep(500);
-  m_FrameMutex.unlock();
+  Glib::Threads::Mutex::Lock lock(m_FrameMutex);
+  if (stopped) {
+    cout <<  "Error: VideoHandler stopped. Cannot read next Frame." << endl;
+    return;
+  }
+
+
+  Glib::Timer timer;
+  timer.start();
+  m_threadExists = true;
+
+  Mat oframe,frame;
+  if (camera) {
+
+    double timeStamp;
+    int frameNumber;
+    if (pVideoSaver->getFrame(&oframe,&timeStamp,&frameNumber)!=0) {
+      return;
+    }
+
+    cout << oframe.size() << endl;
+    cout << frameNumber << " " <<  timeStamp << endl;
+
+  } else {
+    if (!pVideoCapture->read(oframe)) {
+      cout <<  "File read error";
+      return;
+    }
+    
+    if (oframe.type()!=CV_8UC3) {
+      cout <<  "ERROR: Expect CV_8UC3 color movie";
+      return;
+    }
+
+  }
+
+  if (scaled) {
+    Mat channel[3];
+    
+    split(oframe, channel);
+    for (int ii=0; ii<3; ii++) {
+      channel[ii].convertTo(channel[ii], CV_32FC1,1/255.);
+    }
+    frame =  m_Scale[2]*channel[0] + m_Scale[1]*channel[1] + m_Scale[0]*channel[2] + m_Delta;
+    
+    // substract mean
+    frame = frame - cv::mean(frame);
+    frame += 0.5; // between 0..1
+    frame.convertTo(frame, CV_8UC1, 255);
+  }
+  else
+    cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
+
+  // backgound computation (THIS IS THE SLOWEST PART!)
+  pBackgroundSubtractor->apply(frame, m_NextBWImg);
+
+    // // finding contours
+    // vector<Vec4i> hierarchy;
+    // m_NextContours.clear();
+    // findContours(m_NextBWImg,m_NextContours,hierarchy,cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, Point(0, 0));
+    // // get the fish patches and segments
+    // vector<Segment> segms(m_NextContours.size());
+    // for( int i = 0; i< m_NextContours.size(); i++ )
+    //   getSegment(&(segms[i]),m_NextContours[i],m_NextBWImg,frame,oframe);
+
+    // m_NextSegments = segms;
+  m_NextFrame = frame;
+  if (colorfeature)
+    m_NextOFrame = oframe;
+  else
+    m_NextOFrame = frame;
+
+  cout << "reading frame: " <<  timer.elapsed() << endl;  
 };
 
-void VideoHandler::setTime(double msec) {
-
-  m_FrameMutex.lock(); // wait for lock
-  pVideoCapture->set(cv::CAP_PROP_POS_MSEC,msec);
-  //pBackgroundSubtractor->clear(); // similar background anyway. do not reset
-  m_FrameMutex.unlock();
-  stopAndInitialize();
-};
-
-
-
+/****************************************************************************************/
 void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwImg, Mat inFrame, Mat inOFrame) {
 
 
@@ -271,11 +548,11 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     
     Mat temp;
     Mat stdValue;
-    meanStdDev(comy, temp, stdValue, comy>0);
-    segm->bendingStdValue = stdValue.at<float>(0);
+    meanStdDev(comy, temp, stdValue,comy>0);
+    segm->bendingStdValue = stdValue.at<double>(0);
 
     // REMAP ??
-    bool REMAP=false;
+    bool REMAP=true;
     
     if (REMAP) {
       
@@ -358,148 +635,44 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
   
 };
 
-
-void VideoHandler::makeGoodMsk() {
-
-  vector<bool> msk(Segments.size());
-  ngoodmsk = 0;
-
-  for (int i=0;i<Segments.size();i++){ 
-    double  extent = Segments[i].MajorAxisLength + Segments[i].MinorAxisLength;
-    if ((extent<minExtent) || (extent>maxExtent) || (Segments[i].Area<minArea)|| (Segments[i].Area>maxArea) || (Segments[i].MinorAxisLength<minWidth)) 
-      msk[i] = false;
-    else {
-      msk[i] = true;
-      ngoodmsk++;
-    }
-  }
-  goodmsk = msk;
-}
-
-
-void VideoHandler::plotCurrentFrame() {
-
-  namedWindow( "Frame", WINDOW_AUTOSIZE );
-  imshow( "Frame", Frame);
-  //waitKey(100);
-}
-
-void VideoHandler::startThread() {
-
-
-  boost::thread readNextFrameThread(&VideoHandler::_readNextFrameThread,this);
-
-}
-
-void VideoHandler::stopAndInitialize() {
-
-  m_FrameMutex.lock(); // wait for lock
-
-  int iframe;
-  iframe = pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
-  if (iframe>0)
-    iframe = iframe-1; // step one back;
-  pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,iframe);
-
-  m_FrameMutex.unlock();
-  // start a new thread
-  startThread();
-}
-
-
-void VideoHandler::step(){
-
- 
-
-  m_FrameMutex.lock(); // wait for thread 
-  OFrame = m_NextOFrame;
-  Frame = m_NextFrame;
-  BWImg = m_NextBWImg;
-  m_FrameMutex.unlock();
-
-  // start a new thread to load in the background
-  startThread();
-  
-  // ptime thisTime,thatTime;
-  // time_duration td;
-  // thatTime =  microsec_clock::local_time();
-
-  // // finding contours
-  vector<Vec4i> hierarchy;
-  findContours(BWImg,Contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
-    
-  // get the fish patches and segments
-  vector<Segment> segms(Contours.size());
-  for( int i = 0; i< Contours.size(); i++ )
-    getSegment(&(segms[i]),Contours[i],BWImg,Frame,OFrame);
-
-  Segments = segms;
-  
-  // make mask
-  makeGoodMsk();
-
-  // thisTime = microsec_clock::local_time();
-  // td = thisTime - thatTime;	
-  // cout << td.total_milliseconds() << "\n";
-
-  
-  if (plotif)
-    plotCurrentFrame();
-
-};
-
-void VideoHandler::setScale(vector<float> scale) {
-  m_FrameMutex.lock(); 
-  m_Scale = scale;
-  m_FrameMutex.unlock(); 
-  stopAndInitialize();
-};
-vector< float> VideoHandler::getScale() {
-  return m_Scale;
-};
-
+/****************************************************************************************/
 int VideoHandler::set(const string prop, double value){
 
   if (prop=="scaled") {
-    m_FrameMutex.lock();
+    waitThread();
     scaled = (bool) (value>0);
-    m_FrameMutex.unlock();
-    stopAndInitialize();
+    initialize();
   }
   else  if (prop=="delta") {
-    m_FrameMutex.lock();
+    waitThread();
     m_Delta = (float) value;
-    m_FrameMutex.unlock();
-    stopAndInitialize();
+    initialize();
   }
   else if (prop=="featureheight") {
-    m_FrameMutex.lock();
+    waitThread();
     featureheight = (int) value;
     featureSize.width = featureheight; // transposed
-    m_FrameMutex.unlock();
-    stopAndInitialize();
+    initialize();
   }
   else if (prop=="featurewidth") {
-    m_FrameMutex.lock();
+    waitThread();
     featureheight = (int) value;
     featureSize.height = featurewidth; // transposed
-    m_FrameMutex.unlock();
-    stopAndInitialize();
+    initialize();
+
   }
   else if (prop=="plotif") {
     plotif = (bool) (value>0);
   }
   else if (prop=="colorfeature") {
-    m_FrameMutex.lock();
+    waitThread();
     colorfeature = (bool) (value>0);
-    m_FrameMutex.unlock();
-    stopAndInitialize();
+    initialize();
   }
   else if (prop=="nprobe") {
-    m_FrameMutex.lock();
+    waitThread();
     nprobe = (int) value;
-    m_FrameMutex.unlock();
-    stopAndInitialize();
+    initialize();
   }
   else if (prop=="minWidth") {
     minWidth = (int) value;
@@ -515,13 +688,49 @@ int VideoHandler::set(const string prop, double value){
   }
   else if (prop=="minArea") {
     minArea = (int) value;
-  }  else {
+  }
+  else if (prop=="timePos") {
+    if ((!camera) && (!stopped)) {
+      waitThread();
+      pVideoCapture->set(cv::CAP_PROP_POS_MSEC,value);
+      //pBackgroundSubtractor->clear(); // similar background anyway. do not reset
+      initialize();
+    }  else {
+      // do nothing
+    }
+  }
+  else if (prop=="FPS")  {
+    if ((!camera) && (!stopped))
+      pVideoCapture->set(cv::CAP_PROP_FPS,value);
+    // else do nothing.. might want to implement a change in FPS. but then writing has to stop... 
+  }
+  else if (prop == "PosFrames") {
+    if ((!camera) && (!stopped)) 
+      pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,(int) value);
+    // else do nothing.. 
+  }
+  else if ((prop=="DetectShadows") && (!stopped)) // need to re-init ?
+    pBackgroundSubtractor->setDetectShadows(value!=0);
+  else if ((prop == "Dist2Threshold")&& (!stopped))
+    pBackgroundSubtractor->setDist2Threshold(value);
+  else if ((prop == "History")&& (!stopped))
+    pBackgroundSubtractor->setHistory((int) value);
+  else if ((prop == "kNNSamples")&& (!stopped))
+    pBackgroundSubtractor->setkNNSamples((int)value);
+  else if ((prop == "NSamples")&& (!stopped))
+    pBackgroundSubtractor->setNSamples((int) value);
+  else if ((prop == "ShadowThreshold")&& (!stopped))
+    pBackgroundSubtractor->setShadowThreshold(value);
+  else if ((prop == "ShadowValue")&& (!stopped))
+    pBackgroundSubtractor->setShadowValue(value);
+  else {
     cout <<  "ERROR: Could not set property " << prop <<"! \n";
     return -1;
   }
   return 0;
 }
 
+/****************************************************************************************/
 double VideoHandler::get(const string prop){
 
   if (prop=="scaled") {
@@ -557,89 +766,146 @@ double VideoHandler::get(const string prop){
   else if (prop=="maxArea") {
     return (double) maxArea;
   }
+  else if (prop=="timePos") {
+    if ((!camera) && (!stopped))
+      return (double) pVideoCapture->get(cv::CAP_PROP_POS_MSEC);
+    else
+      return (double) -1;
+  }
   else if (prop=="minArea") {
     return (double) minArea;
-  }  else {
-    cout <<  "ERROR: Could not read property " << prop <<"! \n";
+  }   else  if ((prop == "DetectShadows") && (!stopped))
+    return (double) pBackgroundSubtractor->getDetectShadows();
+  else if ((prop == "Dist2Threshold")&& (!stopped))
+    return (double) pBackgroundSubtractor->getDist2Threshold();
+  else if ((prop == "History")&& (!stopped))
+    return (double) pBackgroundSubtractor->getHistory();
+  else if ((prop == "kNNSamples")&& (!stopped))
+    return (double) pBackgroundSubtractor->getkNNSamples();
+  else if ((prop == "NSamples")&& (!stopped))
+    return (double) pBackgroundSubtractor->getNSamples();
+  else if ((prop == "ShadowThreshold")&& (!stopped))
+    return (double) pBackgroundSubtractor->getShadowThreshold();
+  else if ((prop == "ShadowValue")&& (!stopped))
+    return (double) pBackgroundSubtractor->getShadowValue();
+  else if ((prop == "FrameWidth") && (!stopped)) {
+    if (!camera) 
+      return (double) pVideoCapture->get(cv::CAP_PROP_FRAME_WIDTH);
+    else  {
+      Size frameSize = pVideoSaver->getFrameSize();
+      return (double) frameSize.width;
+    }
+  }
+  else if ((prop == "FrameHeight") && (!stopped)) {
+    if (!camera) 
+      return (double) pVideoCapture->get(cv::CAP_PROP_FRAME_HEIGHT);
+    else  {
+      Size frameSize = pVideoSaver->getFrameSize();
+      return (double) frameSize.height;
+    }
+  }
+  else if ((prop == "FPS")  && (!stopped)){
+    if (!camera) 
+      return (double) pVideoCapture->get(cv::CAP_PROP_FPS);
+    else 
+      return (double) pVideoSaver->getFPS();
+  }
+  else if ((prop == "FrameCount")  && (!stopped)){
+    if (!camera) 
+      return (double) pVideoCapture->get(cv::CAP_PROP_FRAME_COUNT);
+    else
+      return (double) 0;
+  } else if ((prop == "PosFrames") && (!stopped)) {
+    if (!camera) 
+      return (double) pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
+    else
+      return (double) pVideoSaver->getCurrentFrameNumber();
+  }
+  else {
+    cout <<  "ERROR: Could not read property " << prop <<". Maybe VideoHandler is not started! \n";
     return -1;
   }
   return 0;
 }
 
-int VideoHandler::_readNextFrameThread()
-{
-  m_FrameMutex.lock();
-  Mat oframe,frame;
-  if (pVideoCapture->read(oframe)) {
+// /** Capture Property map for option processing
+//  */
+// const ConstMap<std::string,int> CapProp = ConstMap<std::string,int>
+//     ("PosMsec",       cv::CAP_PROP_POS_MSEC)       //!< Current position of the video file in milliseconds or video capture timestamp.
+//     ("PosFrames",     cv::CAP_PROP_POS_FRAMES)     //!< 0-based index of the frame to be decoded/captured next.
+//     ("AVIRatio",      cv::CAP_PROP_POS_AVI_RATIO)  //!< Relative position of the video file: 0 - start of the film, 1 - end of the film.
+//     ("FrameWidth",    cv::CAP_PROP_FRAME_WIDTH)    //!< Width of the frames in the video stream.
+//     ("FrameHeight",   cv::CAP_PROP_FRAME_HEIGHT)   //!< Height of the frames in the video stream.
+//     ("FPS",           cv::CAP_PROP_FPS)            //!< Frame rate.
+//     ("FourCC",        cv::CAP_PROP_FOURCC)         //!< 4-character code of codec.
+//     ("FrameCount",    cv::CAP_PROP_FRAME_COUNT)    //!< Number of frames in the video file.
+//     ("Format",        cv::CAP_PROP_FORMAT)         //!< Format of the Mat objects returned by retrieve() .
+//     ("Mode",          cv::CAP_PROP_MODE)           //!< Backend-specific value indicating the current capture mode.
+//     ("Brightness",    cv::CAP_PROP_BRIGHTNESS)     //!< Brightness of the image (only for cameras).
+//     ("Contrast",      cv::CAP_PROP_CONTRAST)       //!< Contrast of the image (only for cameras).
+//     ("Saturation",    cv::CAP_PROP_SATURATION)     //!< Saturation of the image (only for cameras).
+//     ("Hue",           cv::CAP_PROP_HUE)            //!< Hue of the image (only for cameras).
+//     ("Gain",          cv::CAP_PROP_GAIN)           //!< Gain of the image (only for cameras).
+//     ("Exposure",      cv::CAP_PROP_EXPOSURE)       //!< Exposure (only for cameras).
+//     ("ConvertRGB",    cv::CAP_PROP_CONVERT_RGB)    //!< Boolean flags indicating whether images should be converted to RGB.
+//     //("WhiteBalance",cv::CAP_PROP_WHITE_BALANCE)  //!< Currently not supported
+//     ("Rectification", cv::CAP_PROP_RECTIFICATION)  //!< Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
+// ;
 
-    if (oframe.type()!=CV_8UC3) {
-      m_FrameMutex.unlock();
-      cout <<  "ERROR: Expect CV_8UC3 color movie";
-      return -1;
-    }
 
-    if (scaled) {
-	Mat channel[3];
+/****************************************************************************************/
+void VideoHandler::setScale(vector<float> scale) {
+  waitThread();
+  m_Scale = scale;
+  initialize();
+};
 
-	split(oframe, channel);
-	for (int ii=0; ii<3; ii++) {
-	  channel[ii].convertTo(channel[ii], CV_32FC1,1/255.);
-	}
-	frame =  m_Scale[2]*channel[0] + m_Scale[1]*channel[1] + m_Scale[0]*channel[2] + m_Delta;
-
-	// substract mean
-	frame = frame - cv::mean(frame);
-	frame += 0.5; // between 0..1
-	frame.convertTo(frame, CV_8UC1, 255);
-    }
-    else
-      cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
-
-    // backgound computation (THIS IS THE SLOWEST PART!)
-    pBackgroundSubtractor->apply(frame, m_NextBWImg);
-      
-    // // finding contours
-    // vector<Vec4i> hierarchy;
-    // m_NextContours.clear();
-    // findContours(m_NextBWImg,m_NextContours,hierarchy,cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, Point(0, 0));
-    // // get the fish patches and segments
-    // vector<Segment> segms(m_NextContours.size());
-    // for( int i = 0; i< m_NextContours.size(); i++ )
-    //   getSegment(&(segms[i]),m_NextContours[i],m_NextBWImg,frame,oframe);
-
-    // m_NextSegments = segms;
-    m_NextFrame = frame;
-    if (colorfeature)
-      m_NextOFrame = oframe;
-    else
-      m_NextOFrame = frame;
-    
-
-  } else {
-
-    cout <<  "File read error";
-    m_FrameMutex.unlock();
-    return -1;
-  }
-
-  m_FrameMutex.unlock();
-
-  return 0;
+/****************************************************************************************/
+vector< float> VideoHandler::getScale() {
+  return m_Scale;
 };
 
 
+
+/****************************************************************************************/
+/****************************************************************************************/
 // // // main
 int main() {
 
-  VideoHandler vh("/home/malte/data/zebra/videos/test_wtih_bu_video1.avi");
+  //VideoHandler vh("/home/malte/data/zebra/videos/test_wtih_bu_video1.avi");
+  VideoHandler vh(0,"/home/malte/data/zebra/videos/test_VeideoHandler.avi");
+  cout << "init" << endl;
+  vh.set("plotif",true);
+  cout << "plotif" << endl;
   //namedWindow( "Patch", WINDOW_AUTOSIZE );
   vh.set("scaled",false);
+  cout << "scaled" << endl;
   vh.set("colorfeature",true);
-  for (int i=0; i<30; i++) {
+  cout << "colorfeature" << endl;
+  
+  cout << "set pars" << endl;
+  vh.start();
+  cout << "start loop " << endl;
+  
+  for (int i=0; i<10; i++) {
     vh.step();
-    waitKey(100);
+    waitKey(1000);
     cout << i << ": Segment Size" <<  vh.Segments.size() << "\n";
   }
+  vh.stop();
+  vh.start();
+  vh.stop();
 
+  VideoHandler vh2(0,"");
+
+  for (int i=0; i<10; i++) {
+    vh2.step();
+    waitKey(1000);
+    cout << i << ": Segment Size" <<  vh2.Segments.size() << "\n";
+  }
+  vh2.stop();
+  vh2.start();
+  vh2.stop();
+    
   return 0;
 }

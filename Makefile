@@ -39,17 +39,26 @@
 # ============================================================================
 
 # programs
-MATLABDIR  ?= /opt/MATLAB/R2014b
+MATLABDIR  ?= /opt/MATLAB/R2015b
 MEX        ?= $(MATLABDIR)/bin/mex
 MATLAB     ?= $(MATLABDIR)/bin/matlab
 DOXYGEN    ?= doxygen
 MEXOPENCVDIR ?= /home/malte/work/progs/toolboxes/mexopencv
+
 
 # mexopencv directories
 TARGETDIR  = .
 INCLUDEDIR = $(MEXOPENCVDIR)/include
 LIBDIR     = $(MEXOPENCVDIR)/lib
 SRCDIR     = .
+
+# savevideo
+SAVEVIDEOSRC1 = FrameRateCounter.cpp
+SAVEVIDEOOBJ1 = $(SAVEVIDEOSRC1:.cpp=.$(OBJEXT))
+SAVEVIDEOSRC = SaveVideoClass.cpp
+SAVEVIDEOOBJ = $(SAVEVIDEOSRC:.cpp=.$(OBJEXT))
+FLYCAPINCLUDES = -I. -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include/ -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include/ -I/usr/include/flycapture 
+FLYCAPFLAGS =  -lsigc-2.0 -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
 
 #boost dependencies
 INCLUDEDIR2 = /usr/include/boost
@@ -87,23 +96,30 @@ CV_LDFLAGS := $(filter-out $(LIB_SUFFIX),$(CV_LDFLAGS)) \
 endif
 
 # compiler/linker flags
-override CFLAGS  += -cxx  -largeArrayDims -I$(INCLUDEDIR) -I$(INCLUDEDIR2) $(CV_CFLAGS) 
-override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) -lboost_thread  
+override CFLAGS  +=  -I$(INCLUDEDIR) -I$(INCLUDEDIR2)  $(CV_CFLAGS) $(FLYCAPINCLUDES) 
+override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPFLAGS) 
 
 
 # targets
-all: $(OBJECTS) $(TARGETS1) $(TARGETS2)
+all: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2)
+
+$(SAVEVIDEOOBJ1): $(SAVEVIDEOSRC1)
+	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $<
+
+$(SAVEVIDEOOBJ): $(SAVEVIDEOSRC)
+	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $(SAVEVIDEOOBJ1) $<
 
 #  objects
 $(OBJECTS): $(SRCS2)
-	$(MEX) -c $(CFLAGS)  $<
+	$(MEX) -c -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $<
 
+ 
 # MEX-files
 $(TARGETS1): $(SRCS1) 
-	$(MEX) $(CFLAGS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
 
 $(TARGETS2): $(SRCS3)
-	$(MEX) $(CFLAGS) $(OBJECTS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
 
 clean:
-	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS)
+	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS) $(TARGETDIR)/$(SAVEVIDEOOBJ) $(TARGETDIR)/$(SAVEVIDEOOBJ1)

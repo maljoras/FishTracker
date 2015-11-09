@@ -1,7 +1,9 @@
 CC=g++
-CFLAGS=-c -Wall -Wno-sign-compare  -I/usr/local/include/opencv -I/usr/local/include/ -I/usr/include/boost 
-LDFLAGS=  -lflycapture -L/usr/local/lib -lopencv_core -lopencv_objdetect -lopencv_video  -lopencv_imgproc -lopencv_highgui -lopencv_videoio -lboost_thread -lstdc++
-SOURCES=VideoHandler.cpp 
+CFLAGS=-c -Wall -Wno-sign-compare  -I/usr/local/include/opencv -I/usr/local/include/ -I/usr/include/boost -I. -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include/ -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include/ -I/usr/include/flycapture
+
+LDFLAGS=   -L/usr/local/lib -lopencv_core -lopencv_objdetect -lopencv_video  -lopencv_imgproc -lopencv_highgui -lopencv_videoio -lstdc++  -lsigc-2.0  -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
+
+SOURCES=FrameRateCounter.cpp SaveVideoClass.cpp VideoHandler.cpp 
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=VideoHandler
 

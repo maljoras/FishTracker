@@ -6,15 +6,14 @@ classdef FishVideoReader < handle;
     frameFormat = 'RGBU';
     grayFormat = 'GRAY';
     timeRange  = [];
+    originalif = false;
   end
   
 
-  properties(Abstract);
-    reader 
-    originalif 
-    scale ;
-    delta ;  
-    
+  properties(Access=protected);
+    reader = [];
+    scale = [1,1,1]/3;
+    delta = 0;  
   end
   
     
@@ -33,32 +32,161 @@ classdef FishVideoReader < handle;
   end
   
   
-  methods (Abstract)
+  methods (Access=protected)
     % needs to be overloaded
+
+    function dur = a_getDuration(self);
+      dur = self.a_getNFrames()/self.a_getFrameRate();
+    end
     
-   dur       = a_getDuration(self)
-   nFrames   = a_getNFrames(self);
-   frameRate = a_getFrameRate(self);
-   frameSize = a_getFrameSize(self);
-   
-   [frame,oframe] = a_readUFrame(self);      
-   [frame,oframe] = a_readSFrame(self);      
+    function nframes = a_getNFrames(self);
+      nframes = get(self.reader,'FrameCount');
+      if nframes==0
+        % strange. cannot find how many frames. Assume Inf
+        nframes = Inf;
+      end
+      
+    end
+    
+    function frameRate = a_getFrameRate(self);
+      frameRate = get(self.reader,'FPS');
 
-   [frame,oframe] = a_readGrayUFrame(self);      
-   [frame,oframe] = a_readGraySFrame(self);      
+      if isnan(frameRate) % strasnge things happen
+        f = VideoReader(self.videoFile);
+        frameRate = f.FrameRate;
+        set(self.reader,'FPS',frameRate);
+        clear('f')
+      end
+      
+    end
+    
+    function frameSize= a_getFrameSize(self);
+      frameSize = [get(self.reader,'FrameHeight'),get(self.reader,'FrameWidth')];
+    end
+    
+    function [frame oframe] = a_readScaledSFrame(self,scale,delta);      
+      if self.originalif
+        [frame oframe]= self.reader.readScaledS(scale,delta);
+      else
+        [frame]= self.reader.readScaledS(scale,delta);
+        oframe = [];
+      end
+    end
+    
+    function [frame oframe] = a_readScaledUFrame(self,scale,delta);      
+      if self.originalif
+        [frame oframe] = self.reader.readScaledU(scale,delta);
+      else
+        frame = self.reader.readScaledU(scale,delta);
+        oframe = [];
+      end
+      
+    end
 
-   [frame,oframe] = a_readInvertedGrayUFrame(self);      
-   [frame,oframe] = a_readInvertedGraySFrame(self);      
+    function [frame oframe] = a_readUFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.read();
+      else
+        frame = self.reader.read();
+        oframe = [];
+      end
+      
+    end
+    
+    function [frame oframe] = a_readGraySFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readGraySingle();
+      else
+        frame = self.reader.readGraySingle();
+        oframe = [];
+      end
+    end
+    
+    function [frame oframe] = a_readGrayUFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readGray();
+      else
+        frame = self.reader.readGray();
+        oframe = [];
+      end
+    end
+    
+    function [frame oframe] = a_readInvertedGraySFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readInvertedGraySingle();
+      else
+        frame = self.reader.readInvertedGraySingle();
+        oframe = [];
+      end
+    end
+    
+    function [frame oframe] = a_readInvertedGrayUFrame(self);      
+      if self.originalif
+        [frame oframe] = self.reader.readInvertedGray();
+      else
+        frame  = self.reader.readInvertedGray();
+        oframe = [];
+      end
+    end
+    
+    function [frame oframe] = a_readSFrame(self);      
+      if self.originalif
+        [frame oframe]= self.reader.readSingle();
+      else
+        frame = self.reader.readSingle();
+        oframe = [];
+      end
+    end
+    
+    function bool = a_hasFrame(self);
+      nextFrame = get(self.reader,'PosFrames');
+      bool = nextFrame<self.nFrames; % starts from 0!
+    end
+    
+    
+    function a_delete(self);
+      self.reader.delete();
+      self.reader = [];
+    end
+    
+    
+    function a_setCurrentTime(self,time);
+    % time is given in seconds
+      nextFrame = floor(time*self.frameRate);
+      pos = get(self.reader,'PosFrames');
+      if nextFrame~=pos
+        set(self.reader,'PosFrames',nextFrame);
+      end
+    end
 
-   [frame,oframe] = a_readScaledUFrame(self,scale,delta);      
-   [frame,oframe] = a_readScaledSFrame(self,scale,delta);      
-
-
-   a_setCurrentTime(self,time);
-   bool = a_hasFrame(self);
-
-   a_delete(self);
+    function playMsk(self);
+      vp = vision.VideoPlayer('Name',self.videoFile);
+      cont = self.hasFrame();
+      fgbg = cv.BackgroundSubtractorMOG2()
+      %fgbg.Dist2Threshold = 500;
+      fgbg.DetectShadows = 0;
+      %fgbg.ShadowValue = 0.5;
+      while cont
+        self.readFrameFormat('GRAYU');
+        msk = fgbg.apply(self.frame);
+        step(vp,msk);
+        cont = self.hasFrame() && isOpen(vp);
+      end
+      release(vp);
+      self.reset();
+      
+    end
+    
+    
+    function a_startReader(self)
+      if ~hasOpenCV()
+        error('Cannot find mexopencv toolbox..');
+      end
+      
+      self.reader = FishVideoCapture(self.videoFile);
+    end
   end
+  
   
   
     
@@ -70,6 +198,7 @@ classdef FishVideoReader < handle;
       self = self@handle();
 
       self.videoFile = vid;
+
       if nargin>1
         self.timeRange = trange;
       end
@@ -86,6 +215,20 @@ classdef FishVideoReader < handle;
           end
         end
       end
+      
+      self.a_startReader();
+      self.init();
+
+      if nargin==1
+        trange = [];
+        varargin = {};
+      end
+
+      self.timeRange = trange;
+
+      %self.reset();
+      self.verbose();
+
     end
     
       
@@ -119,11 +262,11 @@ classdef FishVideoReader < handle;
     
     
     function self = init(self)
+
       self.frameRate = self.a_getFrameRate();
       self.duration = self.a_getDuration();
       self.nFrames = self.a_getNFrames();
       self.frameSize = self.a_getFrameSize();
-
     end
 
     
@@ -135,10 +278,17 @@ classdef FishVideoReader < handle;
     end
     
     function verbose(self)
-      [a,b,c] = fileparts(self.videoFile);
-      verbose('%s using "%s" ',upper(class(self)),[b,c]);
-      verbose('FPS: %gHz, NFrames: %d, selected range:  %1.1fs-%1.1fs',self.frameRate,self.nFrames,self.timeRange);
+      if ~iscell(self.videoFile)
+        [a,b,c] = fileparts(self.videoFile);
+        verbose('%s using "%s" ',upper(class(self)),[b,c]);
+        verbose('FPS: %gHz, NFrames: %d, selected range:  %1.1fs-%1.1fs',self.frameRate,self.nFrames,self.timeRange);
+      else
+        [a,b,c] = fileparts(self.videoFile{2});
+        verbose('%s grabbing from camera %d (%gHz) and writing to "%s" ',upper(class(self)),self.videoFile{1},self.frameRate,[b,c]);
+      end
+      
     end
+    
       
     
 

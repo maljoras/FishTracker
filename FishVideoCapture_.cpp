@@ -64,7 +64,10 @@ void mexFunction( int nlhs, mxArray *plhs[],
         return;
     }
     else if (rhs[0].isNumeric() && rhs[0].numel()==1 && nrhs>1) {
-        id = rhs[0].toInt();
+	id = rhs[0].toInt();
+	if (obj_.find(id)==obj_.end())
+	    return; // no object availalbe
+
         method = rhs[1].toString();
     }
     else

@@ -1,27 +1,56 @@
 classdef FishForegroundDetector < handle;
   
 
-  properties(Abstract)
-    expectedFrameFormat;
-    history;
-  end
   
-  properties;
+  properties
+    expectedFrameFormat = 'U';
+
     useScaledFormat = 0;
-    inverse = 0;
-  end
+    inverse = 0;  
+    history = 500;
   
-    
-  methods(Abstract);
-    
-    bwmsk = a_step(self,frame);
-    a_init(self);
-    
   end
-  
 
   
+  
+  properties(Access=private)
+    detector = [];
+    detectShadows = 0;
+  end
+  
+    
+  
+  methods(Access=protected)
+  
+    function a_init(self);
+    %self.detector = cv.BackgroundSubtractorMOG2();
+      self.detector = cv.BackgroundSubtractorKNN();
+      self.detector.DetectShadows = self.detectShadows;
+      self.detector.History = self.history;
+    end
+    
+    function a_setHistory(self,value)
+      self.detector.History = self.history;
+    end
+    
+    function  bwmsk = a_step(self,frame);
+      bwmsk = self.detector.apply(frame);
+% $$$       if self.inverse
+% $$$         bwmsk = ~cv.adaptiveThreshold(frame, 1, 'AdaptiveMethod', 'Mean','ThresholdType','BinaryInv');
+% $$$       else
+% $$$         bwmsk = ~cv.adaptiveThreshold(frame, 1, 'AdaptiveMethod', 'Mean','ThresholdType','Binary');
+% $$$       end
+    end
+  end
+  
+  
   methods
+    
+    
+    function set.history(self,value)
+      self.a_setHistory(value);
+      self.history = value;
+    end
     
     function self = FishForegroundDetector(varargin)
       self = self@handle();

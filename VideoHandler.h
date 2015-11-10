@@ -112,6 +112,13 @@ public:
      */
     int start();
 
+
+    /**
+     * resets the background subtractor
+     */
+
+    void resetBkg();
+
     
     /**
      * public properties (will be updated after each call of step())

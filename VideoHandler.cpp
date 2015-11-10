@@ -708,7 +708,7 @@ int VideoHandler::set(const string prop, double value){
   else if (prop=="timePos") {
     if ((!camera) && (!stopped)) {
       waitThread();
-      pVideoCapture->set(cv::CAP_PROygP_POS_MSEC,value);
+      pVideoCapture->set(cv::CAP_PROP_POS_MSEC,value);
       //pBackgroundSubtractor->clear(); // similar background anyway. do not reset
       initialize();
     }  else {

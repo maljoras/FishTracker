@@ -104,6 +104,10 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     function value = get.history(self)
       value = self.detector.history;
     end
+    
+    function resetBkg(self)
+      self.detector.reset();
+    end
 
 
   end

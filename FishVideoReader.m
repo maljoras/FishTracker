@@ -152,7 +152,7 @@ classdef FishVideoReader < handle;
     
     function a_setCurrentTime(self,time);
     % time is given in seconds
-      nextFrame = floor(time*self.frameRate);
+      nextFrame = max(floor(time*self.frameRate),0);
       pos = get(self.reader,'PosFrames');
       if nextFrame~=pos
         set(self.reader,'PosFrames',nextFrame);
@@ -354,6 +354,16 @@ classdef FishVideoReader < handle;
         end
       end
 
+    end
+    
+    function setToScaledFormat(self,scale,delta)
+      self.scale = scale;
+      self.delta = delta;
+      self.frameFormat = ['SCALED',self.frameFormat(end)];
+    end
+    
+    function setToRGBFormat(self)
+      self.frameFormat = ['RGB',self.frameFormat(end)];
     end
     
     

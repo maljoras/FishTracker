@@ -40,6 +40,7 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
     % use the Autothresholder
       [bwimg thres] =  step(self.thresholder, frame);
     end
+    
 
     
 
@@ -100,6 +101,11 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
 
       end
       
+    end
+
+    function a_reset(self)
+      self.framecounter =0;
+      self.mframe = 0;
     end
 
     

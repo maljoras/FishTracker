@@ -32,6 +32,11 @@ classdef FishForegroundDetector < handle;
     function a_setHistory(self,value)
       self.detector.History = self.history;
     end
+
+    function a_reset(self)
+      self.detector.clear();
+    end
+    
     
     function  bwmsk = a_step(self,frame);
       bwmsk = self.detector.apply(frame);
@@ -45,8 +50,8 @@ classdef FishForegroundDetector < handle;
   
   
   methods
-    
-    
+   
+
     function set.history(self,value)
       self.a_setHistory(value);
       self.history = value;
@@ -69,6 +74,11 @@ classdef FishForegroundDetector < handle;
     
       self.a_init();
     end
+    
+    function reset(self)
+      self.a_reset();
+    end
+
     
     function bwmsk = step(self,frame);
       bwmsk = self.a_step(frame);

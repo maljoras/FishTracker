@@ -1,30 +1,28 @@
 classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
-%FISHVIDEOHANDER  wrapper class
+%FISHVIDEOHANDLER  wrapper class
 %
-% Class for video reading of the FishTracker
+% Class for video handling of the FishTracker. Inherits from
+% FishBlobAnalisys and FishVideoReader, since both video
+% capturing/reading and blob analysis is done in a multi-threading
+% C++ code. 
 %
-%
+
   
   
   
   properties (SetAccess=private)
-    % Object ID
     id = [];
-
   end
   
   properties (Dependent)
-
-    useScaled
-    
-    %ploting
-    %minContourSize
     DetectShadows
     history
     nprobe
+    useScaled
   end
 
   methods 
+    
     function self = FishVideoHandlerMex(vidname,timerange,opts)
     %VIDEOCAPTURE  Create a new FishVideoHandlerMex object. VIDNAME
     %can be either a videofile or a cell like {CAMIDX, WRITEFILE}
@@ -42,6 +40,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       self@FishVideoReader(vidname);       
       self@FishBlobAnalysis(); 
 
+      self.frameFormat = 'RGBU'; % default
 
       if nargin >1
         self.timeRange = timerange;
@@ -92,23 +91,31 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       seg = self.stepBlob(bwimg,frame,cframe);
     end
   
-  
-    
-    function set.useScaled(self,value)
-      if value
-        warning('Scaled is yet unsupported');
-      end
+    function set.useScaled(self,value);
+      
       FishVideoHandler_(self.id, 'set', 'scaled',value);
+      FishVideoHandler_(self.id, 'setScale', self.scale(1),self.scale(2),self.scale(3));
+      FishVideoHandler_(self.id, 'set','delta', sum(self.delta));
     end
     
-    function value=get.useScaled(self)
-      value = FishVideoHandler_(self.id, 'get','scaled');
+    function value = get.useScaled(self);
+      value = FishVideoHandler_(self.id, 'get', 'scaled');
     end
     
+    
+    function setToScaledFormat(self,scale,delta)
+     
+      setToScaledFormat@FishVideoReader(self,scale,delta);
+      self.useScaled = true;
+    end
+    
+    function setToRGBFormat(self)
+      setToRGBFormat@FishVideoReader(self,scale,delta);
+      self.useScaled = false;
+    end
     
     function msec = getTimePos(self,onoff)
     % MSEC = GETTIMEPOS() gets the current time position
-
       msec =FishVideoHandler_(self.id, 'getTimePos')-1/self.FPS;
     end
     
@@ -123,67 +130,11 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     end
 
     function value = get(self, key)
-    %GET  Returns the specified VideoCapture property
-    %
-    %   value = cap.get(PropertyName)
-    %
-    % The method returns a Property value of VideoCapture.
-    % PropertyName can be one of the followings:
-    %
-    %    'PosMsec'       Current position of the video file in milliseconds or video capture timestamp.
-    %    'PosFrames'     0-based index of the frame to be decoded/captured next.
-    %    'AVIRatio'      Relative position of the video file: 0 - start of the film, 1 - end of the film.
-    %    'FrameWidth'    Width of the frames in the video stream.
-    %    'FrameHeight'   Height of the frames in the video stream.
-    %    'FPS'           Frame rate.
-    %    'FourCC'        4-character code of codec.
-    %    'FrameCount'    Number of frames in the video file.
-    %    'Format'        Format of the Mat objects returned by retrieve() .
-    %    'Mode'          Backend-specific value indicating the current capture mode.
-    %    'Brightness'    Brightness of the image (only for cameras).
-    %    'Contrast'      Contrast of the image (only for cameras).
-    %    'Saturation'    Saturation of the image (only for cameras).
-    %    'Hue'           Hue of the image (only for cameras).
-    %    'Gain'          Gain of the image (only for cameras).
-    %    'Exposure'      Exposure (only for cameras).
-    %    'ConvertRGB'    Boolean flags indicating whether images should be converted to RGB.
-    %    'Rectification' Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
-    %
-    % See also cv.VideoCapture
-    %
       value = FishVideoHandler_(self.id, 'capget', key);
     end
     
     function set(self, key, value)
-    %SET  Sets a property in the VideoCapture.
-    %
-    %    cap.set(PropertyName, value)
-    %
-    % The method set a Property value of VideoCapture.
-    % PropertyName can be one of the followings:
-    %
-    %    'PosMsec'       Current position of the video file in milliseconds or video capture timestamp.
-    %    'PosFrames'     0-based index of the frame to be decoded/captured next.
-    %    'AVIRatio'      Relative position of the video file: 0 - start of the film, 1 - end of the film.
-    %    'FrameWidth'    Width of the frames in the video stream.
-    %    'FrameHeight'   Height of the frames in the video stream.
-    %    'FPS'           Frame rate.
-    %    'FourCC'        4-character code of codec.
-    %    'FrameCount'    Number of frames in the video file.
-    %    'Format'        Format of the Mat objects returned by retrieve() .
-    %    'Mode'          Backend-specific value indicating the current capture mode.
-    %    'Brightness'    Brightness of the image (only for cameras).
-    %    'Contrast'      Contrast of the image (only for cameras).
-    %    'Saturation'    Saturation of the image (only for cameras).
-    %    'Hue'           Hue of the image (only for cameras).
-    %    'Gain'          Gain of the image (only for cameras).
-    %    'Exposure'      Exposure (only for cameras).
-    %    'ConvertRGB'    Boolean flags indicating whether images should be converted to RGB.
-    %    'Rectification' Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
-    %
-    % See also cv.VideoCapture
-    %
-      FishVideoHandler_(self.id, 'capset', key, value);
+      FishVideoHandler_(self.id, 'set', key, value);
     end
     
     function value = get.history(self)
@@ -219,6 +170,11 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       end
       
       segm = rp;
+    end
+    
+    
+    function resetBkg(self)
+      FishVideoHandler_(self.id, 'resetBkg');
     end
     
 
@@ -287,7 +243,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     
     function a_setCurrentTime(self,time);
     % time is given in seconds
-      nextFrame = floor(time*self.frameRate);
+      nextFrame = max(floor(time*self.frameRate),0);
       pos = FishVideoHandler_(self.id,'get','PosFrames');
       if nextFrame~=pos 
         FishVideoHandler_(self.id,'set','PosFrames',nextFrame);
@@ -339,12 +295,10 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     end
     
     function  [frame,oframe] = a_readScaledUFrame(self);      
-      
+
       bool = self.useScaled;
-      if ~self.useScaled 
+      if ~bool
         self.useScaled = true;
-        FishVideoHandler_(self.id, 'setScale',self.scale(1),self.scale(2),self.scalke(3));
-        FishVideoHandler_(self.id, 'set','delta',sum(self.delta));
       end
       
       if self.originalif
@@ -353,7 +307,11 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
         [~,~,frame] = self.step();
         oframe = [];
       end
-
+      if ~bool 
+        self.useScaled = false;
+      end
+      
+      
     end
 
     function  [frame,oframe] = a_readScaledSFrame(self);      

@@ -1,7 +1,8 @@
 
 
 #include "VideoHandler.h"
-
+//#define DEBUG
+//#define PLOTSEGMENTS
 
 using namespace std;
 using namespace cv;
@@ -128,9 +129,12 @@ void VideoHandler::initialize() {
     if (!camera) {
       int iframe;
       iframe = pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
-      if (iframe>0)
+ 
+      //cout << "frame: " << iframe << endl;
+      if (iframe>0) {
 	iframe = iframe-1; // step one back;
-      pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,iframe);
+	pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,iframe);
+      }
     }
 
     // start a new thread
@@ -230,28 +234,35 @@ void VideoHandler::step(){
   startThread();
   
 
-  // // finding contours
+  
+#ifdef DEBUG
   Glib::Timer timer;
   timer.start();
+#endif
+
+  // finding contours
   vector<Vec4i> hierarchy;
   findContours(BWImg,Contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
 
+#ifdef DEBUG 
   cout << "counters: " <<  timer.elapsed() << endl;
-
-  // get the fish patches and segments
   timer.start();
+#endif
+  
+  // get the fish patches and segments
   vector<Segment> segms(Contours.size());
-  for( int i = 0; i< Contours.size(); i++ )
+  for( int i = 0; i< Contours.size(); i++ ) {
     getSegment(&(segms[i]),Contours[i],BWImg,Frame,OFrame);
+  }
   Segments = segms;
 
+#ifdef DEBUG 
   cout << "segments: " <<  timer.elapsed() << endl;  
+#endif
+  
   // make mask
   makeGoodMsk();
 
-  // thisTime = microsec_clock::local_time();
-  // td = thisTime - thatTime;	
-  // cout << td.total_milliseconds() << "\n";
 
   
   if (plotif)
@@ -268,11 +279,12 @@ void VideoHandler::_readNextFrameThread()
     return;
   }
 
-
+#ifdef DEBUG
   Glib::Timer timer;
   timer.start();
   m_threadExists = true;
-
+#endif
+  
   Mat oframe,frame;
   if (camera) {
 
@@ -281,9 +293,10 @@ void VideoHandler::_readNextFrameThread()
     if (pVideoSaver->getFrame(&oframe,&timeStamp,&frameNumber)!=0) {
       return;
     }
-
+#ifdef DEBUG
     cout << oframe.size() << endl;
     cout << frameNumber << " " <<  timeStamp << endl;
+#endif
 
   } else {
     if (!pVideoCapture->read(oframe)) {
@@ -303,9 +316,9 @@ void VideoHandler::_readNextFrameThread()
     
     split(oframe, channel);
     for (int ii=0; ii<3; ii++) {
-      channel[ii].convertTo(channel[ii], CV_32FC1,1/255.);
+      channel[ii].convertTo(channel[ii], CV_32FC1);
     }
-    frame =  m_Scale[2]*channel[0] + m_Scale[1]*channel[1] + m_Scale[0]*channel[2] + m_Delta;
+    frame =  ((float) m_Scale[2]/255.)*channel[0] + ((float) m_Scale[1]/255.)*channel[1] + ((float) m_Scale[0]/255.)*channel[2] + m_Delta;
     
     // substract mean
     frame = frame - cv::mean(frame);
@@ -315,26 +328,34 @@ void VideoHandler::_readNextFrameThread()
   else
     cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
 
+#ifdef DEBUG
+  cout << "reading frame: " <<  timer.elapsed() << endl;  
+  timer.start();
+#endif
+
   // backgound computation (THIS IS THE SLOWEST PART!)
   pBackgroundSubtractor->apply(frame, m_NextBWImg);
 
-    // // finding contours
-    // vector<Vec4i> hierarchy;
-    // m_NextContours.clear();
-    // findContours(m_NextBWImg,m_NextContours,hierarchy,cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, Point(0, 0));
-    // // get the fish patches and segments
-    // vector<Segment> segms(m_NextContours.size());
-    // for( int i = 0; i< m_NextContours.size(); i++ )
-    //   getSegment(&(segms[i]),m_NextContours[i],m_NextBWImg,frame,oframe);
-
-    // m_NextSegments = segms;
+#ifdef DEBUG
+  cout << "background sub: " <<  timer.elapsed() << endl;  
+#endif
+  // // finding contours
+  // vector<Vec4i> hierarchy;
+  // m_NextContours.clear();
+  // findContours(m_NextBWImg,m_NextContours,hierarchy,cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, Point(0, 0));
+  // // get the fish patches and segments
+  // vector<Segment> segms(m_NextContours.size());
+  // for( int i = 0; i< m_NextContours.size(); i++ )
+  //   getSegment(&(segms[i]),m_NextContours[i],m_NextBWImg,frame,oframe);
+  
+  // m_NextSegments = segms;
   m_NextFrame = frame;
   if (colorfeature)
     m_NextOFrame = oframe;
   else
     m_NextOFrame = frame;
 
-  cout << "reading frame: " <<  timer.elapsed() << endl;  
+
 };
 
 /****************************************************************************************/
@@ -475,31 +496,29 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     
     Point2f center(probe[0]); // center for rotations
 
+#ifdef PLOTSEGMENTS
+    if (segm->Size.height + segm->Size.width > 100 ){
+      namedWindow("proj",WINDOW_AUTOSIZE);
+      Mat timg = segm->FilledImage;
+      Mat timg2;
+      getRectSubPix(timg,Size(300,300),localcenter,timg2,-1);
 
- //    if (segm->Size.height + segm->Size.width > 100 ){
-//       namedWindow("proj",WINDOW_AUTOSIZE);
-//       Mat timg = segm->FilledImage;
-//       Mat timg2;
-//       getRectSubPix(timg,Size(300,300),localcenter,timg2,-1);
-
-//       Point2f p1(150,150);
-//       Size sz= segm->Size;
+      Point2f p1(150,150);
+      Size sz= segm->Size;
       
-//       line(timg2,pvec*10+p1,p1,CV_RGB(255,255,145),1,8,0);
-//       line(timg2,v*10 + p1,  p1,CV_RGB(255,255,245),2,8,0);
-//       for (int i=0;i<nprobe;i++) {
-// 	Point2f p2(probe[i]);
-// 	circle(timg2,p2 + p1 - localcenter,5,CV_RGB(255-i*20,255-i*20,245-i*20),2,8,0);
-//       }
-//       circle(timg2,center + p1 - localcenter,5,CV_RGB(255,255,255),4,8,0);
-//       ellipse(timg2,p1,(sz)/2,segm->Orientation,0,360,CV_RGB(255,255,145),2,8,0);
+      line(timg2,pvec*10+p1,p1,CV_RGB(255,255,145),1,8,0);
+      line(timg2,v*10 + p1,  p1,CV_RGB(255,255,245),2,8,0);
+      for (int i=0;i<nprobe;i++) {
+	Point2f p2(probe[i]);
+	circle(timg2,p2 + p1 - localcenter,5,CV_RGB(255-i*20,255-i*20,245-i*20),2,8,0);
+      }
+      circle(timg2,center + p1 - localcenter,5,CV_RGB(255,255,255),4,8,0);
+      ellipse(timg2,p1,(sz)/2,segm->Orientation,0,360,CV_RGB(255,255,145),2,8,0);
 
-//       imshow("proj",timg2);
-
-
-// //      waitKey(0); 
-//     }
-
+      imshow("proj",timg2);
+    }
+#endif
+    
     // get rotation matrix
     Size2f szin(segm->Image.size());
     Size2f szout(szin.height*fabs(v.y)+szin.width*fabs(v.x),szin.height*fabs(v.x)+szin.width*fabs(v.y));
@@ -596,41 +615,38 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
       getRectSubPix(fishfeature,featureSize,centerfish,segm->FishFeatureRemap,-1);
       segm->FishFeatureRemap.convertTo(segm->FishFeatureRemap,CV_32FC1);
     }
-    
-    // if (segm->Size.height + segm->Size.width > 100 ){
-    //   namedWindow("fish",WINDOW_AUTOSIZE);
-    //   imshow("fish",segm->FishFeature);
+#ifdef PLOTSEGMENTS
+    if (segm->Size.height + segm->Size.width > 100 ){
+      namedWindow("fish",WINDOW_AUTOSIZE);
+      imshow("fish",segm->FishFeature);
 
 
       
-    //   Mat timg6;
-    //   Point2f p8(fishfeature.size());
-    //   getRectSubPix(fishfeature,Size(300,300),p8/2,timg6,-1);
-    //   namedWindow("fishfeature",WINDOW_AUTOSIZE);
-    //   imshow("fishfeature",timg6);
+      Mat timg6;
+      Point2f p8(fishfeature.size());
+      getRectSubPix(fishfeature,Size(300,300),p8/2,timg6,-1);
+      namedWindow("fishfeature",WINDOW_AUTOSIZE);
+      imshow("fishfeature",timg6);
 
 
-    //   Mat timg4(segm->RotFilledImage);
-    //   for (int i=0;i<nprobe;i++) {
-    // 	circle(timg4, rotprobe[i],4,CV_RGB(0,255,245),1,8,0);
-    //   }
+      Mat timg4(segm->RotFilledImage);
+      for (int i=0;i<nprobe;i++) {
+    	circle(timg4, rotprobe[i],4,CV_RGB(0,255,245),1,8,0);
+      }
 
-    //   // for (int i=0;i<comy.cols;i++) {
-    //   // 	circle(timg4, Point2f(i,comy.at<float>(i)+rotimg.cols/2.),1,CV_RGB(255,255,245),1,8,0);
-    //   // }
-    //   for (int i=0;i<comy.cols;i++) {
-    // 	circle(timg4, Point2f(i,comy.at<float>(i)),1,CV_RGB(0,255,245),1,8,0);
-    //   }
+      for (int i=0;i<comy.cols;i++) {
+    	circle(timg4, Point2f(i,comy.at<float>(i)),1,CV_RGB(0,255,245),1,8,0);
+      }
  
-    //   Mat timg3;
-    //   Point2f p5 = Point2f(szout);
-    //   getRectSubPix(timg4,Size(300,300),p5/2,timg3,-1);
+      Mat timg3;
+      Point2f p5 = Point2f(szout);
+      getRectSubPix(timg4,Size(300,300),p5/2,timg3,-1);
 
-    //   namedWindow("rotimg",WINDOW_AUTOSIZE);
-    //   imshow("rotimg",timg3);
-    //   waitKey(0); 
-    // }
-
+      namedWindow("rotimg",WINDOW_AUTOSIZE);
+      imshow("rotimg",timg3);
+      waitKey(0); 
+    }
+#endif
   }
   
 };
@@ -692,7 +708,7 @@ int VideoHandler::set(const string prop, double value){
   else if (prop=="timePos") {
     if ((!camera) && (!stopped)) {
       waitThread();
-      pVideoCapture->set(cv::CAP_PROP_POS_MSEC,value);
+      pVideoCapture->set(cv::CAP_PROygP_POS_MSEC,value);
       //pBackgroundSubtractor->clear(); // similar background anyway. do not reset
       initialize();
     }  else {
@@ -856,7 +872,9 @@ double VideoHandler::get(const string prop){
 /****************************************************************************************/
 void VideoHandler::setScale(vector<float> scale) {
   waitThread();
-  m_Scale = scale;
+  for (int i=0;i++;i<scale.size()) {
+    m_Scale[i] = scale[i];
+  }
   initialize();
 };
 
@@ -865,6 +883,12 @@ vector< float> VideoHandler::getScale() {
   return m_Scale;
 };
 
+/****************************************************************************************/
+void VideoHandler::resetBkg() {
+  if (!stopped) {
+    pBackgroundSubtractor->clear(); // similar background anyway. do not reset
+  }
+};
 
 
 /****************************************************************************************/

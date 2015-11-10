@@ -776,15 +776,22 @@ classdef FishBlobAnalysis < handle;
       featureSize  = [self.featureheight,self.featurewidth];
     end
     
-    function initialize(self)
-      setFishSize(self,self.fishlength,self.fishwidth);
+    function initialize(self,verboseif)
+      if ~exist('verboseif','var')
+        verboseif = 1;
+      end
+      setFishSize(self,self.fishlength,self.fishwidth,verboseif);
     end
     
     
-    function setFishSize(self,fishlength,fishwidth)
+    function setFishSize(self,fishlength,fishwidth,verboseif)
     % adjust paremeters according to the fishsize
       
-      if ~isempty(fishlength) && ~isempty(fishwidth) 
+      if ~exist('verboseif','var')
+        verboseif = 1;
+      end
+      
+      if ~isempty(fishlength) && ~isempty(fishwidth) && verboseif
         verbose('Initiated %s with fish features.',upper(class(self)))
         verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
       end

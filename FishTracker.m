@@ -227,7 +227,9 @@ classdef FishTracker < handle;
       self.videoHandler.timeRange = self.timerange;                       
       self.timerange = self.videoHandler.timeRange; % to get the boundaries right;
       self.videoHandler.setCurrentTime(self.timerange(1));
-      self.videoHandler.setFishSize(self.fishlength,self.fishwidth);
+      self.videoHandler.fishlength = self.fishlength;
+      self.videoHandler.fishwidth = self.fishwidth;
+      self.videoHandler.initialize();
       
       if isscalar(self.writefile) && self.writefile
         [a,b,c] = fileparts(self.videoFile);
@@ -291,19 +293,23 @@ classdef FishTracker < handle;
     end
     
     
-    function [nObjects,objectSize] =findObjectSizes(self)
+    function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
 
-      verbose('Detect approx fish sizes...');
-      minAxisWidth = 10;
+      if nargin==1
+        minAxisWidth = 4;
+      end
       
+      verbose('Detect approx fish sizes (minAxisWidth=%g)...',minAxisWidth);
+
       self.videoHandler.reset();
       self.videoHandler.originalif = true;
       n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
-
+      self.videoHandler.initialize(0);
       s = 0;
       for i = 1:n
 
         [segm] = self.videoHandler.step();
+        fprintf('%1.1f%%\r',i/n*100); % some output
 
         if isempty(segm)
           continue;
@@ -313,36 +319,40 @@ classdef FishTracker < handle;
         count(s) = length(segm(idx));
         width(s) = median([segm(idx).MinorAxisLength]);
         height(s) = median([segm(idx).MajorAxisLength]);
-
       end
 
-      self.videoHandler.originalif = true;
-      [segm,bwmsk,frame,cframe] = self.videoHandler.step();
-      self.videoHandler.originalif = false;
-      
       if ~s
         error('Something wrong with the bolbAnalyzer ... cannot find objects.');
       end
       
       nObjects = median(count);
-      objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % note that fish are bending
-      
-      
+      objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % fish are bending
       verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
       
       if self.displayif>1
         figure;
+        [segm,bwmsk,frame,cframe] = self.videoHandler.step();
         imagesc(bwmsk);
         title(sprintf('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize));
       end
 
       if self.useScaledFormat
         % get good color conversion
-        [scale,delta] = getColorConversion(bwmsk,im2double(cframe));
-
+        bwmsks = {};
+        cframes = {};
+        for i =1:10 % based on not just one frame to get better estimates
+          [~,bwmsks{i},~,cframe] = self.videoHandler.step();
+          cframes{i} = im2double(cframe);
+        end
+        
+        [scale,delta] = getColorConversion(bwmsks,cframes);
+          
         if ~isempty(scale)
-          self.videoHandler.setScaledFormat(scale,delta);
+          self.videoHandler.setToScaledFormat(scale,delta);
+          self.videoHandler.resetBkg(); % background is wrong because
+                                        % of changing to scaled
         else
+          self.videoHandler.setToRGBFormat();
           self.videoHandler.frameFormat = ['GRAY' self.videoHandler.frameFormat(end)];
         end
       end
@@ -1784,7 +1794,7 @@ classdef FishTracker < handle;
       % blob anaylser
       self.opts(1).blob(1).computeMSERthres= 2.5; % just for init str
       self.opts.blob.interpif = 1;
-      self.opts.blob.colorfeature = false; % set blob to color if color might help in classifying
+      self.opts.blob.colorfeature = true; % set blob to color if color might help in classifying
                                           % the fish
       
       % classifier 

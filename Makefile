@@ -39,7 +39,7 @@
 # ============================================================================
 
 # programs
-MATLABDIR  ?= /opt/MATLAB/R2015b
+MATLABDIR  ?= /opt/MATLAB/R2014b
 MEX        ?= $(MATLABDIR)/bin/mex
 MATLAB     ?= $(MATLABDIR)/bin/matlab
 DOXYGEN    ?= doxygen

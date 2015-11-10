@@ -5,6 +5,9 @@
 using namespace std;
 using namespace FlyCapture2;
 
+//#define DEBUG
+#define WAITSECONDS 1
+
 //using namespace cv;
 
 
@@ -276,12 +279,25 @@ int VideoSaver::startCapture() {
 }
 
 void VideoSaver::waitForNewFrame() {
+
+  Glib::Timer timer;
+  timer.start();
+
   while (1) {
     {
       Glib::Threads::Mutex::Lock lock(m_FrameMutex);
+#ifdef DEBUG
       cout << m_newFrameAvailable;
-      if (m_newFrameAvailable)
+#endif
+      if (m_newFrameAvailable) 
 	break;
+      if (timer.elapsed()>WAITSECONDS) {
+	cout << "waited for long enough. No Frame ?" << endl;
+#ifdef DEBUG
+ 	cout << " framenumber: " << m_frameNumber << endl;
+	cout << " Camera connected: " << m_Camera.IsConnected() << endl;
+#endif
+      }
     }
     Glib::usleep(200);
   }
@@ -320,7 +336,6 @@ int VideoSaver::startCaptureAndWrite(const string inFname, string codec)
   
   // start the writing thread
   cout <<  "Start video saving.." << endl;
-  //boost::thread captureAndWriteThread(&VideoSaver::_captureAndWriteThread,this);
   m_writing = true;
   m_writingThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoSaver::_captureAndWriteThread));
 
@@ -354,7 +369,7 @@ void VideoSaver::_captureThread()
       const double localtimestamp = m_timer.elapsed();
 
       // convert to bgr
-      rawImage2.DeepCopy(&rawImage);
+      rawImage2.DeepCopy(&rawImage); // not sure if really needed since we convert below...
       rawImage2.Convert(PIXEL_FORMAT_BGR, &rgbImage );
 
       // convert to Mat

@@ -5,12 +5,18 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
 %
 %
   
+  properties
+    computeSegments = true;
+  end
+  
+  
   properties (SetAccess = private)
     detector;
   end
   
   properties (Dependent)
     history
+
   end
 
   methods
@@ -92,9 +98,14 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
         frame = self.readFrame();
         oframe = frame;
       end
-      
       bwmsk = self.detector.step(frame);
-      segm = self.stepBlob(bwmsk,frame,oframe);
+
+      if self.computeSegments
+        segm = self.stepBlob(bwmsk,frame,oframe);
+      else
+        segm = [];
+      end
+      
     end        
 
     %% detector methods
@@ -108,7 +119,11 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     function resetBkg(self)
       self.detector.reset();
     end
-
+    
+    function plotting(self,bool);
+    % plotting not implemented...
+    end
+    
 
   end
 end

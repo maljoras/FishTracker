@@ -183,6 +183,7 @@ protected:
     int featurewidth;
     int featureheight;
 
+    bool computeSegments;
 
 };
 

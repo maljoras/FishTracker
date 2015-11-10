@@ -19,6 +19,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     history
     nprobe
     useScaled
+    computeSegments
   end
 
   methods 
@@ -76,21 +77,33 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     % [segments [contours, bwimg, frame]] = vh.step();
     %
     %
-% $$$       if nargout==1
-% $$$         [seg] = FishVideoHandler_(self.id, 'step');
-% $$$       else
-% $$$         [seg,varargout{1:nargout-1}] = FishVideoHandler_(self.id, 'step');
-% $$$       end
-
-      [seg,bwimg,frame,cframe] = FishVideoHandler_(self.id, 'step');
+      if nargout==3
+        [seg,bwimg,frame] = FishVideoHandler_(self.id, 'step');
+        cframe= [];
+      else
+        [seg,bwimg,frame,cframe] = FishVideoHandler_(self.id, 'step');
+      end
+      
       self.increaseCounters(); % implicit read frame, so increase
                                % the counters
 
-      % split regions / mser not yet implemented
-      self.segm = seg; % for a_getRegion dummy
-      seg = self.stepBlob(bwimg,frame,cframe);
+      if self.computeSegments
+        % split regions / mser not yet implemented
+        self.segm = seg; % for a_getRegion dummy
+        seg = self.stepBlob(bwimg,frame,cframe);
+      else
+        seg = [];
+      end
     end
   
+    function set.computeSegments(self,value)
+      FishVideoHandler_(self.id, 'set', 'computeSegments',value);
+    end
+    
+    function value = get.computeSegments(self)
+      value =FishVideoHandler_(self.id, 'get', 'computeSegments');
+    end
+    
     function set.useScaled(self,value);
       
       FishVideoHandler_(self.id, 'set', 'scaled',value);
@@ -175,6 +188,10 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     
     function resetBkg(self)
       FishVideoHandler_(self.id, 'resetBkg');
+    end
+    
+    function plotting(self,bool)
+      FishVideoHandler_(self.id,'set','plotif',bool);      
     end
     
 

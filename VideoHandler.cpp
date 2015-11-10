@@ -51,7 +51,8 @@ void VideoHandler::initPars() {
   scaled = false;
   plotif = false;
   colorfeature = false;
-  
+  computeSegments = true;
+
   nprobe = 7;
   m_Delta = 0;
 
@@ -92,9 +93,15 @@ void VideoHandler::makeGoodMsk() {
 /****************************************************************************************/
 void VideoHandler::plotCurrentFrame() {
 
-  namedWindow( "Frame", WINDOW_AUTOSIZE );
-  imshow( "Frame", Frame);
-   //waitKey(100);
+  Mat smallFrame;
+  Size size(400,400);
+  if (Frame.size().width>0) {
+    resize(Frame,smallFrame,size);
+    namedWindow( "Frame", WINDOW_AUTOSIZE );
+    imshow( "Frame", smallFrame);
+    waitKey(1);
+  }
+
 }
 
 /****************************************************************************************/
@@ -198,7 +205,8 @@ int VideoHandler::start() {
 void VideoHandler::stop() {
 
   deleteThread();
-  
+  destroyAllWindows();
+
   if (!stopped) {
 
     if (!camera)
@@ -242,7 +250,9 @@ void VideoHandler::step(){
 
   // finding contours
   vector<Vec4i> hierarchy;
-  findContours(BWImg,Contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
+  if (computeSegments) {
+    findContours(BWImg,Contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
+  }
 
 #ifdef DEBUG 
   cout << "counters: " <<  timer.elapsed() << endl;
@@ -250,12 +260,17 @@ void VideoHandler::step(){
 #endif
   
   // get the fish patches and segments
-  vector<Segment> segms(Contours.size());
-  for( int i = 0; i< Contours.size(); i++ ) {
-    getSegment(&(segms[i]),Contours[i],BWImg,Frame,OFrame);
-  }
-  Segments = segms;
+  int ssize = computeSegments? Contours.size(): 0;
+  vector<Segment> segms(ssize);
+  if (computeSegments) {
 
+    for( int i = 0; i< Contours.size(); i++ ) {
+      getSegment(&(segms[i]),Contours[i],BWImg,Frame,OFrame);
+    }
+  }
+
+  Segments = segms;
+ 
 #ifdef DEBUG 
   cout << "segments: " <<  timer.elapsed() << endl;  
 #endif
@@ -656,7 +671,7 @@ int VideoHandler::set(const string prop, double value){
 
   if (prop=="scaled") {
     waitThread();
-    scaled = (bool) (value>0);
+    scaled = (bool) (value!=0);
     initialize();
   }
   else  if (prop=="delta") {
@@ -678,11 +693,11 @@ int VideoHandler::set(const string prop, double value){
 
   }
   else if (prop=="plotif") {
-    plotif = (bool) (value>0);
+    plotif = (bool) (value!=0);
   }
   else if (prop=="colorfeature") {
     waitThread();
-    colorfeature = (bool) (value>0);
+    colorfeature = (bool) (value!=0);
     initialize();
   }
   else if (prop=="nprobe") {
@@ -705,6 +720,10 @@ int VideoHandler::set(const string prop, double value){
   else if (prop=="minArea") {
     minArea = (int) value;
   }
+  else if (prop=="computeSegments") {
+    computeSegments = (bool) value!=0;
+  }
+
   else if (prop=="timePos") {
     if ((!camera) && (!stopped)) {
       waitThread();
@@ -769,6 +788,9 @@ double VideoHandler::get(const string prop){
   }
   else if (prop=="nprobe") {
     return (double) nprobe;
+  }
+  else if (prop=="computeSegments") {
+    return (double) computeSegments;
   }
   else if (prop=="minWidth") {
     return (double) minWidth;

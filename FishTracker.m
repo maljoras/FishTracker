@@ -152,11 +152,15 @@ classdef FishTracker < handle;
       
       if self.displayif>3
         self.fishClassifier.plotif = 1;
-        self.videoHandler.plotif = 1;
       end
+
+      if self.displayif>1
+        self.videoHandler.plotting(true);
+      end
+      
       if ~self.displayif
         self.fishClassifier.plotif = 0;
-        self.videoHandler.plotif = 0;
+        self.videoHandler.plotting(false);
       end
       
       if self.displayif> 4
@@ -349,8 +353,15 @@ classdef FishTracker < handle;
           
         if ~isempty(scale)
           self.videoHandler.setToScaledFormat(scale,delta);
-          self.videoHandler.resetBkg(); % background is wrong because
-                                        % of changing to scaled
+          self.videoHandler.resetBkg(); 
+          self.videoHandler.computeSegments = false;
+          % re-generate some background
+          verbose('Set to scaled format. Regenerate background..')
+          for i =1:(n/2)
+            [~,~,frame] = self.videoHandler.step();    
+            fprintf('%1.1f%%\r',i/n*2*100); % some output
+          end
+          self.videoHandler.computeSegments = true;
         else
           self.videoHandler.setToRGBFormat();
           self.videoHandler.frameFormat = ['GRAY' self.videoHandler.frameFormat(end)];

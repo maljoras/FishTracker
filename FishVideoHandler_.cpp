@@ -132,6 +132,12 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	
 	plhs[0] = MxArray(obj.OFrame);
     }
+    else if (method == "resetBkg") {
+        if (nrhs!=2 || nlhs!=0)
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+	
+	obj.resetBkg();
+    }
 
     else if (method == "setScale") {
         if (nrhs!=5 || nlhs!=0)

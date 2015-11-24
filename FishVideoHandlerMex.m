@@ -6,6 +6,10 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
 % capturing/reading and blob analysis is done in a multi-threading
 % C++ code. 
 %
+% NOTE: if "unknown error" occurs in MEX file then try to set in
+% linux terminal:
+%   sudo echo "vm.max_map_count=16777216" | tee -a /etc/sysctl.conf
+%   sudo sysctl -w vm.max_map_count=16777216
 
   
   
@@ -20,6 +24,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     nprobe
     useScaled
     computeSegments
+    resizeif
+    resizescale
   end
 
   methods 
@@ -33,10 +39,10 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       if nargin < 1, vidname = getVideoFile(); end
       
       % make sure the image librabry of matlkab is loaded
-      f = figure;
-      image();
-      close(f);
-      vision.VideoPlayer();
+      %f = figure;
+      %image();
+      %close(f);
+      %vision.VideoPlayer();
       
       self@FishVideoReader(vidname);       
       self@FishBlobAnalysis(); 
@@ -110,9 +116,25 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       FishVideoHandler_(self.id, 'setScale', self.scale(1),self.scale(2),self.scale(3));
       FishVideoHandler_(self.id, 'set','delta', sum(self.delta));
     end
+
     
     function value = get.useScaled(self);
       value = FishVideoHandler_(self.id, 'get', 'scaled');
+    end
+    
+    function value = get.resizeif(self);
+      value = FishVideoHandler_(self.id, 'get', 'resizeif');
+    end
+    function set.resizeif(self,value);
+      FishVideoHandler_(self.id, 'set', 'resizeif',value);
+    end
+    
+    function value = get.resizescale(self);
+      value = FishVideoHandler_(self.id, 'get', 'resizescale');
+    end
+    
+    function set.resizescale(self,value);
+      FishVideoHandler_(self.id, 'set', 'resizescale',value);
     end
     
     
@@ -177,8 +199,21 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       
     % get the spots from the binary image
       rp = self.a_getRegions(bwimg,Iframe,[self.rprops,{'Image'}]);
-      
+
+
       for i = 1:length(rp)
+% $$$         img = rp(i).FishFeatureCRemap;
+% $$$         sz = size(img);
+% $$$         sz(1) = ceil(sz(1)/3);
+% $$$         sz(2) = ceil(sz(2)/3);
+% $$$         
+% $$$         dimg = zeros(sz);      
+% $$$         for j = 1:size(img,3)
+% $$$           tmp = dct2(img(:,:,j));
+% $$$           dimg(:,:,j) = tmp(1:sz(1),1:sz(2));
+% $$$         end
+% $$$         
+% $$$         rp(i).FishFeature = dimg;
         rp(i).FishFeature = rp(i).FishFeatureCRemap;
       end
       
@@ -194,6 +229,9 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       FishVideoHandler_(self.id,'set','plotif',bool);      
     end
     
+    function bool = isGrabbing(self);
+      bool = FishVideoHandler_(self.id,'get','camera') ; 
+    end
 
   end
   
@@ -215,6 +253,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       
     end
     
+
     
     function dur = a_getDuration(self);
       dur = self.a_getNFrames()/self.a_getFrameRate();
@@ -363,7 +402,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       FishVideoHandler_(self.id, 'set','maxArea',self.maxArea);
       FishVideoHandler_(self.id, 'set','maxExtent',self.maxextent);
       FishVideoHandler_(self.id, 'set','minExtent',self.minextent);
-      FishVideoHandler_(self.id, 'set','colorfeature',self.originalif);
+      FishVideoHandler_(self.id, 'set','colorfeature',self.colorfeature || self.originalif);
       FishVideoHandler_(self.id, 'set','minWidth',self.minWidth);
       FishVideoHandler_(self.id, 'set','featureheight',self.featureheight);
       FishVideoHandler_(self.id, 'set','featurewidth',self.featurewidth);

@@ -53,6 +53,9 @@ void VideoHandler::initPars() {
   colorfeature = false;
   computeSegments = true;
 
+  resizeif = false;
+  resizescale = 1.;
+
   nprobe = 7;
   m_Delta = 0;
 
@@ -146,6 +149,7 @@ void VideoHandler::initialize() {
 
     // start a new thread
     startThread();
+    Glib:usleep(200); // need to wait a bit to acquire the lock in the thread
   }
 }
 
@@ -189,13 +193,14 @@ int VideoHandler::start() {
     }
       else  {
       pVideoCapture = new VideoCapture(m_fname);
+      pVideoCapture->set(cv::CAP_PROP_CONVERT_RGB,true); // output RGB
     }
 
     pBackgroundSubtractor =  cv::createBackgroundSubtractorKNN(250,400,false);
 
     stopped=false;
     startThread();
-    Glib:usleep(50); // need to wait a bit to acquire the lock in the thread
+    Glib:usleep(200); // need to wait a bit to acquire the lock in the thread
     waitThread();
   }
   return 0;
@@ -307,23 +312,27 @@ void VideoHandler::_readNextFrameThread()
     int frameNumber;
     if (pVideoSaver->getFrame(&oframe,&timeStamp,&frameNumber)!=0) {
       return;
-    }
+    } // returns RGB
 #ifdef DEBUG
     cout << oframe.size() << endl;
     cout << frameNumber << " " <<  timeStamp << endl;
 #endif
 
   } else {
-    if (!pVideoCapture->read(oframe)) {
+    if (!pVideoCapture->read(oframe)) { // should return RGB instead of BGR
       cout <<  "File read error";
       return;
     }
+    cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
     
     if (oframe.type()!=CV_8UC3) {
       cout <<  "ERROR: Expect CV_8UC3 color movie";
       return;
     }
+  }
 
+  if ((resizeif) && (resizescale!=1)) {
+    cv:resize(oframe,oframe,Size(0,0),resizescale,resizescale);
   }
 
   if (scaled) {
@@ -333,15 +342,15 @@ void VideoHandler::_readNextFrameThread()
     for (int ii=0; ii<3; ii++) {
       channel[ii].convertTo(channel[ii], CV_32FC1);
     }
-    frame =  ((float) m_Scale[2]/255.)*channel[0] + ((float) m_Scale[1]/255.)*channel[1] + ((float) m_Scale[0]/255.)*channel[2] + m_Delta;
+    frame =  ((float) m_Scale[0]/255.)*channel[0] + ((float) m_Scale[1]/255.)*channel[1] + ((float) m_Scale[2]/255.)*channel[2];// + m_Delta; // do not need data because mean subtracted
     
-    // substract mean
-    frame = frame - cv::mean(frame);
-    frame += 0.5; // between 0..1
+    // subtract mean
+    cv::Scalar globalmean = cv::mean(frame) ; // one channel anyway
+    frame = frame - (globalmean[0]-0.5);// 0.5 because should be between 0..1
     frame.convertTo(frame, CV_8UC1, 255);
   }
   else
-    cvtColor(oframe,frame,cv::COLOR_BGR2GRAY);
+    cvtColor(oframe,frame,cv::COLOR_RGB2GRAY);
 
 #ifdef DEBUG
   cout << "reading frame: " <<  timer.elapsed() << endl;  
@@ -679,6 +688,16 @@ int VideoHandler::set(const string prop, double value){
     m_Delta = (float) value;
     initialize();
   }
+  else  if (prop=="resizeif") {
+    waitThread();
+    resizeif = (bool) (value!=0);
+    initialize();
+  }
+  else if (prop=="resizescale") {
+    waitThread();
+    resizescale = (float) (value);
+    initialize();
+  }
   else if (prop=="featureheight") {
     waitThread();
     featureheight = (int) value;
@@ -774,8 +793,17 @@ double VideoHandler::get(const string prop){
   else if (prop=="plotif") {
     return(double) plotif;
   }
+  else if (prop=="camera") {
+    return(double) camera;
+  }
   else if (prop=="delta") {
     return(double) m_Delta;
+  }
+  else if (prop=="resizeif") {
+    return(double) resizeif;
+  }
+  else if (prop=="resizescale") {
+    return(double) resizescale;
   }
   else if (prop=="colorfeature") {
     return (double) colorfeature;
@@ -827,20 +855,28 @@ double VideoHandler::get(const string prop){
   else if ((prop == "ShadowValue")&& (!stopped))
     return (double) pBackgroundSubtractor->getShadowValue();
   else if ((prop == "FrameWidth") && (!stopped)) {
+    double width;
     if (!camera) 
-      return (double) pVideoCapture->get(cv::CAP_PROP_FRAME_WIDTH);
+      width =  (double) pVideoCapture->get(cv::CAP_PROP_FRAME_WIDTH);
     else  {
       Size frameSize = pVideoSaver->getFrameSize();
-      return (double) frameSize.width;
+      width = (double) frameSize.width;
     }
+    if (resizeif)
+      width = round(width*resizescale);
+    return width;
   }
   else if ((prop == "FrameHeight") && (!stopped)) {
+    double height;
     if (!camera) 
-      return (double) pVideoCapture->get(cv::CAP_PROP_FRAME_HEIGHT);
+      height = (double) pVideoCapture->get(cv::CAP_PROP_FRAME_HEIGHT);
     else  {
       Size frameSize = pVideoSaver->getFrameSize();
-      return (double) frameSize.height;
+      height =(double) frameSize.height;
     }
+    if (resizeif)
+      height = round(height*resizescale);
+    return height;
   }
   else if ((prop == "FPS")  && (!stopped)){
     if (!camera) 

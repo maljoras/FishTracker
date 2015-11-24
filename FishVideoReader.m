@@ -7,6 +7,7 @@ classdef FishVideoReader < handle;
     grayFormat = 'GRAY';
     timeRange  = [];
     originalif = false;
+
   end
   
 
@@ -19,7 +20,7 @@ classdef FishVideoReader < handle;
     
   properties(SetAccess=private);
 
-    currentFrame = 1;
+    currentFrame = 0;
     currentTime = 0;
     frame = [];
     oframe = [];
@@ -29,6 +30,7 @@ classdef FishVideoReader < handle;
     nFrames = 0;
     frameSize = [];
 
+    tframe = [];
   end
   
   
@@ -182,8 +184,13 @@ classdef FishVideoReader < handle;
       if ~hasOpenCV()
         error('Cannot find mexopencv toolbox..');
       end
-      
       self.reader = FishVideoCapture(self.videoFile);
+    end
+  
+    function loadTFile(self,tfile);
+    % reads the txt file with the time information from SaveVideo
+      tmp = dlmread(tfile);
+      self.tframe = tmp(:,3)-tmp(1,3);
     end
   end
   
@@ -197,8 +204,16 @@ classdef FishVideoReader < handle;
     % constructor
       self = self@handle();
 
+      if ~exist(vid,'file')
+        error('Video file not found');
+      end
       self.videoFile = vid;
-
+      
+      if exist([vid '.txt'],'file')
+        self.loadTFile([vid '.txt']);
+      end
+      
+      
       if nargin>1
         self.timeRange = trange;
       end
@@ -233,8 +248,12 @@ classdef FishVideoReader < handle;
     
       
     function increaseCounters(self);
-      self.currentTime = self.currentTime + 1/self.frameRate;
       self.currentFrame = self.currentFrame + 1;
+      if isempty(self.tframe)
+        self.currentTime = self.currentTime + 1/self.frameRate;
+      else
+        self.currentTime = self.tframe(self.currentFrame);
+      end
     end
 
     
@@ -257,7 +276,6 @@ classdef FishVideoReader < handle;
         trange(1) = max(trange(1),0);
         self.timeRange = trange;
       end
-
     end
     
     
@@ -289,14 +307,20 @@ classdef FishVideoReader < handle;
       
     end
     
-      
-    
 
     function setCurrentTime(self,time)
       assert(time<self.timeRange(2) && time>=self.timeRange(1))
       time = max(time,0);
       self.a_setCurrentTime(time);
-      self.currentTime = time-1/self.frameRate;
+
+      if isempty(self.tframe)
+        self.currentTime = time-1/self.frameRate;
+        self.currentFrame = 0;
+      else
+        self.currentFrame = find(self.tframe<=time,1,'last')-1;
+        self.currentTime = self.tframe(self.currentFrame+1);
+      end
+
       self.frame = [];
       self.oframe = [];
     end
@@ -313,7 +337,7 @@ classdef FishVideoReader < handle;
     function reset(self)
     % resets the counters and deleted the current frame
       self.setCurrentTime(self.timeRange(1));
-      self.currentFrame = 0;
+      
       self.frame = [];
       self.oframe = [];
     end

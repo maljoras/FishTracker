@@ -7,6 +7,8 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
   
   properties
     computeSegments = true;
+    resizeif = 0; % 
+    resizescale = 1; 
   end
   
   
@@ -40,6 +42,9 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
       
     end
     
+    function bool = isGrabbing(self);
+      bool = false ; % not supported;
+    end
     
     function self = setOpts(self,opts)
     % to set the OPTIONS use the keywords "blob" "reader" and "detector"
@@ -92,10 +97,18 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
       if nargout>3 || self.colorfeature
         self.originalif = true; 
         [frame,oframe] = self.readFrame();            
+        if self.resizeif
+          oframe = cv.resize(oframe,self.resizescale);
+          frame = cv.resize(frame,self.resizescale);
+        end
         varargout{1} = oframe;
       else
         self.originalif = false;
         frame = self.readFrame();
+        if self.resizeif
+          frame = cv.resize(frame,self.resizescale);
+        end
+
         oframe = frame;
       end
       bwmsk = self.detector.step(frame);
@@ -124,6 +137,12 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     % plotting not implemented...
     end
     
+    function frameSize= a_getFrameSize(self);
+      frameSize = a_getFrameSize@FishVideoReader(self,)
+      if self.resizeif
+        frameSize = round(self.resizescale*frameSize);
+      end
+    end
 
   end
 end

@@ -184,6 +184,8 @@ protected:
     int featureheight;
 
     bool computeSegments;
-
+    
+    bool resizeif;
+    float resizescale;
 };
 

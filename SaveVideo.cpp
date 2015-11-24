@@ -211,6 +211,8 @@ int main(int argc, const char *argv[])
     int waitAmount  = waitMsecs > MINDELAY? waitMsecs: MINDELAY;
     cv::Mat frame;
     string imname;
+    cv::Mat smallFrame;
+    cv::Size size(800,800);
 
     while(key != 'q') 
       {
@@ -227,8 +229,9 @@ int main(int argc, const char *argv[])
 	      double timeStamp;
 	      int frameNumber;
 	      ppVideoSavers[i]->getFrame(&frame,&timeStamp,&frameNumber);
-		      
-	      cv::imshow(imname.c_str(), frame);
+	      cv::resize(frame,smallFrame,size);
+	      cv::cvtColor(smallFrame,smallFrame,CV_RGB2BGR);	
+	      cv::imshow(imname.c_str(), smallFrame);
 	      cout << char(i+65) << ": Current Frame rate " <<  ppVideoSavers[i]->getWritingFPS() << "Hz  | " ;
 	    };
 	  cout << "\r" ;

@@ -11,6 +11,7 @@ function [pcl,a,mu,Sigma] = emclustering(X,k,plotif)
  plotif = exist('plotif','var');
  lfdif = 1; % for plotting only
 
+
  maxd = 10;
  if d>maxd
    % preprocess;

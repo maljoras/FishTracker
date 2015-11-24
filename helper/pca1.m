@@ -59,6 +59,7 @@ function [PC, eVar, Proj, m] = pca1(dat,npc,removemeanif)
 if ~exist('removemeanif','var')
   removemeanif = 1;
 end
+dat = double(dat);
 
 if removemeanif
   m = mean(dat,1); 
@@ -71,6 +72,7 @@ end
 
 
 %tmp = cov(dat);                       % compute covariance matrix
+
 
 
 

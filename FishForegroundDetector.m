@@ -24,6 +24,7 @@ classdef FishForegroundDetector < handle;
   
     function a_init(self);
     %self.detector = cv.BackgroundSubtractorMOG2();
+      self.detector = [];
       self.detector = cv.BackgroundSubtractorKNN();
       self.detector.DetectShadows = self.detectShadows;
       self.detector.History = self.history;
@@ -34,7 +35,7 @@ classdef FishForegroundDetector < handle;
     end
 
     function a_reset(self)
-      self.detector.clear();
+      self.a_init();
     end
     
     

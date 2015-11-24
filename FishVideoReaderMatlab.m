@@ -9,7 +9,7 @@ classdef FishVideoReaderMatlab < FishVideoReader;
 % $$$     delta = 0;  
 % $$$   end
   
-  methods
+  methods(Access=protected)
       
    function dur = a_getDuration(self);
      dur = self.reader.Duration;
@@ -101,11 +101,11 @@ classdef FishVideoReaderMatlab < FishVideoReader;
       release(vp);
       self.reset()
     end
-    
-  end
-  
-  function a_startReader()
-    self.reader = VideoReader(self.videoFile);
+
+    function a_startReader(self)
+      self.reader = VideoReader(self.videoFile);
+    end
+
   end
   
   

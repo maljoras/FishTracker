@@ -370,7 +370,7 @@ void VideoSaver::_captureThread()
 
       // convert to bgr
       rawImage2.DeepCopy(&rawImage); // not sure if really needed since we convert below...
-      rawImage2.Convert(PIXEL_FORMAT_BGR, &rgbImage );
+      rawImage2.Convert(PIXEL_FORMAT_RGB, &rgbImage );
 
       // convert to Mat
       unsigned int rowBytes = (double) rgbImage.GetReceivedDataSize()/(double)rgbImage.GetRows();       
@@ -380,6 +380,10 @@ void VideoSaver::_captureThread()
 	Glib::Threads::Mutex::Lock lock(m_FrameMutex);
 
 	m_Frame = cv::Mat(rgbImage.GetRows(), rgbImage.GetCols(), CV_8UC3, rgbImage.GetData(),rowBytes);
+	// could this happen ?
+	if (m_Frame.size().width==0) 
+	   m_Frame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
+
 	//rawFrame.copyTo(m_Frame); 
 	m_TimeStamp = rawImage.GetTimeStamp();
 	m_frameNumber++;
@@ -431,12 +435,13 @@ void VideoSaver::_captureAndWriteThread()
       {
 	Glib::Threads::Mutex::Lock lock(m_FrameMutex);
 
-	frame = m_Frame;
+	//frame = m_Frame.clone();
+	cv::cvtColor(m_Frame,frame,CV_RGB2BGR);	
 	localTimeStamp = m_LocalTimeStamp;
 	timeStamp = m_TimeStamp;
 	grabbedFrameNumber = m_frameNumber;
       }
-
+      //
       m_Video.write(frame); // slow, thus out of the lock
 
 

@@ -1,13 +1,12 @@
 
 
-fnames = {'~/data/zebra/videos/ABfish/fishA.avi',['~/data/zebra/' ...
-                    'videos/ABfish/Bfish.avi'],'~/data/zebra/videos/ABfish/AandBfish.avi'};
+fnames = {'/data/videos/othervideos/ABfishforAppa/fishA.avi','/data/videos/othervideos/ABfishforAppa/Bfish.avi','/data/videos/othervideos/ABfishforAppa/AandBfish.avi'};
 nfish = [1,1,2];
-tr = [0,600]; % 10 minutes
+tr = [0,1200]; % 20 minutes
 
 for i = 1:length(fnames)
-  ft =  FishTracker(fnames{i},'nfish',nfish(i),'displayif',0,'detector.thres',-0.044,'fishlength',110,'fishwidth',35);
-  ft.saveFields = {ft.saveFields{:} 'segment.FilledImageCol2x','segment.fishFeature','segment.Image2x'};
+  ft =  FishTracker(fnames{i},'nfish',nfish(i),'displayif',0,'blob.colorfeature',true,'useScaledFormat',1,'useMex',1,'fishlength',110,'fishwidth',25);
+  ft.saveFields = {ft.saveFields{:},'segment.MinorAxisLength','segment.MajorAxisLength', 'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
 
   ft.timerange = tr;
   

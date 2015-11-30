@@ -6,9 +6,9 @@ classdef FishForegroundDetector < handle;
     expectedFrameFormat = 'U';
 
     useScaledFormat = 0;
-    inverse = 0;  
+    inverted = 0;  
     history = 500;
-  
+    
   end
 
   
@@ -40,12 +40,15 @@ classdef FishForegroundDetector < handle;
     
     
     function  bwmsk = a_step(self,frame);
-      bwmsk = self.detector.apply(frame);
-% $$$       if self.inverse
-% $$$         bwmsk = ~cv.adaptiveThreshold(frame, 1, 'AdaptiveMethod', 'Mean','ThresholdType','BinaryInv');
-% $$$       else
-% $$$         bwmsk = ~cv.adaptiveThreshold(frame, 1, 'AdaptiveMethod', 'Mean','ThresholdType','Binary');
-% $$$       end
+      if inverted
+        if isa(frame,'uint8')
+          bwmsk = self.detector.apply(uint8(255)-frame);
+        else
+          bwmsk = self.detector.apply(1-frame);
+        end
+      else
+        bwmsk = self.detector.apply(frame);
+      end
     end
   end
   

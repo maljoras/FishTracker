@@ -42,7 +42,7 @@ function [scale,delta] = getColorConversion(bwmsks,cframes)
   scale = double(fv'./spread);
   delta = double(-mu.*fv' + 0.5/3); % !! needs to be double
   
-  if sum(abs(fv))< 1e-5 % makes no sense
+  if sum(fv)< 1e-5 % makes no sense
     scale = [];
     delta = [];
   end

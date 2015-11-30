@@ -4,6 +4,9 @@
 //#define DEBUG
 //#define PLOTSEGMENTS
 
+#define MAXCONTOUR 30
+#define MAXOTSU 50
+
 using namespace std;
 using namespace cv;
 
@@ -12,25 +15,27 @@ Segment::Segment() {}
 Segment::~Segment() {};
 
 
-VideoHandler::VideoHandler(const string fname)
+VideoHandler::VideoHandler(const string fname,bool inKnnMethod)
 {
   camera = false;
   m_fname = fname;
   stopped = true;
   m_threadExists = false;
-  
+  knnMethod = inKnnMethod;
+    
   Glib::init();
   initPars();
 };
 
 /****************************************************************************************/
-VideoHandler::VideoHandler(int camIdx, const string fname)
+VideoHandler::VideoHandler(int camIdx, const string fname,bool inKnnMethod)
 {
   camera = true;
   stopped = true;
   m_camIdx = camIdx;
   m_fname = fname;
   m_threadExists = false;
+  knnMethod = inKnnMethod;
 
   Glib::init();
   initPars();
@@ -56,6 +61,8 @@ void VideoHandler::initPars() {
   resizeif = false;
   resizescale = 1.;
 
+  inverted = false;
+  
   nprobe = 7;
   m_Delta = 0;
 
@@ -64,42 +71,33 @@ void VideoHandler::initPars() {
   minArea = 2;
   maxArea = 10000;
   maxExtent = 10000;
-  ngoodmsk = 0;
   featureheight = 100;
   featurewidth =  20;
   featureSize  = Size(featureheight,featurewidth); // transposed image
   vector<float> tmp(3);
   m_Scale = tmp;
-  for (int i; i<3;i++)
+  for (int i=0; i<3;i++)
     m_Scale[i] = 0.33333;
 
 }
 
 /****************************************************************************************/
-void VideoHandler::makeGoodMsk() {
+bool VideoHandler::testValid(Segment * pSeg) {
 
-  vector<bool> msk(Segments.size());
-  ngoodmsk = 0;
-
-  for (int i=0;i<Segments.size();i++){ 
-    double  extent = Segments[i].MajorAxisLength + Segments[i].MinorAxisLength;
-    if ((extent<minExtent) || (extent>maxExtent) || (Segments[i].Area<minArea)|| (Segments[i].Area>maxArea) || (Segments[i].MinorAxisLength<minWidth)) 
-      msk[i] = false;
-    else {
-      msk[i] = true;
-      ngoodmsk++;
-    }
-  }
-  goodmsk = msk;
+  double  extent = pSeg->MajorAxisLength + pSeg->MinorAxisLength;
+  if ((extent<minExtent) || (extent>maxExtent) || (pSeg->Area<minArea)|| (pSeg->Area>maxArea) || (pSeg->MinorAxisLength<minWidth)) 
+    return false;
+  else 
+    return true;
 }
 
 /****************************************************************************************/
-void VideoHandler::plotCurrentFrame() {
+void VideoHandler::plotFrame(cv::Mat frame) {
 
   Mat smallFrame;
   Size size(400,400);
-  if (Frame.size().width>0) {
-    resize(Frame,smallFrame,size);
+  if (frame.size().width>0) {
+    resize(frame,smallFrame,size);
     namedWindow( "Frame", WINDOW_AUTOSIZE );
     imshow( "Frame", smallFrame);
     waitKey(1);
@@ -149,7 +147,7 @@ void VideoHandler::initialize() {
 
     // start a new thread
     startThread();
-    Glib:usleep(200); // need to wait a bit to acquire the lock in the thread
+    Glib::usleep(200); // need to wait a bit to acquire the lock in the thread
   }
 }
 
@@ -196,11 +194,13 @@ int VideoHandler::start() {
       pVideoCapture->set(cv::CAP_PROP_CONVERT_RGB,true); // output RGB
     }
 
-    pBackgroundSubtractor =  cv::createBackgroundSubtractorKNN(250,400,false);
-
+    if (knnMethod)
+      pBackgroundSubtractor =  cv::createBackgroundSubtractorKNN(250,400,false);
+    else
+      pBackgroundThresholder =  new BackgroundThresholder();
     stopped=false;
     startThread();
-    Glib:usleep(200); // need to wait a bit to acquire the lock in the thread
+    Glib::usleep(200); // need to wait a bit to acquire the lock in the thread
     waitThread();
   }
   return 0;
@@ -219,7 +219,10 @@ void VideoHandler::stop() {
     else {
       pVideoSaver.release();
     }
-    pBackgroundSubtractor.release();
+    if (knnMethod)
+      pBackgroundSubtractor.release();
+    else
+      pBackgroundThresholder.release();
   } else {
     cout << "Warning: VideoHandler already stopped" << endl;
   }
@@ -227,7 +230,13 @@ void VideoHandler::stop() {
 }
 
 /****************************************************************************************/
-void VideoHandler::step(){
+void VideoHandler::getOFrame(cv::Mat * pFrame) {
+  *pFrame = m_OFrame;
+}
+
+
+/****************************************************************************************/
+void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFrame,cv::Mat * pBWImg){
 
   if (stopped) {
     if (start()!=0) {
@@ -237,56 +246,59 @@ void VideoHandler::step(){
   }
   
   waitThread();
+  //output
+  *pOFrame = m_NextOFrame;
+  *pFrame = m_NextFrame;
+  *pBWImg = m_NextBWImg;
 
-  OFrame = m_NextOFrame;
-  Frame = m_NextFrame;
-  BWImg = m_NextBWImg;
+  m_OFrame = m_NextOFrame;
 
-
+  
   // start a new thread to load in the background
   startThread();
-  
-
   
 #ifdef DEBUG
   Glib::Timer timer;
   timer.start();
 #endif
 
+
   // finding contours
   vector<Vec4i> hierarchy;
+  vector<vector<cv::Point> > contours;
   if (computeSegments) {
-    findContours(BWImg,Contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
+    findContours(*pBWImg,contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
   }
 
+
 #ifdef DEBUG 
-  cout << "counters: " <<  timer.elapsed() << endl;
+  cout << "contours: " <<  timer.elapsed() << endl;
   timer.start();
 #endif
-  
-  // get the fish patches and segments
-  int ssize = computeSegments? Contours.size(): 0;
-  vector<Segment> segms(ssize);
-  if (computeSegments) {
 
-    for( int i = 0; i< Contours.size(); i++ ) {
-      getSegment(&(segms[i]),Contours[i],BWImg,Frame,OFrame);
+
+  if (computeSegments) {
+    pSeg->clear();
+    Segment segm;
+    int ii=0;
+    for( int i = 0; i< contours.size(); i++ ) {
+      getSegment(&segm,contours[i],*pBWImg,*pFrame,*pOFrame);
+      if (testValid(&segm)) {
+	ii++;
+	pSeg->push_back(segm);
+      }
+      if (ii>MAXCONTOUR)
+	break;
     }
   }
 
-  Segments = segms;
  
 #ifdef DEBUG 
   cout << "segments: " <<  timer.elapsed() << endl;  
 #endif
   
-  // make mask
-  makeGoodMsk();
-
-
-  
   if (plotif)
-    plotCurrentFrame();
+    plotFrame(*pFrame);
 
 };
 
@@ -319,7 +331,7 @@ void VideoHandler::_readNextFrameThread()
 #endif
 
   } else {
-    if (!pVideoCapture->read(oframe)) { // should return RGB instead of BGR
+    if (!pVideoCapture->read(oframe)) { // should return RGB instead of BGR. But seems not to work..
       cout <<  "File read error";
       return;
     }
@@ -332,33 +344,46 @@ void VideoHandler::_readNextFrameThread()
   }
 
   if ((resizeif) && (resizescale!=1)) {
-    cv:resize(oframe,oframe,Size(0,0),resizescale,resizescale);
+    cv::resize(oframe,oframe,Size(0,0),resizescale,resizescale);
   }
-
+  
+  
   if (scaled) {
-    Mat channel[3];
-    
+    cv::Mat channel[3];
+    cv::Mat floatframe;
     split(oframe, channel);
     for (int ii=0; ii<3; ii++) {
       channel[ii].convertTo(channel[ii], CV_32FC1);
     }
-    frame =  ((float) m_Scale[0]/255.)*channel[0] + ((float) m_Scale[1]/255.)*channel[1] + ((float) m_Scale[2]/255.)*channel[2];// + m_Delta; // do not need data because mean subtracted
+    floatframe =  ((float) m_Scale[0]/255.)*channel[0] + ((float) m_Scale[1]/255.)*channel[1] + ((float) m_Scale[2]/255.)*channel[2];// + (m_Delta); //might not need delta because mean subtracted below anyway
     
     // subtract mean
-    cv::Scalar globalmean = cv::mean(frame) ; // one channel anyway
-    frame = frame - (globalmean[0]-0.5);// 0.5 because should be between 0..1
-    frame.convertTo(frame, CV_8UC1, 255);
+    cv::Scalar globalmean = cv::mean(floatframe) ; // one channel anyway
+    //floatframe -= (globalmean[0]-0.5);// 0.5 because should be between 0..1
+    floatframe.convertTo(frame, CV_8UC1,255.,(-globalmean[0]+0.5)*255); // better convert it back because of boundaries
   }
   else
     cvtColor(oframe,frame,cv::COLOR_RGB2GRAY);
+
 
 #ifdef DEBUG
   cout << "reading frame: " <<  timer.elapsed() << endl;  
   timer.start();
 #endif
 
-  // backgound computation (THIS IS THE SLOWEST PART!)
-  pBackgroundSubtractor->apply(frame, m_NextBWImg);
+  // background computation (THIS IS THE SLOWEST PART!)
+  if (knnMethod) {
+    if (inverted) {
+      Mat iframe;
+      iframe = 255-frame;
+      pBackgroundSubtractor->apply(iframe, m_NextBWImg);
+    }  else {
+      pBackgroundSubtractor->apply(frame, m_NextBWImg);
+    }
+  } else {
+    pBackgroundThresholder->apply(frame, &m_NextBWImg);
+  }
+      
 
 #ifdef DEBUG
   cout << "background sub: " <<  timer.elapsed() << endl;  
@@ -378,7 +403,6 @@ void VideoHandler::_readNextFrameThread()
     m_NextOFrame = oframe;
   else
     m_NextOFrame = frame;
-
 
 };
 
@@ -468,7 +492,6 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
     // probe equidistant locations
     if (locations.size()<3) {
-      // delete detection (see goodmsk)
       segm->MajorAxisLength = 0.;
       segm->MinorAxisLength = 0.;
       return;
@@ -561,8 +584,11 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
     Point2f centerfish(szout.width - featureSize.width/2,szout.height/2);
     getRectSubPix(RotFilledMskImage,featureSize,centerfish,segm->FishFeature,-1);
-    segm->FishFeature.convertTo(segm->FishFeature,CV_32FC1);
 
+    // get the output to matlab right
+    transpose(segm->FishFeature,segm->FishFeature);
+    flip(segm->FishFeature,segm->FishFeature,0);
+    segm->FishFeature.convertTo(segm->FishFeature,CV_32FC1);
 
     
 
@@ -637,7 +663,12 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
       //Point2f centerfish(szout.width - featureSize.width/2,szout.height/2);
       getRectSubPix(fishfeature,featureSize,centerfish,segm->FishFeatureRemap,-1);
+
+      // get output right
+      transpose(segm->FishFeatureRemap,segm->FishFeatureRemap);
+      flip(segm->FishFeatureRemap,segm->FishFeatureRemap,0);
       segm->FishFeatureRemap.convertTo(segm->FishFeatureRemap,CV_32FC1);
+
     }
 #ifdef PLOTSEGMENTS
     if (segm->Size.height + segm->Size.width > 100 ){
@@ -742,7 +773,14 @@ int VideoHandler::set(const string prop, double value){
   else if (prop=="computeSegments") {
     computeSegments = (bool) value!=0;
   }
-
+  else if ((prop=="inverted") && (!stopped)) {
+    inverted = (bool) value!=0;
+    if (!knnMethod) {
+      waitThread();
+      pBackgroundThresholder->setInverted(inverted);
+      initialize();
+    }
+  }
   else if (prop=="timePos") {
     if ((!camera) && (!stopped)) {
       waitThread();
@@ -763,20 +801,51 @@ int VideoHandler::set(const string prop, double value){
       pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,(int) value);
     // else do nothing.. 
   }
-  else if ((prop=="DetectShadows") && (!stopped)) // need to re-init ?
+  else if ((prop=="DetectShadows") && (!stopped) && (knnMethod) ) {
+    waitThread();
     pBackgroundSubtractor->setDetectShadows(value!=0);
-  else if ((prop == "Dist2Threshold")&& (!stopped))
+    initialize();
+  }
+  else if ((prop == "Dist2Threshold")&& (!stopped) && (knnMethod)) {
+    waitThread();
     pBackgroundSubtractor->setDist2Threshold(value);
-  else if ((prop == "History")&& (!stopped))
-    pBackgroundSubtractor->setHistory((int) value);
-  else if ((prop == "kNNSamples")&& (!stopped))
+    initialize();
+  }
+  else if ((prop == "History")&& (!stopped)) {
+    waitThread();
+    if (knnMethod)
+      pBackgroundSubtractor->setHistory((int) value);
+    else
+      pBackgroundThresholder->setHistory((int) value);
+    initialize();
+  }
+  else if ((prop == "kNNSamples")&& (!stopped) && (knnMethod)) {
+    waitThread();
     pBackgroundSubtractor->setkNNSamples((int)value);
-  else if ((prop == "NSamples")&& (!stopped))
+    initialize();
+  }
+  else if ((prop == "NSamples")&& (!stopped) && (knnMethod)) {
+    waitThread();
     pBackgroundSubtractor->setNSamples((int) value);
-  else if ((prop == "ShadowThreshold")&& (!stopped))
+    initialize();
+  }
+  else if ((prop == "ShadowThreshold")&& (!stopped) && (knnMethod)) {
+    waitThread();
     pBackgroundSubtractor->setShadowThreshold(value);
-  else if ((prop == "ShadowValue")&& (!stopped))
+    initialize();
+  }
+  else if ((prop == "ShadowValue")&& (!stopped)&& (knnMethod)) {
+    waitThread();
     pBackgroundSubtractor->setShadowValue(value);
+    initialize();
+  }
+  else if ((prop == "nskip")&& (!stopped)) {
+    if (!knnMethod) {
+      waitThread();
+      pBackgroundThresholder->setNSkip((int) value);
+      initialize();
+    }
+  }
   else {
     cout <<  "ERROR: Could not set property " << prop <<"! \n";
     return -1;
@@ -801,6 +870,12 @@ double VideoHandler::get(const string prop){
   }
   else if (prop=="resizeif") {
     return(double) resizeif;
+  }
+  else if (prop=="knnMethod") {
+    return(double) knnMethod;
+  }
+  else if (prop=="inverted") {
+    return(double) inverted;
   }
   else if (prop=="resizescale") {
     return(double) resizescale;
@@ -840,20 +915,54 @@ double VideoHandler::get(const string prop){
   }
   else if (prop=="minArea") {
     return (double) minArea;
-  }   else  if ((prop == "DetectShadows") && (!stopped))
-    return (double) pBackgroundSubtractor->getDetectShadows();
-  else if ((prop == "Dist2Threshold")&& (!stopped))
-    return (double) pBackgroundSubtractor->getDist2Threshold();
-  else if ((prop == "History")&& (!stopped))
-    return (double) pBackgroundSubtractor->getHistory();
-  else if ((prop == "kNNSamples")&& (!stopped))
-    return (double) pBackgroundSubtractor->getkNNSamples();
-  else if ((prop == "NSamples")&& (!stopped))
-    return (double) pBackgroundSubtractor->getNSamples();
-  else if ((prop == "ShadowThreshold")&& (!stopped))
-    return (double) pBackgroundSubtractor->getShadowThreshold();
-  else if ((prop == "ShadowValue")&& (!stopped))
-    return (double) pBackgroundSubtractor->getShadowValue();
+  }   else  if ((prop == "DetectShadows") && (!stopped) ) {
+    if (knnMethod)
+      return (double) pBackgroundSubtractor->getDetectShadows();
+    else
+      return (double) -1;
+  }
+  else if ((prop == "Dist2Threshold")&& (!stopped)  ) {
+    if (knnMethod)
+      return (double) pBackgroundSubtractor->getDist2Threshold();
+    else
+      return (double) -1;
+  }
+  else if ((prop == "History")&& (!stopped) ) {
+    if (knnMethod)
+      return (double) pBackgroundSubtractor->getHistory();
+    else
+      return (double) pBackgroundThresholder->getHistory();
+  }
+  else if ((prop == "kNNSamples")&& (!stopped) ) {
+    if (knnMethod) 
+      return (double) pBackgroundSubtractor->getkNNSamples();
+    else
+      return -1;
+  }
+  else if ((prop == "NSamples")&& (!stopped) ) {
+    if (knnMethod) 
+      return (double) pBackgroundSubtractor->getNSamples();
+    else
+      return (double) -1;
+  }
+  else if ((prop == "ShadowThreshold")&& (!stopped) ){
+    if (knnMethod)
+      return (double) pBackgroundSubtractor->getShadowThreshold();
+    else
+      return (double) -1;
+  }
+  else if ((prop == "ShadowValue")&& (!stopped)) {
+    if  (knnMethod)
+      return (double) pBackgroundSubtractor->getShadowValue();
+    else
+      return (double) -1;
+  }
+  else if ((prop == "nskip")&& (!stopped)) {
+    if  (knnMethod)
+      return (double) -1;
+    else
+      return (double) pBackgroundThresholder->getNSkip();
+  }
   else if ((prop == "FrameWidth") && (!stopped)) {
     double width;
     if (!camera) 
@@ -930,7 +1039,7 @@ double VideoHandler::get(const string prop){
 /****************************************************************************************/
 void VideoHandler::setScale(vector<float> scale) {
   waitThread();
-  for (int i=0;i++;i<scale.size()) {
+  for (int i=0;i<scale.size();i++) {
     m_Scale[i] = scale[i];
   }
   initialize();
@@ -944,46 +1053,156 @@ vector< float> VideoHandler::getScale() {
 /****************************************************************************************/
 void VideoHandler::resetBkg() {
   if (!stopped) {
-    pBackgroundSubtractor->clear(); // similar background anyway. do not reset
+    waitThread();
+    if (knnMethod) {
+      pBackgroundSubtractor->clear(); // similar background anyway. do not reset 
+    }
+    else {
+      pBackgroundThresholder->clear();
+    }
+    initialize();
   }
 };
+
+
+
+//*******************************************************************************//
+//* Thresholder 
+//*******************************************************************************//
+
+BackgroundThresholder::BackgroundThresholder() {
+  m_history = 250;
+  m_nskip = 5;
+  m_threstype = THRESH_BINARY_INV;
+  m_istep = 0;
+};
+
+BackgroundThresholder::~BackgroundThresholder() {};
+
+void BackgroundThresholder::clear() { // background image will be overwritten
+  m_istep = 0;
+}
+
+void BackgroundThresholder::setHistory(int value) {
+   m_history = value;
+}
+int BackgroundThresholder::getHistory() {
+   return m_history;
+}
+void BackgroundThresholder::setNSkip(int value) {
+   m_nskip = value;
+}
+int BackgroundThresholder::getNSkip() {
+   return m_nskip;
+}
+
+void BackgroundThresholder::setInverted(bool invertedif) {
+  if (invertedif)
+    m_threstype = THRESH_BINARY;
+  else
+    m_threstype = THRESH_BINARY_INV;
+}
+
+void BackgroundThresholder::apply(cv::Mat frame,cv::Mat * bwimg) {
+
+  if (frame.size().width==0)
+    return;
+
+  cv::Mat floatframe;
+  frame.convertTo(floatframe,CV_32FC1);
+  
+  // subtract background
+
+  if (m_istep>3)  { // has to be a rough estimate of the mean already
+    cv::Mat dframe;  
+    dframe = floatframe - m_meanImage;
+    dframe.convertTo(dframe,CV_8UC1);
+
+    // apply threshold
+    if (m_istep<MAXOTSU)  {
+      m_thres = threshold(dframe,*bwimg,m_thres,255,THRESH_OTSU + m_threstype);
+    } else {
+      threshold(dframe,*bwimg,m_thres,255, m_threstype);
+    }
+  } else
+    *bwimg = Mat::zeros(frame.size(),CV_8UC1);
+  
+  
+  //update mean
+  if (m_istep==0) {
+    m_meanImage = floatframe - 127;
+  }  else {
+    int n;
+    if (m_istep<m_history) {
+      n = m_istep+1;
+    } else {
+      if ((m_istep % m_nskip)==0) {
+	n = m_history/m_nskip;
+      }  else {
+	n = 0;
+      }
+    }
+
+    if (n!=0) {
+      // update 
+      m_meanImage += 127;
+      m_meanImage *= n-1;
+      m_meanImage = (m_meanImage + floatframe)/n - 127;
+
+    }
+  }
+
+  m_istep++;
+}
 
 
 /****************************************************************************************/
 /****************************************************************************************/
 // // // main
 int main() {
-
-  //VideoHandler vh("/home/malte/data/zebra/videos/test_wtih_bu_video1.avi");
-  VideoHandler vh(0,"/home/malte/data/zebra/videos/test_VeideoHandler.avi");
+  string vid;
+  vid = "/home/malte/data/zebra/videos/longterm/longterm8.avi";
+  VideoHandler vh(vid,false);
+  //VideoHandler vh(0,"/home/malte/data/zebra/videos/test_VeideoHandler.avi",false);
   cout << "init" << endl;
   vh.set("plotif",true);
   cout << "plotif" << endl;
   //namedWindow( "Patch", WINDOW_AUTOSIZE );
-  vh.set("scaled",false);
+  vh.set("scaled",true);
   cout << "scaled" << endl;
   vh.set("colorfeature",true);
   cout << "colorfeature" << endl;
+
+  vector<float> scale(3);
+  scale[0] = -0.592655;
+  scale[1] = -0.206795;
+  scale[2] = 2.14107;
+  vh.setScale(scale);
   
   cout << "set pars" << endl;
   vh.start();
   cout << "start loop " << endl;
-  
-  for (int i=0; i<10; i++) {
-    vh.step();
-    waitKey(1000);
-    cout << i << ": Segment Size" <<  vh.Segments.size() << "\n";
+
+  vector<Segment> segm;
+  cv::Mat frame, oframe, bwimg;
+  namedWindow("bwimg",WINDOW_AUTOSIZE);
+  for (int i=0; i<400; i++) {
+    vh.step(&segm,&oframe,&frame,&bwimg);
+
+    imshow("bwimg",bwimg);
+    waitKey(100);
+    cout << i << ": Segment Size" <<  segm.size() << "\n";
   }
   vh.stop();
   vh.start();
   vh.stop();
 
-  VideoHandler vh2(0,"");
+  VideoHandler vh2(vid,true);
 
-  for (int i=0; i<10; i++) {
-    vh2.step();
-    waitKey(1000);
-    cout << i << ": Segment Size" <<  vh2.Segments.size() << "\n";
+  for (int i=0; i<25; i++) {
+    vh2.step(&segm,&oframe,&frame,&bwimg);
+    waitKey(100);
+    cout << i << ": Segment Size" << segm.size() << "\n";
   }
   vh2.stop();
   vh2.start();
@@ -991,3 +1210,5 @@ int main() {
     
   return 0;
 }
+
+

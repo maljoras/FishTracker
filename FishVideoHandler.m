@@ -9,6 +9,7 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     computeSegments = true;
     resizeif = 0; % 
     resizescale = 1; 
+    knnMethod = true;
   end
   
   
@@ -18,12 +19,11 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
   
   properties (Dependent)
     history
-
   end
 
   methods
     
-    function self = FishVideoHandler(vidname,timerange,opts)
+    function self = FishVideoHandler(vidname,timerange,knnMethod,opts)
     %VIDEOCAPTURE  Create a new FishVideoHandler object
     %
       if iscell(vidname)
@@ -31,10 +31,20 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
         vidname = vidname{1}; % capture device might be suported by
                               % open cv
       end
+
+      if exists('knnMethod','var') && ~isempty(knnMethod)
+        self.knnMethod = knnMethod;
+      end
+      
       
       self@FishBlobAnalysis(); 
       self@FishVideoReader(vidname,timerange); 
-      self.detector = FishForegroundDetector();  
+      if self.knnMethod
+        self.detector = FishForegroundDetector();  
+      else
+        self.detector = FishForegroundDetectorMatlabCV();  
+      end
+
 
       if exist('opts','var')
         self.setOpts(opts);
@@ -61,6 +71,10 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
       
       if isfield(opts,'reader')
         for f = fieldnames(opts.reader)'
+          if strcmp(f{1},'knnMethod')
+            continue;
+          end
+          
           if isprop(self,f{1})
             self.(f{1}) = opts.reader.(f{1});
             setif = 1;
@@ -137,6 +151,15 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     % plotting not implemented...
     end
     
+    function verbose(self);
+      verbose@FishVideoReader(self);
+      if self.knnMethod 
+        verbose('Using KNN for foreground subtraction...');
+      else
+        verbose('Using Thresholder for foreground subtraction...');
+      end
+    end
+
     function frameSize= a_getFrameSize(self);
       frameSize = a_getFrameSize@FishVideoReader(self,)
       if self.resizeif

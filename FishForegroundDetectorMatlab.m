@@ -29,7 +29,7 @@ classdef FishForegroundDetectorMatlab < FishForegroundDetector;
     function bwimg = applyThres(self,frame)
       
       % bw image
-      if self.inverse
+      if self.inverted
         bwimg = frame >= (self.thres + self.frameMean);
       else
         bwimg = frame <= (self.thres+ self.frameMean);

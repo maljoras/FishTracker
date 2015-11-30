@@ -39,7 +39,7 @@ classdef FishTracker < handle;
     useMex = 1;
     useOpenCV = 1;
     useScaledFormat = 0;
-    
+    useKNN = 1;
 
     medianAssignmentCost =1;
     tracks = [];
@@ -122,7 +122,7 @@ classdef FishTracker < handle;
     function [writer] = newVideoWriter(self,vidname)
       verbose('Init VideoWriter "%s"',vidname);
       if hasOpenCV() && self.useOpenCV
-        writer = cv.VideoWriter(vidname,self.videoReader.frameSize([2,1]),'FPS',self.videoReader.frameRate,'fourcc','X264');
+        writer = cv.VideoWriter(vidname,self.videoHandler.frameSize([2,1]),'FPS',self.videoHandler.frameRate,'fourcc','X264');
       else
         writer = vision.VideoFileWriter(vidname,'FrameRate',self.videoReader.frameRate);
       end
@@ -144,11 +144,11 @@ classdef FishTracker < handle;
         opts = self.opts;
       end
       if self.useMex && exist(['FishVideoCapture_.' mexext])
-        handler = FishVideoHandlerMex(vidname,timerange,opts);
+        handler = FishVideoHandlerMex(vidname,timerange,self.useKNN,opts);
       elseif hasOpenCV() && self.useOpenCV
-        handler = FishVideoHandler(vidname,timerange,opts);
+        handler = FishVideoHandler(vidname,timerange,self.useKNN,opts);
       else
-        handler = FishVideoHandlerMatlab(vidname,timerange,opts);
+        handler = FishVideoHandlerMatlab(vidname,timerange,self.useKNN,opts);
       end
       timerange = handler.timeRange;
 
@@ -398,27 +398,28 @@ classdef FishTracker < handle;
     % calls the detectors
 
       segm = self.segments;
+      if ~isempty(segm)
 
-      if self.useMex % there is no centerline information without
-                     % the mex version...
-        self.centerLine  = cat(3,segm.CenterLine);
-
-        if size(self.centerLine,3)<length(segm)
-          % center Line not computed for some of the detections
-          self.centerLine = nan(self.videoHandler.nprobe,2,length(segm));
-          for i = 1:length(segm)
-            if ~isempty(segm(i).CenterLine)
-              self.centerLine(:,:,i) = segm(i).CenterLine;
+        if self.useMex % there is no centerline information without
+                       % the mex version...
+          self.centerLine  = cat(3,segm.CenterLine);
+          
+          if size(self.centerLine,3)<length(segm)
+            % center Line not computed for some of the detections
+            self.centerLine = nan(self.videoHandler.nprobe,2,length(segm));
+            for i = 1:length(segm)
+              if ~isempty(segm(i).CenterLine)
+                self.centerLine(:,:,i) = segm(i).CenterLine;
+              end
             end
           end
-        end
           
-      else
-        self.centerLine = [];
-      end
+        else
+          self.centerLine = [];
+        end
         
 
-      if ~isempty(segm)
+
         if self.useMex
           self.centroids = cat(1,segm.Centroid);
           %self.centroids = shiftdim(self.centerLine(1,:,:),1)'; % Head position
@@ -446,7 +447,6 @@ classdef FishTracker < handle;
         self.classProb = predict(self.fishClassifier,self.idfeatures(:,:));
         %self.classProbNoise = cat(1,segm.MinorAxisLength)./cat(1,segm.MajorAxisLength);
         self.classProbNoise = cat(1,segm.bendingStdValue);
-        
       else
         self.centroids = [];
         self.bboxes = [];
@@ -1149,31 +1149,31 @@ classdef FishTracker < handle;
       self.assignments= [];
       self.unassignedTracks = [];
       self.unassignedDetections = [1:nDetections];
-      
+
+
       if nDetections && length(self.tracks)
-      
+        
+        scale = self.scalecost/sum(self.scalecost);
+        
         % is there is currently a crossing then prob of non-assignement should be scaled down 
-        costOfNonAssignment = self.opts.tracks.costOfNonAssignment;
+        costOfNonAssignment =  sum(self.medianCost.*scale);%self.opts.tracks.costOfNonAssignment;
         if length(self.tracks)==self.nfish
-          costOfNonAssignment = max(5*self.medianAssignmentCost,self.opts.tracks.costOfNonAssignment);
-          %sum(self.medianCost.*self.scalecost); 
+          costOfNonAssignment = max(costOfNonAssignment,self.opts.tracks.costOfNonAssignment);
           currrentlyCrossing = sum(self.currentFrame - [self.tracks.lastFrameOfCrossing] ...
                                    < self.opts.classifier.nFramesAfterCrossing);
           if any(currrentlyCrossing)
             costOfNonAssignment = costOfNonAssignment/min(currrentlyCrossing/2+1,3);
           end
         end
-        
+
         % determine cost of each assigment to tracks
         fcost = self.computeCostMatrix();
-        
         % scale the cost
-        scale = shiftdim(self.scalecost(:)/sum(self.scalecost),-2);
-        sfcost = sum(bsxfun(@times,fcost,scale),3);
+        sfcost = sum(bsxfun(@times,fcost,shiftdim(scale(:),-2)),3);
         
         % Solve the assignment problem.
         [self.assignments, self.unassignedTracks, self.unassignedDetections] = ...
-            assignDetectionsToTracks(sfcost,  self.opts.tracks.costOfNonAssignmentScale*costOfNonAssignment);
+            assignDetectionsToTracks(sfcost,  costOfNonAssignment);
           
         outcost = nan(1,size(fcost,2));
         if ~isempty(self.assignments)
@@ -1889,7 +1889,9 @@ classdef FishTracker < handle;
 
       % background change time scale
       self.opts(1).detector.history = 250;  %[nframes]
-
+      self.opts.detector.nskip = 5;          % skip nframes for thresholding (if not knn)
+      self.opts.detector.inverted = false;   %% for IR image (white fish on dark barckground)
+      
       % reader / handler option
       self.opts.reader.resizeif = false; 
       self.opts.reader.resizescale = 0.75; % half frame size
@@ -1925,8 +1927,8 @@ classdef FishTracker < handle;
 
       self.opts(1).tracks.displayEveryNFrame = 10;
       self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
-      self.opts(1).tracks.costOfNonAssignment =  numel(self.medianCost) + sum(self.scalecost);   
-      self.opts(1).tracks.costOfNonAssignmentScale = 2; % if many non assigned detection, increase
+      self.opts(1).tracks.costOfNonAssignment =  1;   
+
       %lost tracks
       self.opts(1).tracks.invisibleForTooLong = 50;
       self.opts(1).tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later for very noisy

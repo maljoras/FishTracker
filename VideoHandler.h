@@ -53,6 +53,36 @@ public:
     vector<double> Thickness;
 };
 
+/**
+ * BackgroundThres Class. Similar to cv::BackgroundSubtractor
+ */
+
+class BackgroundThresholder
+{
+public:
+    BackgroundThresholder();
+    virtual ~BackgroundThresholder();
+
+    void apply(cv::Mat frame, cv::Mat * bwimg);
+    void clear(void);
+    void setInverted(bool invertedif);
+    int getNSkip(void);
+    void setNSkip(int value);
+    void setHistory(int value);
+    int getHistory(void);
+
+    
+protected:
+    int m_history;
+    int m_nskip;
+    int m_threstype;
+    
+private:
+    float m_thres;
+    cv::Mat m_meanImage;
+    cv::Mat m_backImage;
+    int m_istep;
+};
 
 
 /**
@@ -65,8 +95,8 @@ public:
     /**
      * initializes video/camera
      */
-    VideoHandler(const string fname);
-    VideoHandler(int camIdx, const string fname);
+    VideoHandler(const string fname,bool inKnnMethod);
+    VideoHandler(int camIdx, const string fname,bool inKnnMethod);
 
     /** Destructor. */
     virtual ~VideoHandler();
@@ -75,7 +105,7 @@ public:
     /**
      * computes the frame, foreground detection, and the contours in threaded manner
      */
-    void step();
+    void step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFrame,cv::Mat * pBWImg);
 
     /**
      * sets the scaling of RGB.
@@ -119,17 +149,12 @@ public:
 
     void resetBkg();
 
-    
-    /**
-     * public properties (will be updated after each call of step())
-     */
-    cv::Mat OFrame;
-    cv::Mat Frame;
-    cv::Mat BWImg;
 
-    vector<Segment> Segments;
-    int ngoodmsk;
-    vector<bool> goodmsk;
+    /**
+     * get the current frame
+     */
+
+    void getOFrame(cv::Mat * pFrame);
 
    
 private:
@@ -139,24 +164,31 @@ private:
     void waitThread();
     void _readNextFrameThread();
     void getSegment(Segment * segm, vector<cv::Point>inContour, cv::Mat inBwImg, cv::Mat inFrame,cv::Mat inOFrame);
-    void plotCurrentFrame();
-    void makeGoodMsk();
+    void plotFrame(cv::Mat pFrame);
+    bool testValid(Segment * pSeg);
     void initPars();
     
     cv::Size featureSize; 
     bool camera;
     bool stopped;
-    
+
+
 protected:
     cv::Ptr<cv::VideoCapture>  pVideoCapture;
     cv::Ptr<VideoSaver> pVideoSaver;
     cv::Ptr<cv::BackgroundSubtractorKNN> pBackgroundSubtractor;
-
+    cv::Ptr<BackgroundThresholder> pBackgroundThresholder;
     cv::Mat m_NextFrame;
     cv::Mat m_NextOFrame;
     cv::Mat m_NextBWImg;
+
+    cv::Mat m_OFrame;
+    cv::Mat m_Frame;
+    cv::Mat m_BWImg;
+
+    vector<Segment> m_Segments;
 //    vector<vector<cv::Point> > m_NextContours;
-    vector<vector<cv::Point> > Contours;
+
     //   vector<Segment> m_NextSegments;
 
     string m_fname;
@@ -187,5 +219,9 @@ protected:
     
     bool resizeif;
     float resizescale;
+
+    bool knnMethod;
+    bool inverted;
+
 };
 

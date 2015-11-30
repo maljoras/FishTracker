@@ -42,17 +42,17 @@ void mexFunction( int nlhs, mxArray *plhs[],
     string method;
 
    
-    if ((nrhs==3) && (rhs[0].isChar() && (rhs[0].toString()=="camera"))){
+    if ((nrhs==4) && (rhs[0].isChar() && (rhs[0].toString()=="camera"))){
         // CApture Constructor is called. Create a new object from argument
 	if (!obj_.empty())
 	    mexErrMsgIdAndTxt("mexopencv:error","Only one camera instance supported");
-	obj_[++last_id] =  new VideoHandler(rhs[1].toInt(),rhs[2].toString());
+	obj_[++last_id] =  new VideoHandler(rhs[1].toInt(),rhs[2].toString(),rhs[3].toBool());
         plhs[0] = MxArray(last_id);
         return;
 
-    } else if (nrhs==1) {
+    } else if ((nrhs==2) && rhs[0].isChar()) {
         // Constructor is called. Create a new object from argument
-	obj_[++last_id] =  new VideoHandler(rhs[0].toString());
+	obj_[++last_id] =  new VideoHandler(rhs[0].toString(),rhs[1].toBool());
         plhs[0] = MxArray(last_id);
         return;
     }
@@ -80,57 +80,52 @@ void mexFunction( int nlhs, mxArray *plhs[],
         if (nrhs!=2 || nlhs>4)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments. Outputs: [seg,bwimg,frame,oframe]");
 
-	obj.step();
-
+	cv::Mat frame;
+	cv::Mat oframe;
+	cv::Mat bwImg;
+	vector<Segment> segments;
+	obj.step(&segments,&oframe,&frame,&bwImg);
 	if (nlhs>0) {
-	    int n =0;
-	    mxArray * p = mxCreateStructMatrix(obj.ngoodmsk,1,NSEGMENTFIELD, segments_fields);
-	    if (!p)
-		mexErrMsgIdAndTxt("mexopencv:error", "Allocation error");
+	    if (segments.size()) {
+		mxArray * p = mxCreateStructMatrix(segments.size(),1,NSEGMENTFIELD, segments_fields);
+		if (!p)
+		    mexErrMsgIdAndTxt("mexopencv:error", "Allocation error");
+		
 
-	    int j = 0;
-	    for (int i=0; i<obj.Segments.size(); i++) {
-		if (obj.goodmsk[i]) {
-		    mxSetField(p,j,"BoundingBox",MxArray(obj.Segments[i].Bbox));
-		    mxSetField(p,j,"Orientation",MxArray(-obj.Segments[i].Orientation + 90.));
-		    mxSetField(p,j,"Size",MxArray(obj.Segments[i].Size));
-		    mxSetField(p,j,"MajorAxisLength",MxArray(obj.Segments[i].MajorAxisLength));
-		    mxSetField(p,j,"MinorAxisLength",MxArray(obj.Segments[i].MinorAxisLength));
-		    mxSetField(p,j,"Centroid",MxArray(obj.Segments[i].Centroid));
-		    mxSetField(p,j,"Image",MxArray(obj.Segments[i].Image,mxLOGICAL_CLASS));
-		    mxSetField(p,j,"FilledImage",MxArray(obj.Segments[i].FilledImage));
-		    mxSetField(p,j,"RotImage",MxArray(obj.Segments[i].RotImage,mxLOGICAL_CLASS));
-		    mxSetField(p,j,"RotFilledImage",MxArray(obj.Segments[i].RotFilledImage));
-		    transpose(obj.Segments[i].FishFeature,obj.Segments[i].FishFeature);
-		    flip(obj.Segments[i].FishFeature,obj.Segments[i].FishFeature,0);
-		    mxSetField(p,j,"FishFeatureC",MxArray(obj.Segments[i].FishFeature));
-		    transpose(obj.Segments[i].FishFeatureRemap,obj.Segments[i].FishFeatureRemap);
-		    flip(obj.Segments[i].FishFeatureRemap,obj.Segments[i].FishFeatureRemap,0);
-		    mxSetField(p,j,"FishFeatureCRemap",MxArray(obj.Segments[i].FishFeatureRemap));
-		    mxSetField(p,j,"CenterLine",MxArray(obj.Segments[i].CenterLine));
-		    mxSetField(p,j,"Thickness",MxArray(obj.Segments[i].Thickness));
-		    mxSetField(p,j,"Area",MxArray(obj.Segments[i].Area));
-		    mxSetField(p,j,"mback",MxArray(obj.Segments[i].mback));
-		    mxSetField(p,j,"bendingStdValue",MxArray(obj.Segments[i].bendingStdValue));
-		    //mxSetField(p,j,"MSERregions",MxArray(NULL));
-		    j++;
+		for (int i=0; i<segments.size(); i++) {
+		    mxSetField(p,i,"BoundingBox",MxArray(segments[i].Bbox));
+		    mxSetField(p,i,"Orientation",MxArray(-segments[i].Orientation + 90.));
+		    mxSetField(p,i,"Size",MxArray(segments[i].Size));
+		    mxSetField(p,i,"MajorAxisLength",MxArray(segments[i].MajorAxisLength));
+		    mxSetField(p,i,"MinorAxisLength",MxArray(segments[i].MinorAxisLength));
+		    mxSetField(p,i,"Centroid",MxArray(segments[i].Centroid));
+		    mxSetField(p,i,"Image",MxArray(segments[i].Image,mxLOGICAL_CLASS));
+		    mxSetField(p,i,"FilledImage",MxArray(segments[i].FilledImage));
+		    mxSetField(p,i,"RotImage",MxArray(segments[i].RotImage,mxLOGICAL_CLASS));
+		    mxSetField(p,i,"RotFilledImage",MxArray(segments[i].RotFilledImage));
+		    mxSetField(p,i,"FishFeatureC",MxArray(segments[i].FishFeature));
+		    mxSetField(p,i,"FishFeatureCRemap",MxArray(segments[i].FishFeatureRemap));
+		    mxSetField(p,i,"CenterLine",MxArray(segments[i].CenterLine));
+		    mxSetField(p,i,"Thickness",MxArray(segments[i].Thickness));
+		    mxSetField(p,i,"Area",MxArray(segments[i].Area));
+		    mxSetField(p,i,"mback",MxArray(segments[i].mback));
+		    mxSetField(p,i,"bendingStdValue",MxArray(segments[i].bendingStdValue));
+		    //mxSetField(p,i,"MSERregions",MxArray(NULL));
 		}
+		plhs[0] = p;
 	    }
-	    plhs[0] = p;
+	    else {
+		plhs[0] = mxCreateDoubleMatrix( 0, 0, mxREAL );
+	    }
 	}
+
 	if (nlhs>1) 
-	    plhs[1] = MxArray(obj.BWImg,mxLOGICAL_CLASS);
+	    plhs[1] = MxArray(bwImg,mxLOGICAL_CLASS);
 	if (nlhs>2) 
-	    plhs[2] = MxArray(obj.Frame);
+	    plhs[2] = MxArray(frame);
 	if (nlhs>3) 
-	    plhs[3] = MxArray(obj.OFrame);
+	    plhs[3] = MxArray(oframe);
 	
-    }
-    else if (method == "getFrame") {
-        if (nrhs!=2 || nlhs!=1)
-            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
-	
-	plhs[0] = MxArray(obj.OFrame);
     }
     else if (method == "resetBkg") {
         if (nrhs!=2 || nlhs!=0)
@@ -138,7 +133,13 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	
 	obj.resetBkg();
     }
-
+    else if (method == "getFrame") {
+        if (nrhs!=2 || nlhs!=1)
+            mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");
+	cv::Mat frame;
+	obj.getOFrame(&frame);
+	plhs[0] = MxArray(frame);
+    }
     else if (method == "setScale") {
         if (nrhs!=5 || nlhs!=0)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments");

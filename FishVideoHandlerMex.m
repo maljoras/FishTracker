@@ -16,44 +16,59 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
   
   properties (SetAccess=private)
     id = [];
+    knnMethod = true;
+    useScaled = false;
   end
   
   properties (Dependent)
     DetectShadows
     history
     nprobe
-    useScaled
+
     computeSegments
     resizeif
     resizescale
+
+    inverted
+    nskip
   end
 
   methods 
     
-    function self = FishVideoHandlerMex(vidname,timerange,opts)
+    function self = FishVideoHandlerMex(vidname,timerange,knnMethod,opts)
     %VIDEOCAPTURE  Create a new FishVideoHandlerMex object. VIDNAME
     %can be either a videofile or a cell like {CAMIDX, WRITEFILE}
     %for online capture from point grey devices;
     %
       
       if nargin < 1, vidname = getVideoFile(); end
-      
-      % make sure the image librabry of matlkab is loaded
+
+      % make sure the image library of matlab is loaded (seems not
+      % necessary anymore, was a bug in FlyCapture SDK)
       %f = figure;
       %image();
       %close(f);
       %vision.VideoPlayer();
-      
+      global global_knnMethod; % somewaht a hack... since foreground detector is now
+                               % implicitely included in the reader...     
+      if exist('knnMethod','var') && ~isempty(knnMethod)
+        global_knnMethod = knnMethod;
+      else
+        global_knnMethod = true;
+      end
+
       self@FishVideoReader(vidname);       
       self@FishBlobAnalysis(); 
 
       self.frameFormat = 'RGBU'; % default
-
+      self.knnMethod = global_knnMethod;
+      clear global global_knnMethod;
+      
       if nargin >1
         self.timeRange = timerange;
       end
-      
-      if nargin >2
+
+      if nargin >3
         setOpts(self,opts);
       end
       
@@ -110,18 +125,6 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       value =FishVideoHandler_(self.id, 'get', 'computeSegments');
     end
     
-    function set.useScaled(self,value);
-      
-      FishVideoHandler_(self.id, 'set', 'scaled',value);
-      FishVideoHandler_(self.id, 'setScale', self.scale(1),self.scale(2),self.scale(3));
-      FishVideoHandler_(self.id, 'set','delta', sum(self.delta));
-    end
-
-    
-    function value = get.useScaled(self);
-      value = FishVideoHandler_(self.id, 'get', 'scaled');
-    end
-    
     function value = get.resizeif(self);
       value = FishVideoHandler_(self.id, 'get', 'resizeif');
     end
@@ -139,14 +142,25 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     
     
     function setToScaledFormat(self,scale,delta)
-     
+      
+      if nargin<2
+        scale = self.scale;
+      end
+      if nargin<3
+        delta = self.delta;
+      end
       setToScaledFormat@FishVideoReader(self,scale,delta);
+      
+      FishVideoHandler_(self.id, 'setScale', self.scale(1),self.scale(2),self.scale(3));
+      FishVideoHandler_(self.id, 'set','delta', sum(self.delta));
+      FishVideoHandler_(self.id, 'set', 'scaled',true);
       self.useScaled = true;
     end
     
     function setToRGBFormat(self)
-      setToRGBFormat@FishVideoReader(self,scale,delta);
+      setToRGBFormat@FishVideoReader(self);
       self.useScaled = false;
+      FishVideoHandler_(self.id, 'set', 'scaled',false);
     end
     
     function msec = getTimePos(self,onoff)
@@ -193,6 +207,24 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       FishVideoHandler_(self.id, 'set', 'nprobe', value);
     end
     
+    function value = get.nskip(self)
+      value = FishVideoHandler_(self.id, 'get', 'nskip');
+    end
+    function set.nskip(self, value)
+      FishVideoHandler_(self.id, 'set', 'nskip', value);
+    end
+
+    function value = get.knnMethod(self)
+      value = FishVideoHandler_(self.id, 'get', 'knnMethod');
+    end
+    
+    function value = get.inverted(self)
+      value = FishVideoHandler_(self.id, 'get', 'inverted');
+    end
+    function set.inverted(self, value)
+      FishVideoHandler_(self.id, 'set', 'inverted', value);
+    end
+
     
     % OVERLOAD FEATURE DETECTION (COMMENT OUT TO GET MSER)
     function segm = detect(self, bwimg, Iframe, Cframe)
@@ -233,6 +265,15 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       bool = FishVideoHandler_(self.id,'get','camera') ; 
     end
 
+    function verbose(self);
+      verbose@FishVideoReader(self);
+      if self.knnMethod 
+        verbose('Using KNN for foreground subtraction...');
+      else
+        verbose('Using Thresholder for foreground subtraction...');
+      end
+    end
+    
   end
   
   %%%%%%%%%%%% Overloaded methods (READER) 
@@ -240,17 +281,18 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     
     function a_startReader(self);
 
+      global global_knnMethod; % somewaht a hack...
+      knnMethod = global_knnMethod;
       if isempty(self.id)
         if iscell(self.videoFile)
           camidx = self.videoFile{1};
-          self.id = FishVideoHandler_('camera',camidx,self.videoFile{2});      
+          self.id = FishVideoHandler_('camera',camidx,self.videoFile{2},knnMethod);      
         else
-          self.id = FishVideoHandler_(self.videoFile);      
+          self.id = FishVideoHandler_(self.videoFile,knnMethod);      
         end
         FishVideoHandler_(self.id,'start');      
         self.reader = self.id;
       end
-      
     end
     
 
@@ -311,8 +353,9 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
 
 
       if self.useScaled
-        self.useScaled = false;
-      end
+        warning('Set permanently to non-scaled format')
+        self.setToRGBFormat();
+      end  
       
       if self.originalif
         [~,~,frame,oframe] = self.step();
@@ -352,9 +395,9 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     
     function  [frame,oframe] = a_readScaledUFrame(self);      
 
-      bool = self.useScaled;
-      if ~bool
-        self.useScaled = true;
+      if ~self.useScaled
+        warning('Set permanently to scaled format')
+        self.setToScaledFormat();
       end
       
       if self.originalif
@@ -363,10 +406,6 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
         [~,~,frame] = self.step();
         oframe = [];
       end
-      if ~bool 
-        self.useScaled = false;
-      end
-      
       
     end
 

@@ -1,16 +1,16 @@
 function trackAllVideosInPath(path,varargin)
 
   def.path = '/home/malte/Videos/';
-  def.opts.excludeDone = 0;
-  def.opts.checkDone = 0;
+  def.opts.excludeDone = 1;
+  def.opts.checkDone = 1;
 
   def.opts.selectManual = 0;
 
   def.opts.excludeNames = {'toolboxes'};
   def.opts.extension = 'avi';
   def.opts.nameadd = 'a_';
-  def.opts.args = {'displayif',0}; % for FishTracker
-  def.opts.parallelif = 1;
+  def.opts.args = {'displayif',0,'useKNN',0,'useScaledFormat',0,'useMex',1}; % for FishTracker
+  def.opts.parallelif = 0;
   
   parseInputs;
   if HELP; return;end

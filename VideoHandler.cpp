@@ -4,8 +4,10 @@
 //#define DEBUG
 //#define PLOTSEGMENTS
 
-#define MAXCONTOUR 30
+#define MAXCONTOUR 250
+#define MAXVALIDCONTOUR 50
 #define MAXOTSU 50
+#define MINBACKTHRESSTEP 20
 
 using namespace std;
 using namespace cv;
@@ -247,11 +249,11 @@ void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFr
   
   waitThread();
   //output
-  *pOFrame = m_NextOFrame;
-  *pFrame = m_NextFrame;
-  *pBWImg = m_NextBWImg;
+  *pOFrame = m_NextOFrame.clone();
+  *pFrame = m_NextFrame.clone();
+  *pBWImg = m_NextBWImg.clone();
 
-  m_OFrame = m_NextOFrame;
+  m_OFrame = m_NextOFrame.clone();
 
   
   // start a new thread to load in the background
@@ -281,13 +283,18 @@ void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFr
     pSeg->clear();
     Segment segm;
     int ii=0;
-    for( int i = 0; i< contours.size(); i++ ) {
+    int ssize;
+    ssize = contours.size();
+    if (ssize>MAXCONTOUR)
+      ssize = MAXCONTOUR;
+    
+    for( int i = 0; i< ssize; i++ ) {
       getSegment(&segm,contours[i],*pBWImg,*pFrame,*pOFrame);
       if (testValid(&segm)) {
 	ii++;
 	pSeg->push_back(segm);
       }
-      if (ii>MAXCONTOUR)
+      if (ii>=MAXVALIDCONTOUR)
 	break;
     }
   }
@@ -1113,7 +1120,7 @@ void BackgroundThresholder::apply(cv::Mat frame,cv::Mat * bwimg) {
   
   // subtract background
 
-  if (m_istep>3)  { // has to be a rough estimate of the mean already
+  if (m_istep>MINBACKTHRESSTEP)  { // has to be a rough estimate of the mean already
     cv::Mat dframe;  
     dframe = floatframe - m_meanImage;
     dframe.convertTo(dframe,CV_8UC1);
@@ -1161,14 +1168,14 @@ void BackgroundThresholder::apply(cv::Mat frame,cv::Mat * bwimg) {
 // // // main
 int main() {
   string vid;
-  vid = "/home/malte/data/zebra/videos/longterm/longterm8.avi";
-  VideoHandler vh(vid,false);
-  //VideoHandler vh(0,"/home/malte/data/zebra/videos/test_VeideoHandler.avi",false);
+  vid = "/data/videos/longterm/longterm8.avi";
+  //VideoHandler vh(vid,false);
+  VideoHandler vh(0,"/home/malte/test_VeideoHandler.avi",false);
   cout << "init" << endl;
   vh.set("plotif",true);
   cout << "plotif" << endl;
   //namedWindow( "Patch", WINDOW_AUTOSIZE );
-  vh.set("scaled",true);
+  vh.set("scaled",false);
   cout << "scaled" << endl;
   vh.set("colorfeature",true);
   cout << "colorfeature" << endl;
@@ -1186,7 +1193,7 @@ int main() {
   vector<Segment> segm;
   cv::Mat frame, oframe, bwimg;
   namedWindow("bwimg",WINDOW_AUTOSIZE);
-  for (int i=0; i<400; i++) {
+  for (int i=0; i<100; i++) {
     vh.step(&segm,&oframe,&frame,&bwimg);
 
     imshow("bwimg",bwimg);

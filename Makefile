@@ -60,8 +60,8 @@ SAVEVIDEOOBJ = $(SAVEVIDEOSRC:.cpp=.$(OBJEXT))
 FLYCAPINCLUDES = -I. -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include/ -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include/ -I/usr/include/flycapture 
 FLYCAPFLAGS =  -lsigc-2.0 -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
 
-#boost dependencies
-INCLUDEDIR2 = /usr/include/boost
+
+
 
 # file extensions
 OBJEXT     ?= o
@@ -96,7 +96,7 @@ CV_LDFLAGS := $(filter-out $(LIB_SUFFIX),$(CV_LDFLAGS)) \
 endif
 
 # compiler/linker flags
-override CFLAGS  +=  -I$(INCLUDEDIR) -I$(INCLUDEDIR2)  $(CV_CFLAGS) $(FLYCAPINCLUDES) 
+override CFLAGS  +=  -I$(INCLUDEDIR)  $(CV_CFLAGS) $(FLYCAPINCLUDES) 
 override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPFLAGS) 
 
 

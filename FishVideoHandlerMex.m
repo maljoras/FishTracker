@@ -98,11 +98,13 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     % [segments [contours, bwimg, frame]] = vh.step();
     %
     %
+      self.segm = [];
+      
       if nargout==3
-        [seg,bwimg,frame] = FishVideoHandler_(self.id, 'step');
+        [self.segm,bwimg,frame] = FishVideoHandler_(self.id, 'step');
         cframe= [];
       else
-        [seg,bwimg,frame,cframe] = FishVideoHandler_(self.id, 'step');
+        [self.segm,bwimg,frame,cframe] = FishVideoHandler_(self.id, 'step');
       end
       
       self.increaseCounters(); % implicit read frame, so increase
@@ -110,11 +112,11 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
 
       if self.computeSegments
         % split regions / mser not yet implemented
-        self.segm = seg; % for a_getRegion dummy
         seg = self.stepBlob(bwimg,frame,cframe);
       else
         seg = [];
       end
+      
     end
   
     function set.computeSegments(self,value)

@@ -359,6 +359,7 @@ void VideoSaver::_captureThread()
   
   while (m_KeepThreadAlive) 
     {
+
       Error error = m_Camera.RetrieveBuffer( &rawImage );
       if ( error != PGRERROR_OK )
 	{
@@ -378,7 +379,7 @@ void VideoSaver::_captureThread()
       // copy to frame variable and update times
       {
 	Glib::Threads::Mutex::Lock lock(m_FrameMutex);
-
+	m_Frame.release();
 	m_Frame = cv::Mat(rgbImage.GetRows(), rgbImage.GetCols(), CV_8UC3, rgbImage.GetData(),rowBytes);
 	// could this happen ?
 	if (m_Frame.size().width==0) 

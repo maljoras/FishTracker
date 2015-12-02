@@ -32,19 +32,24 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
                               % open cv
       end
 
-      if exists('knnMethod','var') && ~isempty(knnMethod)
-        self.knnMethod = knnMethod;
-      end
-      
-      
       self@FishBlobAnalysis(); 
       self@FishVideoReader(vidname,timerange); 
+
+      if exist('knnMethod','var') && ~isempty(knnMethod)
+        self.knnMethod = knnMethod;
+      end
+
       if self.knnMethod
         self.detector = FishForegroundDetector();  
       else
         self.detector = FishForegroundDetectorMatlabCV();  
       end
 
+      if self.knnMethod 
+        verbose('Using KNN for foreground subtraction...');
+      else
+        verbose('Using Thresholder for foreground subtraction...');
+      end
 
       if exist('opts','var')
         self.setOpts(opts);
@@ -151,17 +156,12 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     % plotting not implemented...
     end
     
-    function verbose(self);
-      verbose@FishVideoReader(self);
-      if self.knnMethod 
-        verbose('Using KNN for foreground subtraction...');
-      else
-        verbose('Using Thresholder for foreground subtraction...');
-      end
-    end
+  end
 
+  methods(Access=protected)
+    
     function frameSize= a_getFrameSize(self);
-      frameSize = a_getFrameSize@FishVideoReader(self,)
+      frameSize = a_getFrameSize@FishVideoReader(self);
       if self.resizeif
         frameSize = round(self.resizescale*frameSize);
       end

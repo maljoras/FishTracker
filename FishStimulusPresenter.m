@@ -3,7 +3,7 @@ classdef FishStimulusPresenter < handle;
   
   
   properties 
-    screen = 1;
+    screen = 2;
     defaultColor = [1,0.2,1];
   end
   
@@ -63,13 +63,14 @@ classdef FishStimulusPresenter < handle;
       self.topPriorityLevel = MaxPriority(self.window);    
       Screen('Flip', self.window);
       Priority(self.topPriorityLevel);
+
       Screen('Preference', 'SkipSyncTests', 0);
       self.windowSize = [self.windowRect(3) - self.windowRect(1),...
                         self.windowRect(4) - self.windowRect(2)];
     end
 
     function release(self)
-      Priority(0);
+      Priority(0);       
       Screen('CloseAll');
       sca;
     end
@@ -158,7 +159,7 @@ classdef FishStimulusPresenter < handle;
 
     
     
-    function step(self,tracks,frame)
+    function step(self,tracks,framesize)
     % this function will be called from FishTracker after each round
     
       if isempty(tracks)
@@ -169,15 +170,15 @@ classdef FishStimulusPresenter < handle;
       idx = find(fishId==1);
       
       track = tracks(idx);
-      sz = size(frame);
+      sz = framesize;
       for i =1:length(tracks)
 
         x(i) = tracks(i).centroid(1)/sz(2);
         y(i) = tracks(i).centroid(2)/sz(1);
-        col(i,:) = [0.5,0.,1-i/length(tracks)];
+        col(i,:) = [1-i==1,i==2,1 - (i-1)/length(tracks)];
       end
-      self.plotDot(1-x,1-y,30,col);
-      
+      self.plotDot(x,y,50,col);
+      self.flip();
     end
       
     function patch(self,x,y,wx,wy,inColor)
@@ -200,7 +201,6 @@ classdef FishStimulusPresenter < handle;
     % Flip to the screen
       Screen('DrawingFinished', self.window);
       timestamp = Screen('Flip', self.window);
-      
     end
     
     function timestamp = clear(self);

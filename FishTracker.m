@@ -39,7 +39,7 @@ classdef FishTracker < handle;
     useMex = 1;
     useOpenCV = 1;
     useScaledFormat = 0;
-    useKNN = 1;
+    useKNN = 0;
 
     medianAssignmentCost =1;
     tracks = [];
@@ -201,8 +201,8 @@ classdef FishTracker < handle;
       [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange,self.opts);
       self.videoFile = vid;
       
-      if self.videoHandler.isGrabbing() && isempty(self.stimulusPresenter) ...
-          && self.stmif
+      if self.stmif  && isempty(self.stimulusPresenter) %...
+                                                        %&& self.videoHandler.isGrabbing()
         self.stimulusPresenter = FishStimulusPresenter();
         self.stimulusPresenter.init();
       end
@@ -1598,8 +1598,7 @@ classdef FishTracker < handle;
     %--------------------
     
     function savedTracks = appendSavedTracks(self,savedTracks)
-      
-      s2mat = strucarr2strucmat(savedTracks);
+     s2mat = strucarr2strucmat(savedTracks);
       if isempty(self.savedTracks)
         self.savedTracks = s2mat;
         savedTracks(:) =  [];
@@ -2004,12 +2003,13 @@ classdef FishTracker < handle;
         self.currentFrame = self.currentFrame + 1;
         s = s+1;
         
-        [self.segments,~,frame] = self.videoHandler.step();
+        self.segments = self.videoHandler.step();
+        
         self.detectObjects();
         self.handleTracks();
         
-        if ~isempty(self.stimulusPresenter)
-          self.stimulusPresenter.step(self.tracks,frame);
+        if self.stmif && ~isempty(self.stimulusPresenter) 
+          self.stimulusPresenter.step(self.tracks,self.videoHandler.frameSize);
         end
         
         savedTracks(1:self.nfish,s) = self.getCurrentTracks();

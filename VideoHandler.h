@@ -105,7 +105,7 @@ public:
     /**
      * computes the frame, foreground detection, and the contours in threaded manner
      */
-    void step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFrame,cv::Mat * pBWImg);
+    void step();
 
     /**
      * sets the scaling of RGB.
@@ -156,12 +156,19 @@ public:
 
     void getOFrame(cv::Mat * pFrame);
 
+    /**
+     * public fields for read out after step * 
+     **/
+    cv::Mat OFrame;
+    cv::Mat Frame;
+    cv::Mat BWImg;
+    vector<Segment> Segments;
    
 private:
     void initialize();
     void startThread();
     void deleteThread();
-    void waitThread();
+    void joinThread();
     void _readNextFrameThread();
     void getSegment(Segment * segm, vector<cv::Point>inContour, cv::Mat inBwImg, cv::Mat inFrame,cv::Mat inOFrame);
     void plotFrame(cv::Mat pFrame);
@@ -182,11 +189,6 @@ protected:
     cv::Mat m_NextOFrame;
     cv::Mat m_NextBWImg;
 
-    cv::Mat m_OFrame;
-    cv::Mat m_Frame;
-    cv::Mat m_BWImg;
-
-    vector<Segment> m_Segments;
 //    vector<vector<cv::Point> > m_NextContours;
 
     //   vector<Segment> m_NextSegments;

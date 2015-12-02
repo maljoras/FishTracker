@@ -80,36 +80,34 @@ void mexFunction( int nlhs, mxArray *plhs[],
         if (nrhs!=2 || nlhs>4)
             mexErrMsgIdAndTxt("mexopencv:error","Wrong number of arguments. Outputs: [seg,bwimg,frame,oframe]");
 
-	cv::Mat frame;
-	cv::Mat oframe;
-	cv::Mat bwImg;
-	vector<Segment> segments;
-	obj.step(&segments,&oframe,&frame,&bwImg);
+	obj.step();
+
 	if (nlhs>0) {
-	    if (segments.size()) {
-		mxArray * p = mxCreateStructMatrix(segments.size(),1,NSEGMENTFIELD, segments_fields);
+	    if (obj.Segments.size()) {
+		mxArray * p = mxCreateStructMatrix(obj.Segments.size(),1,NSEGMENTFIELD, segments_fields);
 		if (!p)
 		    mexErrMsgIdAndTxt("mexopencv:error", "Allocation error");
 		
 
-		for (int i=0; i<segments.size(); i++) {
-		    mxSetField(p,i,"BoundingBox",MxArray(segments[i].Bbox));
-		    mxSetField(p,i,"Orientation",MxArray(-segments[i].Orientation + 90.));
-		    mxSetField(p,i,"Size",MxArray(segments[i].Size));
-		    mxSetField(p,i,"MajorAxisLength",MxArray(segments[i].MajorAxisLength));
-		    mxSetField(p,i,"MinorAxisLength",MxArray(segments[i].MinorAxisLength));
-		    mxSetField(p,i,"Centroid",MxArray(segments[i].Centroid));
-		    mxSetField(p,i,"Image",MxArray(segments[i].Image,mxLOGICAL_CLASS));
-		    mxSetField(p,i,"FilledImage",MxArray(segments[i].FilledImage));
-		    mxSetField(p,i,"RotImage",MxArray(segments[i].RotImage,mxLOGICAL_CLASS));
-		    mxSetField(p,i,"RotFilledImage",MxArray(segments[i].RotFilledImage));
-		    mxSetField(p,i,"FishFeatureC",MxArray(segments[i].FishFeature));
-		    mxSetField(p,i,"FishFeatureCRemap",MxArray(segments[i].FishFeatureRemap));
-		    mxSetField(p,i,"CenterLine",MxArray(segments[i].CenterLine));
-		    mxSetField(p,i,"Thickness",MxArray(segments[i].Thickness));
-		    mxSetField(p,i,"Area",MxArray(segments[i].Area));
-		    mxSetField(p,i,"mback",MxArray(segments[i].mback));
-		    mxSetField(p,i,"bendingStdValue",MxArray(segments[i].bendingStdValue));
+		for (int i=0; i<obj.Segments.size(); i++) {
+		    mxSetField(p,i,"Image",MxArray(obj.Segments[i].Image,mxLOGICAL_CLASS));
+		    mxSetField(p,i,"FilledImage",MxArray(obj.Segments[i].FilledImage));
+		    mxSetField(p,i,"RotImage",MxArray(obj.Segments[i].RotImage,mxLOGICAL_CLASS));
+		    mxSetField(p,i,"RotFilledImage",MxArray(obj.Segments[i].RotFilledImage));
+		    mxSetField(p,i,"FishFeatureC",MxArray(obj.Segments[i].FishFeature));
+		    mxSetField(p,i,"FishFeatureCRemap",MxArray(obj.Segments[i].FishFeatureRemap));
+		    mxSetField(p,i,"BoundingBox",MxArray(obj.Segments[i].Bbox));
+		    mxSetField(p,i,"Orientation",MxArray(-obj.Segments[i].Orientation + 90.));
+		    mxSetField(p,i,"Size",MxArray(obj.Segments[i].Size));
+		    mxSetField(p,i,"MajorAxisLength",MxArray(obj.Segments[i].MajorAxisLength));
+		    mxSetField(p,i,"MinorAxisLength",MxArray(obj.Segments[i].MinorAxisLength));
+		    mxSetField(p,i,"Centroid",MxArray(obj.Segments[i].Centroid));
+
+		    mxSetField(p,i,"CenterLine",MxArray(obj.Segments[i].CenterLine));
+		    mxSetField(p,i,"Thickness",MxArray(obj.Segments[i].Thickness));
+		    mxSetField(p,i,"Area",MxArray(obj.Segments[i].Area));
+		    mxSetField(p,i,"mback",MxArray(obj.Segments[i].mback));
+		    mxSetField(p,i,"bendingStdValue",MxArray(obj.Segments[i].bendingStdValue));
 		    //mxSetField(p,i,"MSERregions",MxArray(NULL));
 		}
 		plhs[0] = p;
@@ -120,12 +118,13 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	}
 
 	if (nlhs>1) 
-	    plhs[1] = MxArray(bwImg,mxLOGICAL_CLASS);
+	    plhs[1] = MxArray(obj.BWImg,mxLOGICAL_CLASS);
 	if (nlhs>2) 
-	    plhs[2] = MxArray(frame);
+	    plhs[2] = MxArray(obj.Frame);
 	if (nlhs>3) 
-	    plhs[3] = MxArray(oframe);
-	
+	    plhs[3] = MxArray(obj.OFrame);
+
+
     }
     else if (method == "resetBkg") {
         if (nrhs!=2 || nlhs!=0)

@@ -40,7 +40,7 @@ classdef FishForegroundDetector < handle;
     
     
     function  bwmsk = a_step(self,frame);
-      if inverted
+      if self.inverted
         if isa(frame,'uint8')
           bwmsk = self.detector.apply(uint8(255)-frame);
         else

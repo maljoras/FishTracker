@@ -114,14 +114,16 @@ void VideoHandler::startThread() {
   m_readThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoHandler::_readNextFrameThread));
 }
 /****************************************************************************************/
-void VideoHandler::waitThread() {
-  Glib::Threads::Mutex::Lock lock(m_FrameMutex);
+void VideoHandler::joinThread() {
+  if ((!stopped) && (m_readThread!=NULL))
+    m_readThread->join();
+  //Glib::Threads::Mutex::Lock lock(m_FrameMutex);
 }
 
 /****************************************************************************************/
 void VideoHandler::deleteThread() {
 
-  waitThread();
+  joinThread();
   if (m_threadExists) {
     //m_readThread->join();
       m_threadExists = false;
@@ -134,8 +136,6 @@ void VideoHandler::initialize() {
 
   if (!stopped) {
 
-    waitThread();
-    
     if (!camera) {
       int iframe;
       iframe = pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
@@ -203,7 +203,7 @@ int VideoHandler::start() {
     stopped=false;
     startThread();
     Glib::usleep(200); // need to wait a bit to acquire the lock in the thread
-    waitThread();
+    //joinThread();
   }
   return 0;
 }
@@ -211,11 +211,10 @@ int VideoHandler::start() {
 /****************************************************************************************/
 void VideoHandler::stop() {
 
-  deleteThread();
   destroyAllWindows();
 
   if (!stopped) {
-
+    deleteThread();
     if (!camera)
       pVideoCapture.release();
     else {
@@ -233,12 +232,12 @@ void VideoHandler::stop() {
 
 /****************************************************************************************/
 void VideoHandler::getOFrame(cv::Mat * pFrame) {
-  *pFrame = m_OFrame;
+  *pFrame = OFrame;
 }
 
 
 /****************************************************************************************/
-void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFrame,cv::Mat * pBWImg){
+void VideoHandler::step(){
 
   if (stopped) {
     if (start()!=0) {
@@ -247,18 +246,17 @@ void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFr
     }
   }
   
-  waitThread();
+  joinThread();
   //output
-  *pOFrame = m_NextOFrame.clone();
-  *pFrame = m_NextFrame.clone();
-  *pBWImg = m_NextBWImg.clone();
 
-  m_OFrame = m_NextOFrame.clone();
+  m_NextFrame.copyTo(Frame);
+  m_NextOFrame.copyTo(OFrame);  
+  m_NextBWImg.copyTo(BWImg);
 
-  
   // start a new thread to load in the background
   startThread();
   
+
 #ifdef DEBUG
   Glib::Timer timer;
   timer.start();
@@ -269,7 +267,7 @@ void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFr
   vector<Vec4i> hierarchy;
   vector<vector<cv::Point> > contours;
   if (computeSegments) {
-    findContours(*pBWImg,contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
+    findContours(BWImg,contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
   }
 
 
@@ -280,7 +278,8 @@ void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFr
 
 
   if (computeSegments) {
-    pSeg->clear();
+    vector <Segment> tmp(0);
+    Segments = tmp; // clear memory
     Segment segm;
     int ii=0;
     int ssize;
@@ -289,10 +288,10 @@ void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFr
       ssize = MAXCONTOUR;
     
     for( int i = 0; i< ssize; i++ ) {
-      getSegment(&segm,contours[i],*pBWImg,*pFrame,*pOFrame);
+      getSegment(&segm,contours[i],BWImg,Frame,OFrame);
       if (testValid(&segm)) {
 	ii++;
-	pSeg->push_back(segm);
+	Segments.push_back(segm);
       }
       if (ii>=MAXVALIDCONTOUR)
 	break;
@@ -305,14 +304,14 @@ void VideoHandler::step(vector<Segment> * pSeg, cv::Mat * pOFrame, cv::Mat * pFr
 #endif
   
   if (plotif)
-    plotFrame(*pFrame);
+    plotFrame(Frame);
 
 };
 
 /****************************************************************************************/
 void VideoHandler::_readNextFrameThread()
 {
-  Glib::Threads::Mutex::Lock lock(m_FrameMutex);
+  //Glib::Threads::Mutex::Lock lock(m_FrameMutex);
   if (stopped) {
     cout <<  "Error: VideoHandler stopped. Cannot read next Frame." << endl;
     return;
@@ -321,9 +320,9 @@ void VideoHandler::_readNextFrameThread()
 #ifdef DEBUG
   Glib::Timer timer;
   timer.start();
-  m_threadExists = true;
 #endif
-  
+
+  m_threadExists = true;  
   Mat oframe,frame;
   if (camera) {
 
@@ -717,33 +716,33 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 int VideoHandler::set(const string prop, double value){
 
   if (prop=="scaled") {
-    waitThread();
+    joinThread();
     scaled = (bool) (value!=0);
     initialize();
   }
   else  if (prop=="delta") {
-    waitThread();
+    joinThread();
     m_Delta = (float) value;
     initialize();
   }
   else  if (prop=="resizeif") {
-    waitThread();
+    joinThread();
     resizeif = (bool) (value!=0);
     initialize();
   }
   else if (prop=="resizescale") {
-    waitThread();
+    joinThread();
     resizescale = (float) (value);
     initialize();
   }
   else if (prop=="featureheight") {
-    waitThread();
+    joinThread();
     featureheight = (int) value;
     featureSize.width = featureheight; // transposed
     initialize();
   }
   else if (prop=="featurewidth") {
-    waitThread();
+    joinThread();
     featureheight = (int) value;
     featureSize.height = featurewidth; // transposed
     initialize();
@@ -753,12 +752,12 @@ int VideoHandler::set(const string prop, double value){
     plotif = (bool) (value!=0);
   }
   else if (prop=="colorfeature") {
-    waitThread();
+    joinThread();
     colorfeature = (bool) (value!=0);
     initialize();
   }
   else if (prop=="nprobe") {
-    waitThread();
+    joinThread();
     nprobe = (int) value;
     initialize();
   }
@@ -783,14 +782,14 @@ int VideoHandler::set(const string prop, double value){
   else if ((prop=="inverted") && (!stopped)) {
     inverted = (bool) value!=0;
     if (!knnMethod) {
-      waitThread();
+      joinThread();
       pBackgroundThresholder->setInverted(inverted);
       initialize();
     }
   }
   else if (prop=="timePos") {
     if ((!camera) && (!stopped)) {
-      waitThread();
+      joinThread();
       pVideoCapture->set(cv::CAP_PROP_POS_MSEC,value);
       //pBackgroundSubtractor->clear(); // similar background anyway. do not reset
       initialize();
@@ -809,17 +808,17 @@ int VideoHandler::set(const string prop, double value){
     // else do nothing.. 
   }
   else if ((prop=="DetectShadows") && (!stopped) && (knnMethod) ) {
-    waitThread();
+    joinThread();
     pBackgroundSubtractor->setDetectShadows(value!=0);
     initialize();
   }
   else if ((prop == "Dist2Threshold")&& (!stopped) && (knnMethod)) {
-    waitThread();
+    joinThread();
     pBackgroundSubtractor->setDist2Threshold(value);
     initialize();
   }
   else if ((prop == "History")&& (!stopped)) {
-    waitThread();
+    joinThread();
     if (knnMethod)
       pBackgroundSubtractor->setHistory((int) value);
     else
@@ -827,28 +826,28 @@ int VideoHandler::set(const string prop, double value){
     initialize();
   }
   else if ((prop == "kNNSamples")&& (!stopped) && (knnMethod)) {
-    waitThread();
+    joinThread();
     pBackgroundSubtractor->setkNNSamples((int)value);
     initialize();
   }
   else if ((prop == "NSamples")&& (!stopped) && (knnMethod)) {
-    waitThread();
+    joinThread();
     pBackgroundSubtractor->setNSamples((int) value);
     initialize();
   }
   else if ((prop == "ShadowThreshold")&& (!stopped) && (knnMethod)) {
-    waitThread();
+    joinThread();
     pBackgroundSubtractor->setShadowThreshold(value);
     initialize();
   }
   else if ((prop == "ShadowValue")&& (!stopped)&& (knnMethod)) {
-    waitThread();
+    joinThread();
     pBackgroundSubtractor->setShadowValue(value);
     initialize();
   }
   else if ((prop == "nskip")&& (!stopped)) {
     if (!knnMethod) {
-      waitThread();
+      joinThread();
       pBackgroundThresholder->setNSkip((int) value);
       initialize();
     }
@@ -1045,7 +1044,7 @@ double VideoHandler::get(const string prop){
 
 /****************************************************************************************/
 void VideoHandler::setScale(vector<float> scale) {
-  waitThread();
+  joinThread();
   for (int i=0;i<scale.size();i++) {
     m_Scale[i] = scale[i];
   }
@@ -1060,7 +1059,7 @@ vector< float> VideoHandler::getScale() {
 /****************************************************************************************/
 void VideoHandler::resetBkg() {
   if (!stopped) {
-    waitThread();
+    joinThread();
     if (knnMethod) {
       pBackgroundSubtractor->clear(); // similar background anyway. do not reset 
     }
@@ -1189,16 +1188,17 @@ int main() {
   cout << "set pars" << endl;
   vh.start();
   cout << "start loop " << endl;
+  vh.set("inverted",true);
 
-  vector<Segment> segm;
-  cv::Mat frame, oframe, bwimg;
   namedWindow("bwimg",WINDOW_AUTOSIZE);
   for (int i=0; i<100; i++) {
-    vh.step(&segm,&oframe,&frame,&bwimg);
+    vh.step();
 
-    imshow("bwimg",bwimg);
+    imshow("bwimg",vh.BWImg);
     waitKey(100);
-    cout << i << ": Segment Size" <<  segm.size() << "\n";
+    cout << i << ": Segment Size" <<  vh.Segments.size() << "\n";
+    if (vh.Segments.size()>0)
+      cout << "MajorAxisLength[0]: " << vh.Segments[0].MajorAxisLength << endl;
   }
   vh.stop();
   vh.start();
@@ -1207,9 +1207,9 @@ int main() {
   VideoHandler vh2(vid,true);
 
   for (int i=0; i<25; i++) {
-    vh2.step(&segm,&oframe,&frame,&bwimg);
+    vh2.step();
     waitKey(100);
-    cout << i << ": Segment Size" << segm.size() << "\n";
+    cout << i << ": Segment Size" << vh.Segments.size() << "\n";
   }
   vh2.stop();
   vh2.start();

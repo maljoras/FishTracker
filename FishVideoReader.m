@@ -204,12 +204,12 @@ classdef FishVideoReader < handle;
     % constructor
       self = self@handle();
 
-      if ~exist(vid,'file')
+      if ischar(vid) && ~exist(vid,'file')
         error('Video file not found');
       end
       self.videoFile = vid;
       
-      if exist([vid '.txt'],'file')
+      if ischar(vid) && exist([vid '.txt'],'file')
         self.loadTFile([vid '.txt']);
       end
       

@@ -1,13 +1,11 @@
 classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
   
- 
-    
+  
+  
   properties 
     
-    history = 100; % former mtau
-
     plotif = 0;
-    expectedFrameFormat = 'U';
+
 
     meanSkip = 5;  
     nAutoThres = 30;
@@ -30,7 +28,7 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
     
     function bwimg = applyThres(self,frame)
       
-      % bw image
+    % bw image
       if self.inverted
         bwimg = (frame >= self.thres);
       else
@@ -49,21 +47,16 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
     
   end
   
+  
+  methods (Access=protected)
 
-  methods    
-    
-    function self = FishForegroundDetectorMatlabCV(varargin)
-      self = self@FishForegroundDetector(varargin{:});
-      % will call a_init
-    end
-
-    
     function  bwmsk = a_step(self,frame);
 
       self.framecounter =  self.framecounter  + 1;
 
       if self.history>0
-        frame1 = frame - self.mframe;
+        sframe = single(frame);
+        frame1 = uint8(sframe - self.mframe + 127);
         self.updateMean(frame);
       else
         frame1 = frame;
@@ -74,7 +67,6 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
         bwmsk = self.applyThres(frame1);
       else
         [bwmsk,self.thres] = self.applyAutoThres(frame1);
-        self.thres = -self.thres;
       end
       
       
@@ -91,30 +83,44 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
       
     end
 
-        
+    
     function a_init(self);
       self.framecounter = 0;
       self.thresholder  = vision.Autothresholder('ThresholdOutputPort',1);
       self.mframe = 0;
+      self.expectedFrameFormat = 'U';
     end
     
     
-     function  updateMean(self,frame)
-       
+    
+  end
+  
+  
+  
+  methods    
+    
+    function self = FishForegroundDetectorMatlabCV(varargin)
+      self = self@FishForegroundDetector(varargin{:});
+      % will call a_init
+    end
 
-       if  self.framecounter<self.history
-         mtau = self.framecounter;
-         self.mframe = (mtau-1)/mtau * self.mframe + 1/mtau*frame;
-       
-       elseif ~mod(self.framecounter,self.meanSkip)
+    
+    function  updateMean(self,frame)
+      
 
-         mtau = self.history/self.meanSkip;
-         self.mframe = (mtau-1)/mtau * self.mframe + 1/mtau*frame; %
-       
-       else
-         % pass
-       end
-     end
-     
+      if  self.framecounter<self.history
+        mtau = self.framecounter;
+        self.mframe = (mtau-1)/mtau * self.mframe + 1/mtau*single(frame);
+        
+      elseif ~mod(self.framecounter,self.meanSkip)
+
+        mtau = self.history/self.meanSkip;
+        self.mframe = (mtau-1)/mtau * self.mframe + 1/mtau*single(frame); %
+        
+      else
+        % pass
+      end
+    end
+    
   end
 end

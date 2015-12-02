@@ -247,10 +247,14 @@ classdef FishVideoReader < handle;
     end
     
       
-    function increaseCounters(self);
+    function increaseCounters(self,timeStamp);
       self.currentFrame = self.currentFrame + 1;
       if length(self.tframe) < self.currentFrame
-        self.currentTime = self.currentTime + 1/self.frameRate;
+        if nargin>1
+          self.currentTime = timeStamp;
+        else
+          self.currentTime = self.currentTime + 1/self.frameRate;
+        end
       else
         self.currentTime = self.tframe(self.currentFrame);
       end

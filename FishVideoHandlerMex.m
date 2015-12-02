@@ -92,33 +92,35 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     
     
     
-    function [seg,bwimg,frame,cframe] = step(self)
+    function [seg,frame] = step(self)
     % STEP one frame
     %
-    % [segments [contours, bwimg, frame]] = vh.step();
+    % [segments [ frame]] = vh.step();
     %
     %
-      self.segm = [];
-      
-      if nargout==3
-        [self.segm,bwimg,frame] = FishVideoHandler_(self.id, 'step');
-        cframe= [];
-      else
-        [self.segm,bwimg,frame,cframe] = FishVideoHandler_(self.id, 'step');
-      end
-      
-      self.increaseCounters(); % implicit read frame, so increase
-                               % the counters
 
-      if self.computeSegments
-        % split regions / mser not yet implemented
-        seg = self.stepBlob(bwimg,frame,cframe);
+      
+      if nargout<2
+        [seg,timeStamp] = FishVideoHandler_(self.id, 'step');
       else
-        seg = [];
+        [seg,timeStamp,frame] = FishVideoHandler_(self.id, 'step');
       end
+      
+      self.increaseCounters(timeStamp); % implicit read frame, so increase
+                                        % the counters
+      
+% $$$       if self.computeSegments
+% $$$         self.segm = seg;
+% $$$         bwimg = self.getCurrentBWImg(); 
+% $$$         % split regions / mser not yet implemented
+% $$$         seg = self.stepBlob(bwimg,frame,[]);
+% $$$       else
+% $$$         seg = [];
+% $$$       end
       
     end
   
+    
     function set.computeSegments(self,value)
       FishVideoHandler_(self.id, 'set', 'computeSegments',value);
     end
@@ -178,6 +180,10 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     
     function frame = getCurrentFrame(self);
       frame = FishVideoHandler_(self.id,'getFrame');
+    end
+    
+    function bwimg = getCurrentBWImg(self);
+      bwimg = FishVideoHandler_(self.id,'getBWImg');
     end
 
     function value = get(self, key)
@@ -358,15 +364,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
         warning('Set permanently to non-scaled format')
         self.setToRGBFormat();
       end  
-      
-      if self.originalif
-        [~,~,frame,oframe] = self.step();
-      else
-        [~,~,frame] = self.step();
-        oframe = [];
-      end
-
-      
+      [~,~,frame] = self.step();
+      oframe = frame;
     end
     
 
@@ -402,12 +401,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
         self.setToScaledFormat();
       end
       
-      if self.originalif
-        [~,~,frame,oframe] = self.step();
-      else
-        [~,~,frame] = self.step();
-        oframe = [];
-      end
+      [~,~,frame] = self.step();
+      oframe = frame;
       
     end
 

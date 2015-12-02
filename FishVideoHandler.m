@@ -106,10 +106,10 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     end
 
     
-    function [segm,bwmsk,frame,varargout] = step(self)
+    function [segm,frame] = step(self)
     % STEP one frame
     %
-    % [segments,bwimg, frame, [oframe]] = vh.step();
+    % [segments,[frame]] = vh.step();
     %
     %
 
@@ -131,7 +131,8 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
         oframe = frame;
       end
       bwmsk = self.detector.step(frame);
-
+      self.bwmsk = [];
+      
       if self.computeSegments
         segm = self.stepBlob(bwmsk,frame,oframe);
       else

@@ -103,9 +103,9 @@ public:
 
 
     /**
-     * computes the frame, foreground detection, and the contours in threaded manner
+     * computes the frame, foreground detection, and the contours in threaded manner. Returns -1 if falied 0 if success.
      */
-    void step();
+    int step(vector<Segment> * pSegs, double * pTimeStamp, cv::Mat * pFrame);
 
     /**
      * sets the scaling of RGB.
@@ -151,58 +151,85 @@ public:
 
 
     /**
-     * get the current frame
+     * get the current original frame (NOT GARANTUEED TO BE THE LATEST)
      */
 
     void getOFrame(cv::Mat * pFrame);
 
     /**
-     * public fields for read out after step * 
-     **/
-    cv::Mat OFrame;
-    cv::Mat Frame;
-    cv::Mat BWImg;
-    vector<Segment> Segments;
-   
+     * get the current bwimg frame (NOT GARANTUEED TO BE THE LATEST)
+     */
+
+    void getBWImg(cv::Mat * pBWImg);
+
+    
 private:
-    void initialize();
-    void startThread();
-    void deleteThread();
-    void joinThread();
-    void _readNextFrameThread();
+    
     void getSegment(Segment * segm, vector<cv::Point>inContour, cv::Mat inBwImg, cv::Mat inFrame,cv::Mat inOFrame);
-    void plotFrame(cv::Mat pFrame);
+    void plotFrame(cv::Mat pFrame,const string windowName);
     bool testValid(Segment * pSeg);
     void initPars();
     
-    cv::Size featureSize; 
-    bool camera;
-    bool stopped;
+    cv::Size m_featureSize; 
+    bool m_camera;
+    bool m_stopped;
+    int m_camIdx;
+    
+    cv::Mat m_NextFrame;
+    cv::Mat m_NextOFrame;
+    cv::Mat m_NextBWImg;
+    double m_NextTimeStamp;
+    cv::Mat m_OFrame;
+    cv::Mat m_Frame;
+    cv::Mat m_BWImg;
+    vector<Segment> m_Segments;
+    double m_TimeStamp;
+    
+    // thread stuff
+    void readNextFrameThread();
+    void segmentThread();
 
+    void reinitThreads();
+    void startThreads();
+    void deleteThreads();
+    void waitThreads();
+    
+    Glib::Threads::Thread * m_nextFrameThread;
+    Glib::Threads::Thread * m_segmentThread;
+    Glib::Threads::Mutex m_NextFrameMutex;
+    Glib::Threads::Mutex m_SegmentMutex;
+
+    Glib::Threads::Cond m_emptySegmentCond;
+    Glib::Threads::Cond m_emptyNextFrameCond;
+    Glib::Threads::Cond m_availableSegmentCond;
+    Glib::Threads::Cond m_availableNextFrameCond;
+
+    bool m_keepSegmentThreadAlive;
+    bool m_keepNextFrameThreadAlive;
+    bool m_availableNextFrame;
+    bool m_availableSegment;
+    bool m_nextFrameThreadFinished;
+    bool m_segmentThreadFinished;
+
+
+    bool m_threadsAlive;
 
 protected:
     cv::Ptr<cv::VideoCapture>  pVideoCapture;
     cv::Ptr<VideoSaver> pVideoSaver;
     cv::Ptr<cv::BackgroundSubtractorKNN> pBackgroundSubtractor;
     cv::Ptr<BackgroundThresholder> pBackgroundThresholder;
-    cv::Mat m_NextFrame;
-    cv::Mat m_NextOFrame;
-    cv::Mat m_NextBWImg;
 
 //    vector<vector<cv::Point> > m_NextContours;
 
     //   vector<Segment> m_NextSegments;
 
-    string m_fname;
-    int m_camIdx;
     
-    vector<float> m_Scale;
-    float m_Delta;
+    vector<float> Scale;
+    float Delta;
+    string fname;
 
-    Glib::Threads::Thread * m_readThread;
-    Glib::Threads::Mutex m_FrameMutex;
-    bool m_threadExists;
-    
+
     bool scaled;
     bool plotif;
     int nprobe;

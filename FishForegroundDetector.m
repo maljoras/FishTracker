@@ -11,11 +11,12 @@ classdef FishForegroundDetector < handle;
     
   end
 
-  
+
   
   properties(Access=private)
     detector = [];
     detectShadows = 0;
+    bwmsk;
   end
   
     
@@ -86,8 +87,14 @@ classdef FishForegroundDetector < handle;
     
     function bwmsk = step(self,frame);
       bwmsk = self.a_step(frame);
+      self.bwmsk = bwmsk;
     end
-  
+
+    function bwmsk = getCurrentBWImg(self);
+      bwmsk =  self.bwmsk;
+    end
+
+    
   end
   
   

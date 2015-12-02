@@ -13,7 +13,7 @@ classdef FishTracker < handle;
                   'segment.Orientation','centerLine', ...
                   'segment.Thickness'};%'segment.MinorAxisLength','segment.MajorAxisLength',...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
     maxVelocity = [];
-    displayif = 2;
+    displayif = 3;
 
     costinfo= {'Location','Overlap','CenterLine','Classifier'};%,'MajorAxisLength','MinorAxisLength','Area'};
     scalecost = [10,5,5,1];
@@ -166,12 +166,16 @@ classdef FishTracker < handle;
         self.videoHandler.plotting(true);
       end
       
+      if self.displayif==1
+        self.opts.tracks.displayEveryNFrame = self.opts.tracks.displayEveryNFrame*2;
+      end
+      
       if ~self.displayif
         self.fishClassifier.plotif = 0;
         self.videoHandler.plotting(false);
       end
       
-      if self.displayif> 4
+      if self.displayif> 5
         self.opts.tracks.displayEveryNFrame = 1;
       end
       
@@ -354,9 +358,9 @@ classdef FishTracker < handle;
       objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % fish are bending
       verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
       
-      if self.displayif>1
+      if self.displayif>2
         figure;
-        [segm,bwmsk,frame,cframe] = self.videoHandler.step();
+        bwmsk = self.videoHandler.getCurrentBWImg();
         imagesc(bwmsk);
         title(sprintf('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize));
       end
@@ -366,8 +370,9 @@ classdef FishTracker < handle;
         bwmsks = {};
         cframes = {};
         for i =1:10 % based on not just one frame to get better estimates
-          [~,bwmsks{i},~,cframe] = self.videoHandler.step();
-          cframes{i} = im2double(cframe);
+          [segm] = self.videoHandler.step();
+          bwmsks{i} =self.videoHandler.getCurrentBWImg();
+          cframes{i} = im2double(self.videoHandler.getCurrentFrame());
         end
         
         [scale,delta] = getColorConversion(bwmsks,cframes);
@@ -379,7 +384,7 @@ classdef FishTracker < handle;
           % re-generate some background
           verbose('Set to scaled format. Regenerate background..')
           for i =1:(n/2)
-            [~,~,frame] = self.videoHandler.step();    
+            [~,frame] = self.videoHandler.step();    
             fprintf('%1.1f%%\r',i/n*2*100); % some output
           end
           self.videoHandler.computeSegments = true;
@@ -911,7 +916,7 @@ classdef FishTracker < handle;
 
       %% handle the crossings
       updateIndices = find(hitBound & notHandled);
-      plotting = self.displayif>2 && ~isempty(updateIndices);
+      plotting = self.displayif>3 && ~isempty(updateIndices);
       
       if plotting
         self.plotCrossings_(1,updateIndices);
@@ -1199,7 +1204,7 @@ classdef FishTracker < handle;
         if length(self.unassignedDetections) 
 
           verbose('there were %d unassigned detections\r',length(self.unassignedDetections))
-          if self.displayif>2
+          if self.displayif>4
             clf;
             [r1,r2] = getsubplotnumber(length(self.segments));
             for i = 1:length(self.segments)
@@ -1892,8 +1897,8 @@ classdef FishTracker < handle;
       self.opts.detector.inverted = false;   %% for IR image (white fish on dark barckground)
       
       % reader / handler option
-      self.opts.reader.resizeif = false; 
-      self.opts.reader.resizescale = 0.75; % half frame size
+      %self.opts.reader.resizeif = true; 
+      %self.opts.reader.resizescale = 0.75; % faster if rescaled
       
       % blob anaylser
       self.opts(1).blob(1).computeMSERthres= 2.5; % just for init str

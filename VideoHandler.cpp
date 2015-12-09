@@ -6,7 +6,7 @@
 
 #define MAXCONTOUR 250
 #define MAXVALIDCONTOUR 50
-#define MAXOTSU 50
+#define MAXOTSU 100
 #define MINBACKTHRESSTEP 20
 
 using namespace std;
@@ -1030,6 +1030,13 @@ int VideoHandler::set(const string prop, double value){
       reinitThreads();
     }
   }
+  else if ((prop == "adjustThresScale")&& (!m_stopped)) {
+    if (!knnMethod) {
+      waitThreads();
+      pBackgroundThresholder->setThresScale((double) value);
+      reinitThreads();
+    }
+  }
   else {
     cout <<  "ERROR: Could not set property " << prop <<"! \n";
     return -1;
@@ -1147,6 +1154,12 @@ double VideoHandler::get(const string prop){
     else
       return (double) pBackgroundThresholder->getNSkip();
   }
+  else if ((prop == "adjustThresScale")&& (!m_stopped)) {
+    if  (knnMethod)
+      return (double) -1;
+    else
+      return (double) pBackgroundThresholder->getThresScale();
+  }
   else if ((prop == "FrameWidth") && (!m_stopped)) {
     double width;
     if (!m_camera) 
@@ -1257,7 +1270,8 @@ void VideoHandler::resetBkg() {
 BackgroundThresholder::BackgroundThresholder() {
   m_history = 250;
   m_nskip = 5;
-  m_threstype = THRESH_BINARY_INV;
+  m_adjustThresScale = 1;
+  setInverted(false);
   m_istep = 0;
 };
 
@@ -1273,6 +1287,18 @@ void BackgroundThresholder::setHistory(int value) {
 int BackgroundThresholder::getHistory() {
    return m_history;
 }
+void  BackgroundThresholder::setThresScale(double value) {
+  m_adjustThresScale = value;
+  if (m_threstype==THRESH_BINARY) // inverted 
+    m_adjustThresScaleCorrected = 1 + 1 - m_adjustThresScale;
+   else
+    m_adjustThresScaleCorrected = m_adjustThresScale;
+  return ;
+}
+double  BackgroundThresholder::getThresScale() {
+  return m_adjustThresScale;
+}
+
 void BackgroundThresholder::setNSkip(int value) {
    m_nskip = value;
 }
@@ -1281,10 +1307,13 @@ int BackgroundThresholder::getNSkip() {
 }
 
 void BackgroundThresholder::setInverted(bool invertedif) {
-  if (invertedif)
+  if (invertedif) {
     m_threstype = THRESH_BINARY;
-  else
+  }
+  else {
     m_threstype = THRESH_BINARY_INV;
+  }
+  setThresScale(m_adjustThresScale);
 }
 
 void BackgroundThresholder::apply(cv::Mat frame,cv::Mat * bwimg) {
@@ -1306,7 +1335,7 @@ void BackgroundThresholder::apply(cv::Mat frame,cv::Mat * bwimg) {
     if (m_istep<MAXOTSU)  {
       m_thres = threshold(dframe,*bwimg,m_thres,255,THRESH_OTSU + m_threstype);
     } else {
-      threshold(dframe,*bwimg,m_thres,255, m_threstype);
+      threshold(dframe,*bwimg,m_thres*m_adjustThresScaleCorrected,255, m_threstype);
     }
   } else
     *bwimg = Mat::zeros(frame.size(),CV_8UC1);

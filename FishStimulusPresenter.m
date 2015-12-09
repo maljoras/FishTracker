@@ -177,6 +177,14 @@ classdef FishStimulusPresenter < handle;
         y(i) = tracks(i).centroid(2)/sz(1);
         col(i,:) = [1-i==1,i==2,1 - (i-1)/length(tracks)];
       end
+      % only on one halfplane
+      %  idx = x>0.5;
+      %x(idx) = [];
+      %y(idx) = [];
+      %col(idx,:)= [];
+      boundary = 0.08;
+      x = max(min((x - boundary)/(1-2*boundary),1),0);
+      y = max(min((y - boundary)/(1-2*boundary),1),0);
       self.plotDot(x,y,50,col);
       self.flip();
     end

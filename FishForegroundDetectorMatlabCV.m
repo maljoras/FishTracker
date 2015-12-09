@@ -7,7 +7,7 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
     plotif = 0;
 
 
-    meanSkip = 5;  
+    nskip = 5;  
     nAutoThres = 30;
 
   end
@@ -30,9 +30,9 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
       
     % bw image
       if self.inverted
-        bwimg = (frame >= self.thres);
+        bwimg = (frame >= self.thres*(2-self.adjustThresScale));
       else
-        bwimg = (frame <= self.thres);
+        bwimg = (frame <= self.thres*(self.adjustThresScale));
       end
     end
 
@@ -112,9 +112,9 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
         mtau = self.framecounter;
         self.mframe = (mtau-1)/mtau * self.mframe + 1/mtau*single(frame);
         
-      elseif ~mod(self.framecounter,self.meanSkip)
+      elseif ~mod(self.framecounter,self.nskip)
 
-        mtau = self.history/self.meanSkip;
+        mtau = self.history/self.nskip;
         self.mframe = (mtau-1)/mtau * self.mframe + 1/mtau*single(frame); %
         
       else

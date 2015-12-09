@@ -70,18 +70,22 @@ public:
     void setNSkip(int value);
     void setHistory(int value);
     int getHistory(void);
-
+    double getThresScale(void);
+    void setThresScale(double);
     
+
 protected:
     int m_history;
     int m_nskip;
     int m_threstype;
-    
+    double m_adjustThresScale;    
+
 private:
     float m_thres;
     cv::Mat m_meanImage;
     cv::Mat m_backImage;
     int m_istep;
+    double m_adjustThresScaleCorrected;    
 };
 
 

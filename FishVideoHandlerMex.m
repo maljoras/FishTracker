@@ -31,6 +31,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
 
     inverted
     nskip
+    adjustThresScale
   end
 
   methods 
@@ -221,6 +222,12 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     function set.nskip(self, value)
       FishVideoHandler_(self.id, 'set', 'nskip', value);
     end
+    function value = get.adjustThresScale(self)
+      value = FishVideoHandler_(self.id, 'get', 'adjustThresScale');
+    end
+    function set.adjustThresScale(self, value)
+      FishVideoHandler_(self.id, 'set', 'adjustThresScale', value);
+    end
 
     function value = get.knnMethod(self)
       value = FishVideoHandler_(self.id, 'get', 'knnMethod');
@@ -294,6 +301,12 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       if isempty(self.id)
         if iscell(self.videoFile)
           camidx = self.videoFile{1};
+          if exist(self.videoFile{2},'file')
+            fprintf(['\n\nREALLY OVERWRITE EXISTING VIDEO FILE ? CTRL-C ' ...
+                     'to abort..ENTER to continue:']);
+            pause;
+          end
+          
           self.id = FishVideoHandler_('camera',camidx,self.videoFile{2},knnMethod);      
         else
           self.id = FishVideoHandler_(self.videoFile,knnMethod);      

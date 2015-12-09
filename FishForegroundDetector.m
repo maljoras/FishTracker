@@ -9,6 +9,7 @@ classdef FishForegroundDetector < handle;
     inverted = 0;  
     history = 500;
     
+    adjustThresScale = 1;
   end
 
 

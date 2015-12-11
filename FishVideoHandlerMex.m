@@ -28,7 +28,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     computeSegments
     resizeif
     resizescale
-
+    fixedSize 
+    
     inverted
     nskip
     adjustThresScale
@@ -136,7 +137,15 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     function set.resizeif(self,value);
       FishVideoHandler_(self.id, 'set', 'resizeif',value);
     end
+
+    function value = get.fixedSize(self);
+      value = FishVideoHandler_(self.id, 'get', 'fixedSize');
+    end
     
+    function set.fixedSize(self,value);
+      FishVideoHandler_(self.id, 'set', 'fixedSize',value);
+    end
+
     function value = get.resizescale(self);
       value = FishVideoHandler_(self.id, 'get', 'resizescale');
     end

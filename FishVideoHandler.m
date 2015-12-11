@@ -10,6 +10,7 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     resizeif = 0; % 
     resizescale = 1; 
     knnMethod = true;
+    fixedSize = 0;  % NOT SUPORTED WITHOUT MEX
   end
   
   

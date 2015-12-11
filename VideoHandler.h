@@ -34,6 +34,7 @@ public:
 
     cv::Mat Image;
     cv::Mat FilledImage;
+    cv::Mat FilledImageFixedSize;
     cv::Mat RotImage;
     cv::Mat RotFilledImage;
     cv::Mat FishFeature;
@@ -245,6 +246,7 @@ protected:
     int minArea;
     int maxArea;
 
+    Size fixedSizeImage;
     int featurewidth;
     int featureheight;
 

@@ -1983,6 +1983,7 @@ classdef FishTracker < handle;
       self.opts.detector.inverted = false;   %% for IR image (white fish on dark barckground)
       self.opts.detector.adjustThresScale = 0.9;   %% 0..1 : reduce to avoid many wrong detections in case of the thresholder
 
+      self.opts.detector.fixedSize = 0; % set for saving the fixedSize image 
 
       % reader / handler option
       %self.opts.reader.resizeif = true; 

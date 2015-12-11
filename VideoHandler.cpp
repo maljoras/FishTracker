@@ -80,6 +80,8 @@ void VideoHandler::initPars() {
   nprobe = 7;
   Delta = 0;
 
+  fixedSizeImage = cv::Size(0,0);
+	  
   minWidth = 2 ;
   minExtent = 2;
   minArea = 2;
@@ -594,7 +596,6 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
   // getRectSubPix(inBwImg,Size(segm->Bbox.width*2,segm->Bbox.height*2),Point(segm->Bbox.x-segm->Bbox.width/2,segm->Bbox.y-segm->Bbox.height/2),segm->Image2x,-1);
   // segm->Image2x = segm->Image2x>0;
-  // getRectSubPix(tmpFrame,Size(segm->Bbox.width*2,segm->Bbox.height*2),Point(segm->Bbox.x-segm->Bbox.width/2,segm->Bbox.y-segm->Bbox.height/2),segm->FilledImage2x,-1);
 
   segm->mback = mean(segm->FilledImage,segm->Image==0);
   //segm->FilledImage.setTo(segm->mback,msk);
@@ -619,6 +620,10 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     } else {
       segm->MajorAxisLength = segm->Size.height;
       segm->MinorAxisLength = segm->Size.width;
+    }
+
+    if (fixedSizeImage.width>0) {
+      getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,segm->FilledImageFixedSize,-1);
     }
     
     // get the rotation and the center points
@@ -927,6 +932,11 @@ int VideoHandler::set(const string prop, double value){
     reinitThreads();
 
   }
+  else if (prop=="fixedSize") {
+    waitThreads();
+    fixedSizeImage = cv::Size((int) value,(int) value);
+    reinitThreads();
+  }
   else if (prop=="plotif") {
     plotif = (bool) (value!=0);
   }
@@ -1052,6 +1062,9 @@ double VideoHandler::get(const string prop){
   }
   else if (prop=="plotif") {
     return(double) plotif;
+  }
+  else if (prop=="fixedSize") {
+    return(double) fixedSizeImage.width;
   }
   else if (prop=="camera") {
     return(double) m_camera;

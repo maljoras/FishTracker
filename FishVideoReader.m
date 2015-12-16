@@ -315,13 +315,14 @@ classdef FishVideoReader < handle;
     function setCurrentTime(self,time)
       assert(time<self.timeRange(2) && time>=self.timeRange(1))
       time = max(time,0);
-      self.a_setCurrentTime(time);
-
+      
       if isempty(self.tframe)
+        self.a_setCurrentTime(time);
         self.currentTime = time-1/self.frameRate;
         self.currentFrame = 0;
       else
         self.currentFrame = find(self.tframe<=time,1,'last')-1;
+        self.a_setCurrentTime(self.currentFrame/self.frameRate);
         self.currentTime = self.tframe(self.currentFrame+1);
       end
 

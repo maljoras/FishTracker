@@ -2461,13 +2461,13 @@ classdef FishTracker < handle;
       if  ~isOpen(self.videoPlayer)
         self.videoPlayer.show();
       end
-      
+
       currentTime = videoReader.currentTime;      
       videoReader.timeRange = timerange;
       videoReader.reset();
-      videoReader.setCurrentTime(timerange(1));
+      videoReader.setCurrentTime(timerange(1)); 
 
-      t_tracks =res.tracks(:,1).t;
+      t_tracks =res.tracks.t(:,1);
       tidx = find(t_tracks>=timerange(1) & t_tracks<timerange(2)); 
       t_tracks = t_tracks(tidx);
       cols = uint8(255*jet(self.nfish));
@@ -2477,8 +2477,7 @@ classdef FishTracker < handle;
         s = s+1;
         
         t = videoReader.currentTime;
-        
-        assert(abs(t_tracks(s)-t)<1/videoReader.frameRate);
+        %assert(abs(t_tracks(s)-t)<=1/videoReader.frameRate);
 
         % Get bounding boxes.
         bboxes = shiftdim(res.tracks.bbox(tidx(s),:,:),1);
@@ -2605,9 +2604,15 @@ classdef FishTracker < handle;
       if isempty(res.tracks.centerLine)
         error('No centerLine data');
       end
-      
+
       clx = permute(res.tracks.centerLine(plotidx,fishIds,1,:),[4,1,2,3]);
       cly = permute(res.tracks.centerLine(plotidx,fishIds,2,:),[4,1,2,3]);
+      clx = convn(clx,ones(2,1)/2,'valid');
+      cly = convn(cly,ones(2,1)/2,'valid');
+      lap = abs(nanmean(diff(clx,2,1))) + abs(nanmean(diff(cly,2,1),1));
+      mx = nanmean(clx(:,:,:),1);
+      my = nanmean(cly(:,:,:),1);
+
       
       cmap = jet(self.nfish);
       szFrame = self.videoHandler.frameSize;
@@ -2620,8 +2625,12 @@ classdef FishTracker < handle;
         plot(clx(:,:,i),cly(:,:,i),'color',col,'linewidth',2);
         hold on;        
         plot(clx(1,:,i),cly(1,:,i),'o','color',col,'linewidth',1);
+
+        idx = lap(1,:,i) > 1.5;
+        %scatter(mx(1,idx,i),my(1,idx,i),50,'r','o','filled'); 
+        plot(clx(:,idx,i),cly(:,idx,i),'color','r','linewidth',1);
       end
-      
+      colormap(gray)
     
     end
     

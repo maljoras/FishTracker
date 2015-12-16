@@ -1,4 +1,26 @@
-#!/usr/bin/make -f
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2015.12.15.07.18.20;	author malte;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#!/usr/bin/make -f
 
 # ============================================================================
 #                              mexopencv Makefile
@@ -116,10 +138,11 @@ $(OBJECTS): $(SRCS2)
  
 # MEX-files
 $(TARGETS1): $(SRCS1) 
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output ${@@:.$(MEXEXT)=} $< $(LDFLAGS)
 
 $(TARGETS2): $(SRCS3)
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output ${@@:.$(MEXEXT)=} $< $(LDFLAGS)
 
 clean:
 	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS) $(TARGETDIR)/$(SAVEVIDEOOBJ) $(TARGETDIR)/$(SAVEVIDEOOBJ1)
+@

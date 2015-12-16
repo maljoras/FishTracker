@@ -11,7 +11,9 @@ classdef FishTracker < handle;
     saveFields = {'centroid','classProb','bbox','assignmentCost', ...
                   'consecutiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
-                  'thickness','segment.MinorAxisLength','segment.MajorAxisLength'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
+                  'thickness','segment.MinorAxisLength',...
+                  'segment.MajorAxisLength',...
+                  'stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
     maxVelocity = [];
     displayif = 3;
 
@@ -217,13 +219,12 @@ classdef FishTracker < handle;
       [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange,self.opts);
       self.videoFile = vid;
       
-      if self.stmif  && isempty(self.stimulusPresenter) %...
-                                                        %&& self.videoHandler.isGrabbing()
-        self.stimulusPresenter = FishStimulusPresenter();
+      if self.stmif
+        if isempty(self.stimulusPresenter) 
+          self.stimulusPresenter = FishStimulusPresenter();
+        end
         self.stimulusPresenter.init();
       end
-      
-      
       
       
       %% look for objects 
@@ -291,7 +292,7 @@ classdef FishTracker < handle;
       self.fishId2TrackId = nan(250,self.nfish);
       self.pos = [];
       self.res = [];
-      self.tracks = [];;
+      self.tracks = [];
       self.savedTracks = [];
       
       self.initializeTracks(); % Create an empty array of tracks.
@@ -332,6 +333,10 @@ classdef FishTracker < handle;
       if isempty(self.maxVelocity)
         self.maxVelocity = self.fishlength*40; % Ucrit for sustained swimming is 20 BodyLength/s (see Plaut 2000). Thus set
                                                % twice for short accelaration bursts
+      end
+    
+      if self.stmif
+        self.stimulusPresenter.setTimeReference(self.videoHandler.currentTime);
       end
     end
     
@@ -660,7 +665,7 @@ classdef FishTracker < handle;
       success = 0;
       if length(self.tracks)<self.nfish 
         if  self.currentFrame > self.opts.classifier.nFramesForInit
-          verbose(['nfish setting might be wrong or some fish are lost'])
+          verbose(['nfish setting might be wrong or some fish are lost\r'])
         end
         return
       end
@@ -1021,7 +1026,8 @@ classdef FishTracker < handle;
         'totalVisibleCount', {}, ...
         'consecutiveInvisibleCount', {},...
         'assignmentCost', {},...
-        'nIdFeaturesLeftOut', {});
+        'nIdFeaturesLeftOut', {},...
+        'stmInfo',{});
     end
     
     
@@ -1526,7 +1532,8 @@ classdef FishTracker < handle;
           'totalVisibleCount', 1,         ...
           'consecutiveInvisibleCount', 0, ...
           'assignmentCost',Inf, ...
-          'nIdFeaturesLeftOut',0);
+          'nIdFeaturesLeftOut',0,...
+          'stmInfo',[]);
 
         % update the classprobhistory and set the parameters
         %newTrack.classProbHistory.lambda = self.fishwidth/self.fishlength;
@@ -1689,7 +1696,9 @@ classdef FishTracker < handle;
     
     function generateResults(self)
 
-      if isempty(self.savedTracks)
+      if isempty(self.savedTracks.id) || size(self.savedTracks.id,2)<self.nfish
+        verbose('WARNING: cannot generate results!')
+        verbose('WARNING: not all fish detected. Maybe adjust "nfish" setting.');
         return;
       end
 
@@ -2104,7 +2113,9 @@ classdef FishTracker < handle;
         self.handleTracks();
         
         if self.stmif && ~isempty(self.stimulusPresenter) 
-          self.stimulusPresenter.step(self.tracks,self.videoHandler.frameSize);
+          self.tracks = self.stimulusPresenter.step(self.tracks,...
+                                                    self.videoHandler.frameSize,...
+                                                    self.videoHandler.currentTime);
         end
         
         savedTracks(1:self.nfish,s) = self.getCurrentTracks();

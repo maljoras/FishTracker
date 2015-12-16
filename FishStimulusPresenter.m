@@ -5,6 +5,7 @@ classdef FishStimulusPresenter < handle;
   properties 
     screen = 2;
     defaultColor = [1,0.2,1];
+    refTime = 0;
   end
   
   
@@ -73,6 +74,11 @@ classdef FishStimulusPresenter < handle;
       Priority(0);       
       Screen('CloseAll');
       sca;
+    end
+    
+    
+    function setTimeReference(self,t);
+      self.refTime = t;
     end
     
     
@@ -159,7 +165,7 @@ classdef FishStimulusPresenter < handle;
 
     
     
-    function step(self,tracks,framesize)
+    function tracks = step(self,tracks,framesize)
     % this function will be called from FishTracker after each round
     
       if isempty(tracks)
@@ -186,6 +192,9 @@ classdef FishStimulusPresenter < handle;
       x = max(min((x - boundary)/(1-2*boundary),1),0);
       y = max(min((y - boundary)/(1-2*boundary),1),0);
       self.plotDot(x,y,50,col);
+      for i =1:length(tracks)
+        tracks(i).stmInfo = [x(i),y(i)];
+      end
       self.flip();
     end
       

@@ -53,7 +53,7 @@ classdef FishBlobAnalysis < handle;
     function a_init(self);
     % initialize mser
       if isempty(self.mser)
-        self.mser  =  cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
+        self.mser  =  [];%cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
         if isa(self.se,'strel')
           self.se = getnhood(self.se);
         end

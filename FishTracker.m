@@ -2583,7 +2583,46 @@ classdef FishTracker < handle;
     function plotVelocity(self,varargin)
       self.plotByType('VELOCITY',varargin{:});
     end
+    
+    function plotClassProb(self,fishIds,plotTimeRange);
+      
+         
+      if ~exist('fishIds','var') || isempty(fishIds)
+        fishIds = 1:self.nfish;
+      end
 
+      if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
+        plotTimeRange = self.timerange;
+      end
+
+      clf;
+      res = self.getTrackingResults();
+      t = res.tracks.t(:,1);
+      plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
+      
+      if ~isfield(res.tracks,'classProb') || isempty(res.tracks.classProb)
+        error('No classprob data');
+      end
+
+      prob = res.tracks.classProb(plotidx,fishIds,fishIds);
+      probid = prob(:,1:length(fishIds)+1:end);
+      probmax = nanmax(prob(:,:,:),[],3);
+
+      %nconv = 10;
+      %probid = conv2(probid,ones(nconv,1)/nconv,'same');
+      tt = t(plotidx);
+
+      a(1) = subplot(2,1,1);
+      plot([nanmean(probid,2),nanmean(probmax,2)]);
+      a(2) = subplot(2,1,2);
+      seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
+      plot(seq);
+      
+      linkaxes(a,'x');
+      
+      
+    end
+    
     
     function plotCenterLine(self,fishIds,plotTimeRange)
       
@@ -2596,12 +2635,12 @@ classdef FishTracker < handle;
         plotTimeRange = self.timerange;
       end
 
-      cla;
+
       res = self.getTrackingResults();
       t = res.tracks.t(:,1);
       plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
       
-      if isempty(res.tracks.centerLine)
+      if  ~isfield(res.tracks,'centerLine') || isempty(res.tracks.centerLine)
         error('No centerLine data');
       end
 
@@ -2613,7 +2652,25 @@ classdef FishTracker < handle;
       mx = nanmean(clx(:,:,:),1);
       my = nanmean(cly(:,:,:),1);
 
+      % find sudden changes
+      clf;
+      tt = t(plotidx);
+      v2 = squeeze(abs(diff(mx,1,2)) + abs(diff(my,1,2))); 
+      subplot(3,1,1);
+      plot(tt(1:end-1),v2);
+      title('Difference position')
+      subplot(3,1,2);
+      seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
+      plot(tt,seq);
+      title('Conseq. invisible counts');
+      subplot(3,1,3);
+      prob = res.tracks.classProb(plotidx,fishIds,fishIds);
+      plot(tt,prob(:,1:length(fishIds)+1:end));
+      title('Class prob');
       
+      
+      
+      figure;
       cmap = jet(self.nfish);
       szFrame = self.videoHandler.frameSize;
 

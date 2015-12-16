@@ -2,7 +2,6 @@
 
 #include "SaveVideoClass.h"
 
-using namespace std;
 using namespace FlyCapture2;
 
 //#define DEBUG
@@ -133,7 +132,7 @@ int VideoSaver::init(PGRGuid camIdx)
   }
 
   if (!valid) {
-    cout  << "Could not validate Format 7."  << endl;
+    std::cout  << "Could not validate Format 7."  << std::endl;
     return -1;
   }
 
@@ -193,7 +192,7 @@ int VideoSaver::getCurrentFrameNumber() {
   if (!m_GrabbingFinished) {
     return m_frameNumber;
   } else {
-    cout << "Warning: grabbing finished!!" << endl;
+    std::cout << "Warning: grabbing finished!!" << std::endl;
     return -1;
   }
 }
@@ -216,7 +215,7 @@ int VideoSaver::getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumbe
     return 0;
   }
   else {
-    cout << "WARNING getFrame  Failed!" << endl;
+    std::cout << "WARNING getFrame  Failed!" << std::endl;
     return -1;
   }
 }
@@ -261,7 +260,7 @@ int VideoSaver::startCapture() {
     m_KeepWritingAlive = false;  // not to be started
     m_WritingFinished = true;
     m_newFrameAvailable = false;
-    cout <<  "Start video grabbing .." << endl;
+    std::cout <<  "Start video grabbing .." << std::endl;
 
     //boost::thread captureThread(&VideoSaver::_captureThread,this);
     m_captureThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoSaver::_captureThread));
@@ -272,7 +271,7 @@ int VideoSaver::startCapture() {
     return 0;
 
   } else {
-    cout << "Warning: capture not finished !" << endl;
+    std::cout << "Warning: capture not finished !" << std::endl;
     return -1;
   } 
   
@@ -287,15 +286,15 @@ void VideoSaver::waitForNewFrame() {
     {
       Glib::Threads::Mutex::Lock lock(m_FrameMutex);
 #ifdef DEBUG
-      cout << m_newFrameAvailable;
+      std::cout << m_newFrameAvailable;
 #endif
       if (m_newFrameAvailable) 
 	break;
       if (timer.elapsed()>WAITSECONDS) {
-	cout << "waited for long enough. No Frame ?" << endl;
+	std::cout << "waited for long enough. No Frame ?" << std::endl;
 #ifdef DEBUG
- 	cout << " framenumber: " << m_frameNumber << endl;
-	cout << " Camera connected: " << m_Camera.IsConnected() << endl;
+	std::cout << " framenumber: " << m_frameNumber << std::endl;
+	std::cout << " Camera connected: " << m_Camera.IsConnected() << std::endl;
 #endif
       }
     }
@@ -320,7 +319,7 @@ int VideoSaver::startCaptureAndWrite(const string inFname, string codec)
 
   if (!m_OutputFile.is_open()) 
     {
-      cout  << "Could not open the output text for write: " << txtfname << endl;
+      std::cout  << "Could not open the output text for write: " << txtfname << std::endl;
       return -1;
     }
 
@@ -329,13 +328,13 @@ int VideoSaver::startCaptureAndWrite(const string inFname, string codec)
 
   if (!m_Video.isOpened())
     {
-      cout  << "Could not open the output video for write: " << fname << endl;
+      std::cout  << "Could not open the output video for write: " << fname << std::endl;
       return -1;
     }
 
   
   // start the writing thread
-  cout <<  "Start video saving.." << endl;
+  std::cout <<  "Start video saving.." << std::endl;
   m_writing = true;
   m_writingThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoSaver::_captureAndWriteThread));
 
@@ -447,9 +446,9 @@ void VideoSaver::_captureAndWriteThread()
 
 
       if (timeStamp.microSeconds==0) // seems not to work
-	m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  localTimeStamp << endl;
+	m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  std::fixed << std::setprecision(5) << localTimeStamp << std::endl;
       else 
-	m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  timeStamp.seconds << "\t" << timeStamp.microSeconds << endl;
+	m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  std::fixed << std::setprecision(5) << timeStamp.seconds << "\t" << timeStamp.microSeconds << std::endl;
 
       frameNumber++; // this is the writing number 
 
@@ -471,7 +470,7 @@ void VideoSaver::_captureAndWriteThread()
   m_OutputFile.close();
 
 
-  cout << "Finished writing" << endl;    
+  std::cout << "Finished writing" << std::endl;    
   m_WritingFinished = true;
 };
 

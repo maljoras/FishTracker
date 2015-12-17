@@ -256,22 +256,22 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     % get the spots from the binary image
       rp = self.a_getRegions(bwimg,Iframe,[self.rprops,{'Image'}]);
 
-
-      for i = 1:length(rp)
-% $$$         img = rp(i).FishFeatureCRemap;
-% $$$         sz = size(img);
-% $$$         sz(1) = ceil(sz(1)/3);
-% $$$         sz(2) = ceil(sz(2)/3);
-% $$$         
-% $$$         dimg = zeros(sz);      
-% $$$         for j = 1:size(img,3)
-% $$$           tmp = dct2(img(:,:,j));
-% $$$           dimg(:,:,j) = tmp(1:sz(1),1:sz(2));
-% $$$         end
-% $$$         
-% $$$         rp(i).FishFeature = dimg;
-        rp(i).FishFeature = rp(i).FishFeatureCRemap;
-      end
+% $$$ 
+% $$$       for i = 1:length(rp)
+% $$$ % $$$         img = rp(i).FishFeatureCRemap;
+% $$$ % $$$         sz = size(img);
+% $$$ % $$$         sz(1) = ceil(sz(1)/3);
+% $$$ % $$$         sz(2) = ceil(sz(2)/3);
+% $$$ % $$$         
+% $$$ % $$$         dimg = zeros(sz);      
+% $$$ % $$$         for j = 1:size(img,3)
+% $$$ % $$$           tmp = dct2(img(:,:,j));
+% $$$ % $$$           dimg(:,:,j) = tmp(1:sz(1),1:sz(2));
+% $$$ % $$$         end
+% $$$ % $$$         
+% $$$ % $$$         rp(i).FishFeature = dimg;
+% $$$          rp(i).FishFeature = rp(i).FishFeatureCRemap;
+% $$$       end
       
       segm = rp;
     end

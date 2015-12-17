@@ -12,8 +12,7 @@ classdef FishTracker < handle;
                   'consecutiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
-                  'segment.MajorAxisLength',...
-                  'stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
+                  'segment.MajorAxisLength'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
     maxVelocity = [];
     displayif = 3;
 
@@ -596,33 +595,30 @@ classdef FishTracker < handle;
     function switched = fishClassifierUpdate(self,trackIndices,updateif)
     % updates the collected features according to the current fishIDs
 
-      switched =0;
+
       fishIds = cat(2,self.tracks(trackIndices).fishId);
 
       
-      [assignedFishIds prob minsteps] = self.predictFish(trackIndices);
+      [assignedFishIds prob minsteps probdiag] = self.predictFish(trackIndices);
       same = assignedFishIds==fishIds; 
-      
-      if updateif && (all(same) || min(prob)<self.opts.classifier.reassignProbThres)
+      if updateif && (all(same) || min(prob)>self.opts.classifier.minProbThres)
         % change classifier
         feat = self.getFeatureDataFromTracks(trackIndices);
         [assignedFishIds prob] = batchUpdate(self.fishClassifier,fishIds,feat,1); %FORCE
         self.resetBatchIdx(trackIndices(~isnan(assignedFishIds)));
-      elseif ~all(same) && min(prob)>=self.opts.classifier.reassignProbThres ...
+      elseif ~all(same) && mean(prob-probdiag)>=self.opts.classifier.reassignProbThres ...
             && minsteps>self.opts.classifier.nFramesAfterCrossing
         verbose('mixed and min prob is %1.2f',min(prob));
         % mixed up classes
         if all(ismember(assignedFishIds,fishIds)) ...
-            && all(self.currentFrame - [self.tracks.lastFrameOfCrossing]>self.opts.classifier.nFramesAfterCrossing) ...
             && self.currentFrame > 5*self.opts.classifier.nFramesForInit % need some time for learning
-          
-            % only permute if true permutation  only switch if currently no crossing
+            % only permute if true permutation  
             self.switchTracks(trackIndices,assignedFishIds);
             self.resetBatchIdx(trackIndices);
-            switched = 1;
             verbose('Switching fish with fishClassifierUpdate')
         else
-            warning('like to switch fish, but could not find a permutation or currently crossing');
+          warning(['like to switch fish, but could not find a ' ...
+                   'permutation or initial phase']);
         end
       end
       
@@ -703,7 +699,7 @@ classdef FishTracker < handle;
       
     end
     
-    function  [assignedFishIds, prob, minsteps] = predictFish(self,trackIndices,fishIdSet);
+    function  [assignedFishIds, prob, minsteps, probdiag] = predictFish(self,trackIndices,fishIdSet);
 
       if nargin<3
         fishIdSet = 1:self.nfish;
@@ -728,8 +724,10 @@ classdef FishTracker < handle;
       
       assignedFishIds(assignments(:,2)) = fishIdSet(assignments(:,1)); % fishIDs have 1:nfish order
       prob = nan(size(assignedFishIds));
+      probdiag = nan(size(assignedFishIds));
       for i = 1:size(assignments,1)
         prob(assignments(i,2)) = 1-C(assignments(i,2),assignments(i,1));
+        probdiag(i) = 1-C(i,i);
       end
     end
     
@@ -793,19 +791,22 @@ classdef FishTracker < handle;
 
 
         % we force the permutation to be in the valiud fish only (otherwise too many errors for many fish)
-        [assignedFishIds prob minsteps] = self.predictFish(thisTrackIndices,crossedFishIds); 
+        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds); 
         
-        if  all(ismember(assignedFishIds,assumedFishIds)) 
+        if  all(ismember(assignedFishIds,assumedFishIds)) && minsteps>=self.opts.classifier.nFramesAfterCrossing 
           % we have a valid permutation and enough confidence (or the very same ordering)
           
-          if ~all(assignedFishIds==assumedFishIds) 
+          switched = false;
+          if ~all(assignedFishIds==assumedFishIds) && mean(prob-probdiag) ...
+                > self.opts.classifier.reassignProbThres 
             % permutation : switch tracks and delete from others. 
             self.switchTracks(thisTrackIndices,assignedFishIds);
             verbose('valid permutation.. switch\r')
+            switched = true;
           end
           
           % signal that things are handled if enough confidence
-          if (min(prob)>self.opts.classifier.reassignProbThres && minsteps>=self.opts.classifier.nFramesAfterCrossing)...
+          if switched || min(prob)>self.opts.classifier.minProbThres ...
                 || minsteps>=self.opts.classifier.nFramesForUniqueUpdate % to avoid very long crossings
 
             [self.tracks(thisTrackIndices).crossedTrackIds] = deal([]);
@@ -988,8 +989,8 @@ classdef FishTracker < handle;
       
       %switch i
       trackIndices = 1:length(self.tracks);
-      [assignedFishIds,prob] = self.predictFish(trackIndices);
-      if min(prob)>self.opts.classifier.reassignProbThres;
+      [assignedFishIds,prob,~,probdiag] = self.predictFish(trackIndices);
+      if mean(prob-probdiag)>self.opts.classifier.reassignProbThres;
         self.switchTracks(trackIndices,assignedFishIds);
       end
     end
@@ -1068,7 +1069,7 @@ classdef FishTracker < handle;
         maxDist = self.maxVelocity/self.videoHandler.frameRate; % dist per frame
         minDist = maxDist/10;
         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2));
-        nvis = cat(1,self.tracks.consecutiveInvisibleCount); 
+        nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)- self.opts.tracks.invisibleForTooLong,0); 
         thresDist = min(max(meanDist,minDist),maxDist).*(1+nvis);
         
 
@@ -1566,32 +1567,33 @@ classdef FishTracker < handle;
       bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
       bBoxOverlap = bBoxXOverlap & bBoxYOverlap;
 
-
       costThres = self.opts.classifier.crossCostThres*self.medianAssignmentCost;
       for i = 1:length(self.tracks)
         track = self.tracks(i);
-
+        
         if sum(msk(i,:))>1  || sum(bBoxOverlap(i,:))>1  
-
+          
           if track.consecutiveInvisibleCount>0 || track.assignmentCost>costThres 
             crossings(i,:) =  msk(i,:)  | bBoxOverlap(i,:);
           end
           
         end
-
+        
       end
       
       %make symmetric CAUTION: MIGHT NOT BE SYMMETRIC!
       crossings = crossings | crossings';
 
+      
       [~,~,self.crossings] = networkComponents(crossings);
       self.crossings(cellfun('length',self.crossings)==1) = []; % delete self-components
       
-     
+        
       %if ~isempty(self.crossings)
       %  verbose('found crossing')
       %  %keyboard
       %end
+
       
 
     end
@@ -1684,7 +1686,6 @@ classdef FishTracker < handle;
         savedTracks(:) =  [];
         return
       end
-        
       for f = fieldnames(s2mat)'
         d = length(size(s2mat.(f{1})));% at least 3
         self.savedTracks.(f{1}) = cat(d,self.savedTracks.(f{1}),s2mat.(f{1}));
@@ -1696,9 +1697,10 @@ classdef FishTracker < handle;
     
     function generateResults(self)
 
-      if isempty(self.savedTracks.id) || size(self.savedTracks.id,2)<self.nfish
+      if isempty(self.savedTracks.id) 
         verbose('WARNING: cannot generate results!')
         verbose('WARNING: not all fish detected. Maybe adjust "nfish" setting.');
+        keyboard
         return;
       end
 
@@ -2007,33 +2009,34 @@ classdef FishTracker < handle;
       % classifier 
       self.opts(1).classifier.crossCostThres = 2.2; % Times the median cost
       self.opts(1).classifier.bendingThres = 4; % fishwidth/fishheight
-      self.opts(1).classifier.reassignProbThres = 0.5; % MAYBE NEED TO BE SET LOWER FOR NOISY DATA...
+      self.opts(1).classifier.reassignrobThres = 0.2; % delta p for reassign
+      self.opts(1).classifier.minProbThres = 0.4; % for leaving the crossing and updating
 
       self.opts(1).classifier.npca = 40; 
       self.opts(1).classifier.nlfd = 10; 
       self.opts(1).classifier.outliersif = 0; 
 
       % update of the classifier
-      self.opts(1).classifier.minBatchN = 8; 
+      self.opts(1).classifier.minBatchN = 10; 
       self.opts(1).classifier.nFramesForInit = 200; % unique frames needed for init classifier
-      self.opts(1).classifier.nFramesAfterCrossing = 16;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 60; % all simultanously...
-      self.opts(1).classifier.nFramesForSingleUpdate = 250; % single. should be larger than unique...
-      self.opts(1).classifier.maxFramesPerBatch = 280;
+      self.opts(1).classifier.nFramesAfterCrossing = 20;
+      self.opts(1).classifier.nFramesForUniqueUpdate = 200;%60; % all simultanously...
+      self.opts(1).classifier.nFramesForSingleUpdate = 350; % single. should be larger than unique...
+      self.opts(1).classifier.maxFramesPerBatch = 380;
 
       % tracks
       self.opts(1).tracks.medtau = 200;
       self.opts(1).tracks.tauVelocity = 5; % nFrames to compute the velocity running average
-      self.opts(1).tracks.probThresForFish = 0.1;
+      self.opts(1).tracks.probThresForFish = 0.15;
       self.opts(1).tracks.crossBoxLengthScale = 1; % how many times the max bbox length is regarded as a crossing. 
-      self.opts(1).tracks.crossBoxLengthScalePreInit = 0.5; % before classifier init
+      self.opts(1).tracks.crossBoxLengthScalePreInit = 1; % before classifier init
 
       self.opts(1).tracks.displayEveryNFrame = 10;
       self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
       self.opts(1).tracks.costOfNonAssignment =  2; % scale   
 
       %lost tracks
-      self.opts(1).tracks.invisibleForTooLong = 5; %% will reduce the cost of non assignment if not with deletion
+      self.opts(1).tracks.invisibleForTooLong = 10; %% will reduce the cost of non assignment if not with deletion
       self.opts(1).tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later for very noisy
                                                      % data. However,seems not really working...
       
@@ -2084,25 +2087,44 @@ classdef FishTracker < handle;
         self.writefile = writefile;
       end
       
-      
+      tmax = Inf;      
       if exist('trange','var') 
-        self.timerange = trange;
+        if length(trange)==1 
+          if self.stmif
+            tmax = trange;
+          else
+            error('need t-range not single value');
+          end
+        end
+        if length(trange)==0 || length(trange)==2
+          self.timerange = trange;
+        else
+          error('Provide correct t-range');
+        end
       else
         self.timerange = []; % take all
       end
       
       
       self.initTracking();
-      verbose('Start tracking of %d fish  in the time range [%1.0f %1.0f]...',...
-              self.nfish,self.timerange(1),self.timerange(2));
-
+      if ~self.stmif
+        verbose('Start tracking of %d fish  in the time range [%1.0f %1.0f]...',...
+                self.nfish,self.timerange(1),self.timerange(2));
+      else
+        verbose('Start tracking of %d fish with stimulation', self.nfish);
+        if ~isinf(tmax)
+          verbose('Will automatically stop after %d seconds', tmax);
+        end
+      end
+        
       if self.displayif && ~isOpen(self.videoPlayer)
         self.videoPlayer.show();
       end
       
 
       s = 0;
-      while  hasFrame(self.videoHandler) && (~self.displayif || (self.displayif && isOpen(self.videoPlayer)))
+      while  hasFrame(self.videoHandler) && (~self.displayif || (self.displayif && isOpen(self.videoPlayer))) ...
+          && (~self.stmif || (self.videoHandler.currentTime - self.stimulusPresenter.refTime)<tmax)
 
         self.currentFrame = self.currentFrame + 1;
         s = s+1;
@@ -2605,19 +2627,36 @@ classdef FishTracker < handle;
       end
 
       prob = res.tracks.classProb(plotidx,fishIds,fishIds);
-      probid = prob(:,1:length(fishIds)+1:end);
-      probmax = nanmax(prob(:,:,:),[],3);
-
-      %nconv = 10;
-      %probid = conv2(probid,ones(nconv,1)/nconv,'same');
+      probid = nanmean(prob(:,1:length(fishIds)+1:end),2);
+      if self.nfish<=4
+        p = perms(1:self.nfish);
+        probmax = probid;
+        for i = 1:size(p)
+          idx = sub2ind([self.nfish,self.nfish],(1:self.nfish)',p(i,:)');
+          probmax = nanmax(probmax,nanmean(prob(:,idx),2));
+        end
+      else
+        probmax = nanmax(prob(:,:,:),[],3);
+      end
+      
+      nconv = 1;
+      probid = conv(probid,ones(nconv,1)/nconv,'same');
+      probmax = conv(probmax,ones(nconv,1)/nconv,'same');
+            
       tt = t(plotidx);
 
-      a(1) = subplot(2,1,1);
-      plot([nanmean(probid,2),nanmean(probmax,2)]);
-      a(2) = subplot(2,1,2);
+      
+      a(1) = subplot(3,1,1);
+      plot([probid,probmax]);
+
+      a(2) = subplot(3,1,2);
       seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
       plot(seq);
-      
+
+      a(3) = subplot(3,1,3);
+      x = res.pos(plotidx,:,fishIds);
+      v2 = squeeze(sum(abs(diff(x,1,1)),2)); 
+      plot(v2);
       linkaxes(a,'x');
       
       
@@ -2654,7 +2693,8 @@ classdef FishTracker < handle;
 
       % find sudden changes
       clf;
-      tt = t(plotidx);
+      %tt = t(plotidx); 
+      tt = find(plotidx);% t is wrong in the txt file...
       v2 = squeeze(abs(diff(mx,1,2)) + abs(diff(my,1,2))); 
       subplot(3,1,1);
       plot(tt(1:end-1),v2);

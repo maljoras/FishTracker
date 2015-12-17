@@ -21,7 +21,7 @@ map<int,Ptr<VideoHandler> > obj_;
 
 /// Field names for VideoHandler::Segments.
 #define NSEGMENTFIELD 19
-const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeatureNotRemapped","FishFeature","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize"};
+const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeatureRemapped","FishFeature","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize"};
 
 /**
  * Main entry called from Matlab
@@ -98,8 +98,8 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		    mxSetField(p,i,"FilledImageFixedSize",MxArray(segms[i].FilledImageFixedSize));
 		    mxSetField(p,i,"RotImage",MxArray(segms[i].RotImage,mxLOGICAL_CLASS));
 		    mxSetField(p,i,"RotFilledImage",MxArray(segms[i].RotFilledImage));
-		    mxSetField(p,i,"FishFeatureNotRemapped",MxArray(segms[i].FishFeature));
-		    mxSetField(p,i,"FishFeature",MxArray(segms[i].FishFeatureRemap));
+		    mxSetField(p,i,"FishFeature",MxArray(segms[i].FishFeature));
+		    mxSetField(p,i,"FishFeatureRemapped",MxArray(segms[i].FishFeatureRemap));
 		    mxSetField(p,i,"BoundingBox",MxArray(segms[i].Bbox));
 		    mxSetField(p,i,"Orientation",MxArray(-segms[i].Orientation + 90.));
 		    mxSetField(p,i,"Size",MxArray(segms[i].Size));

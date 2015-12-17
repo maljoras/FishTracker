@@ -177,17 +177,6 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       FishVideoHandler_(self.id, 'set', 'scaled',false);
     end
     
-    function msec = getTimePos(self,onoff)
-    % MSEC = GETTIMEPOS() gets the current time position
-      msec =FishVideoHandler_(self.id, 'getTimePos')-1/self.FPS;
-    end
-    
-    function setTimePos(self,msec)
-    % GETTIMEPOS(MSEC) sets the current time position
-
-      FishVideoHandler_(self.id, 'setTimePos',msec);
-    end
-    
     function frame = getCurrentFrame(self);
       frame = FishVideoHandler_(self.id,'getFrame');
     end

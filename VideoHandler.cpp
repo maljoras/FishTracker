@@ -1113,7 +1113,7 @@ double VideoHandler::get(const string prop){
   }
   else if (prop=="timePos") {
     if ((!m_camera) && (!m_stopped))
-      return (double) pVideoCapture->get(cv::CAP_PROP_POS_MSEC);
+      return ((double) pVideoCapture->get(cv::CAP_PROP_POS_MSEC))/1000.;
     else
       return (double) -1;
   }

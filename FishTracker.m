@@ -12,7 +12,7 @@ classdef FishTracker < handle;
                   'consecutiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
-                  'segment.MajorAxisLength'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
+                  'segment.MajorAxisLength','stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
     maxVelocity = [];
     displayif = 3;
 
@@ -287,7 +287,10 @@ classdef FishTracker < handle;
       self.fishClassifier = newFishClassifier(self,self.opts.classifier);
 
       self.setDisplayType();
-      
+      if self.displayif && ~isOpen(self.videoPlayer)
+        self.videoPlayer.show();
+      end
+
       self.fishId2TrackId = nan(250,self.nfish);
       self.pos = [];
       self.res = [];
@@ -334,9 +337,6 @@ classdef FishTracker < handle;
                                                % twice for short accelaration bursts
       end
     
-      if self.stmif
-        self.stimulusPresenter.setTimeReference(self.videoHandler.currentTime);
-      end
     end
     
     
@@ -1744,6 +1744,9 @@ classdef FishTracker < handle;
       fridx = ones(1,self.nfish)' * (1:nFrames);
       idx = s2i(size(Loc),[Loc(:),fridx(:)]);
       for f = fieldnames(self.savedTracks)'
+        if isempty(self.savedTracks.(f{1}))
+          continue;
+        end
         sz = size(self.savedTracks.(f{1}));
         d = length(sz); % at least 3
         tmp = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
@@ -2009,7 +2012,7 @@ classdef FishTracker < handle;
       % classifier 
       self.opts(1).classifier.crossCostThres = 2.2; % Times the median cost
       self.opts(1).classifier.bendingThres = 4; % fishwidth/fishheight
-      self.opts(1).classifier.reassignrobThres = 0.2; % delta p for reassign
+      self.opts(1).classifier.reassignProbThres = 0.2; % delta p for reassign
       self.opts(1).classifier.minProbThres = 0.4; % for leaving the crossing and updating
 
       self.opts(1).classifier.npca = 40; 
@@ -2087,48 +2090,32 @@ classdef FishTracker < handle;
         self.writefile = writefile;
       end
       
-      tmax = Inf;      
       if exist('trange','var') 
-        if length(trange)==1 
-          if self.stmif
-            tmax = trange;
-          else
-            error('need t-range not single value');
-          end
-        end
-        if length(trange)==0 || length(trange)==2
-          self.timerange = trange;
-        else
-          error('Provide correct t-range');
-        end
+        self.timerange = trange;
       else
         self.timerange = []; % take all
       end
       
       
       self.initTracking();
+
       if ~self.stmif
         verbose('Start tracking of %d fish  in the time range [%1.0f %1.0f]...',...
                 self.nfish,self.timerange(1),self.timerange(2));
       else
         verbose('Start tracking of %d fish with stimulation', self.nfish);
-        if ~isinf(tmax)
-          verbose('Will automatically stop after %d seconds', tmax);
-        end
       end
         
-      if self.displayif && ~isOpen(self.videoPlayer)
-        self.videoPlayer.show();
-      end
-      
-
+      localTimeReference = tic;
+      localTime = toc(localTimeReference)
       s = 0;
-      while  hasFrame(self.videoHandler) && (~self.displayif || (self.displayif && isOpen(self.videoPlayer))) ...
-          && (~self.stmif || (self.videoHandler.currentTime - self.stimulusPresenter.refTime)<tmax)
+      while  hasFrame(self.videoHandler) && ...
+          (~self.displayif || (self.displayif && isOpen(self.videoPlayer))) ...
+          && (~self.stmif || ~self.stimulusPresenter.isFinished(localTime))
 
         self.currentFrame = self.currentFrame + 1;
         s = s+1;
-        
+
         self.segments = self.videoHandler.step();
         
         self.detectObjects();
@@ -2136,10 +2123,9 @@ classdef FishTracker < handle;
         
         if self.stmif && ~isempty(self.stimulusPresenter) 
           self.tracks = self.stimulusPresenter.step(self.tracks,...
-                                                    self.videoHandler.frameSize,...
-                                                    self.videoHandler.currentTime);
+                                                    self.videoHandler.frameSize,localTime);
         end
-        
+        localTime = toc(localTimeReference)
         savedTracks(1:self.nfish,s) = self.getCurrentTracks();
         
         if ~mod(s,100)
@@ -2161,8 +2147,8 @@ classdef FishTracker < handle;
         end
         
         
-        if ~mod(self.currentFrame,25)
-          t = datevec(seconds(self.videoHandler.currentTime));
+        if ~mod(self.currentFrame,40)
+          t = datevec(seconds(localTime));
           verbose(['Currently at time %1.0fh %1.0fm %1.1fs                           ' ...
                    '\r'],t(4),t(5),t(6));
         end

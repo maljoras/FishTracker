@@ -329,7 +329,11 @@ classdef FishVideoReader < handle;
       self.frame = [];
       self.oframe = [];
     end
-
+    
+    function time = getCurrentTime(self)
+      time = self.currentTime;
+    end
+    
     function bool = hasFrame(self);
       if ~isempty(self.timeRange)
         bool = self.currentTime<=self.timeRange(2);

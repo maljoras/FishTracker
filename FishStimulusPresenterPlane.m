@@ -49,7 +49,7 @@ classdef FishStimulusPresenterPlane < FishStimulusPresenter;
       end
       
       if ~isempty(tracks)
-        [tracks.stmInfo] = deal(self.stmidx);
+        [tracks.stmInfo] = deal([t, self.stmidx]);
       end
     end
     

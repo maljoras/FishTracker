@@ -5,7 +5,7 @@ classdef FishStimulusPresenter < handle;
   properties 
     screen = 2;
     defaultColor = [1,0.2,1];
-    refTime = 0;
+    tmax = Inf;
   end
   
   
@@ -76,10 +76,6 @@ classdef FishStimulusPresenter < handle;
       sca;
     end
     
-    
-    function setTimeReference(self,t);
-      self.refTime = t;
-    end
     
     
     function timestamp = plotDot(self,x,y,inSize,inColor)
@@ -159,13 +155,14 @@ classdef FishStimulusPresenter < handle;
       if nargout
         timestamp = self.flip();
       end
-
-      
     end
-
+    
+    function bool = isFinished(self,t);
+      bool = t>self.tmax;
+    end
     
     
-    function tracks = step(self,tracks,framesize)
+    function tracks = step(self,tracks,framesize,t)
     % this function will be called from FishTracker after each round
     
       if isempty(tracks)

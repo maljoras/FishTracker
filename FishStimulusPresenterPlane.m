@@ -17,13 +17,12 @@ classdef FishStimulusPresenterPlane < FishStimulusPresenter;
     
       oldstmidx = self.stmidx;
 
-      localt = t - max(self.refTime,0);
-      if localt> self.adaptationTime
-        localt  = localt - self.adaptationTime;
-        if ~mod(floor(localt/self.stmInterval),2)
+      if t> self.adaptationTime
+        deltat  = t - self.adaptationTime;
+        if ~mod(floor(deltat/self.stmInterval),2)
           
-          t2 = mod(localt,self.stmInterval);
-          if mod(floor(t2/self.switchInterval),2)
+          deltat2 = mod(deltat,self.stmInterval);
+          if mod(floor(deltat2/self.switchInterval),2)
             self.stmidx = 1;
           else
             self.stmidx = 2;

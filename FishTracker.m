@@ -48,6 +48,7 @@ classdef FishTracker < handle;
     cost = [];
     res = [];
     savedTracks = [];
+    segments = [];
     
     videoHandler = [];
     videoPlayer = [];
@@ -72,7 +73,7 @@ classdef FishTracker < handle;
     centroids = [];
     idfeatures = [];
     features = [];
-    segments = [];
+
     
     classProb = [];
     classProbNoise = [];
@@ -792,7 +793,7 @@ classdef FishTracker < handle;
 
 
         % we force the permutation to be in the valiud fish only (otherwise too many errors for many fish)
-        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,self.opts.classifier.nFramesAfterCrossing); 
+        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,self.opts.classifier.nFramesForUniqueUpdate); 
         
         if  all(ismember(assignedFishIds,assumedFishIds)) 
           % we have a valid permutation and enough confidence (or the very same ordering)

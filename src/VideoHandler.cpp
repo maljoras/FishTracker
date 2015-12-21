@@ -593,13 +593,15 @@ void VideoHandler::segmentThread()
 void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwImg, Mat inFrame, Mat inOFrame) {
 
 
-  Mat mContours = Mat(inContour);
-  segm->Bbox = boundingRect(mContours);
-  segm->Image = Mat(inBwImg(segm->Bbox)>0);
-  if (colorfeature) 
-    segm->FilledImage = Mat(inOFrame(segm->Bbox));
-  else
-    segm->FilledImage = Mat(inFrame(segm->Bbox));
+  segm->Bbox = boundingRect(Mat(inContour));
+  segm->Image = Mat(inBwImg(segm->Bbox)>0).clone();
+
+  if (colorfeature)  {
+    segm->FilledImage = inOFrame(segm->Bbox).clone();
+  }
+  else {
+    segm->FilledImage = inFrame(segm->Bbox).clone();
+  }
 
   // getRectSubPix(inBwImg,Size(segm->Bbox.width*2,segm->Bbox.height*2),Point(segm->Bbox.x-segm->Bbox.width/2,segm->Bbox.y-segm->Bbox.height/2),segm->Image2x,-1);
   // segm->Image2x = segm->Image2x>0;
@@ -632,7 +634,7 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     if (fixedSizeImage.width>0) {
       Mat tmpMat ;
       getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
-      segm->FilledImageFixedSize = Mat(tmpMat); // copy;
+      segm->FilledImageFixedSize = tmpMat.clone(); // copy;
     }
     
     // get the rotation and the center points
@@ -771,8 +773,10 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     RotFilledMskImage.setTo(segm->mback,segm->RotImage==0);
 
     Point2f centerfish(szout.width - m_featureSize.width/2,szout.height/2);
-    getRectSubPix(RotFilledMskImage,m_featureSize,centerfish,segm->FishFeature,-1);
-
+    Mat ff;
+    getRectSubPix(RotFilledMskImage,m_featureSize,centerfish,ff,-1);
+    segm->FishFeature = ff.clone();
+    
     // get the output to matlab right
     transpose(segm->FishFeature,segm->FishFeature);
     flip(segm->FishFeature,segm->FishFeature,0);
@@ -850,8 +854,10 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
       remap(segm->RotFilledImage,fishfeature,X,Y,INTER_CUBIC,BORDER_REPLICATE,segm->mback);
 
       //Point2f centerfish(szout.width - m_featureSize.width/2,szout.height/2);
-      getRectSubPix(fishfeature,m_featureSize,centerfish,segm->FishFeatureRemap,-1);
-
+      Mat ffr;
+      getRectSubPix(fishfeature,m_featureSize,centerfish,ffr,-1);
+      segm->FishFeatureRemap = ffr.clone(); //copy
+      
       // get output right
       transpose(segm->FishFeatureRemap,segm->FishFeatureRemap);
       flip(segm->FishFeatureRemap,segm->FishFeatureRemap,0);

@@ -49,18 +49,7 @@ MEXOPENCVDIR ?= /home/malte/work/progs/toolboxes/mexopencv
 TARGETDIR  = .
 INCLUDEDIR = $(MEXOPENCVDIR)/include
 LIBDIR     = $(MEXOPENCVDIR)/lib
-SRCDIR     = .
-
-# savevideo
-SAVEVIDEOSRC1 = FrameRateCounter.cpp
-SAVEVIDEOOBJ1 = $(SAVEVIDEOSRC1:.cpp=.$(OBJEXT))
-SAVEVIDEOSRC = SaveVideoClass.cpp
-SAVEVIDEOOBJ = $(SAVEVIDEOSRC:.cpp=.$(OBJEXT))
-FLYCAPINCLUDES = -I. -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include/ -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include/ -I/usr/include/flycapture 
-FLYCAPFLAGS =  -lsigc-2.0 -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
-
-
-
+SRCDIR     = src
 
 # file extensions
 OBJEXT     ?= o
@@ -70,14 +59,28 @@ ifeq ($(MEXEXT),)
     $(error "MEX extension not set")
 endif
 
+
+# savevideo
+SAVEVIDEOSRC1 = $(SRCDIR)/FrameRateCounter.cpp
+SAVEVIDEOOBJ1 = $(TARGETDIR)/FrameRateCounter.$(OBJEXT)
+SAVEVIDEOSRC = $(SRCDIR)/SaveVideoClass.cpp
+SAVEVIDEOOBJ = $(TARGETDIR)/SaveVideoClass.$(OBJEXT)
+FLYCAPINCLUDES = -I$(SRCDIR) -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include/ -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include/ -I/usr/include/flycapture 
+FLYCAPFLAGS =  -lsigc-2.0 -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
+
+# struc
+SAR = $(SRCDIR)/strucarr2strucmat.c
+SARTARGET = $(TARGETDIR)/strucarr2strucmat.$(MEXEXT)
+
+
 # mexopencv files and targets
 HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
-SRCS1      := FishVideoCapture_.cpp
-TARGETS1   := $(SRCS1:.cpp=.$(MEXEXT))
-SRCS2      := VideoHandler.cpp
-OBJECTS    := $(SRCS2:.cpp=.$(OBJEXT))
-SRCS3      := FishVideoHandler_.cpp 
-TARGETS2   := $(SRCS3:.cpp=.$(MEXEXT))
+SRCS1      := $(SRCDIR)/FishVideoCapture_.cpp
+TARGETS1   := $(TARGETDIR)/FishVideoCapture_.$(MEXEXT) 
+SRCS2      := $(SRCDIR)/VideoHandler.cpp
+OBJECTS    := $(TARGETDIR)/VideoHandler.$(OBJEXT) 
+SRCS3      := $(SRCDIR)/FishVideoHandler_.cpp 
+TARGETS2   := $(TARGETDIR)/FishVideoHandler_.$(MEXEXT)
 
 # OpenCV flags
 ifneq ($(shell pkg-config --exists --atleast-version=3 opencv; echo $$?), 0)
@@ -100,7 +103,7 @@ override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPFLAGS)
 
 
 # targets
-all: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2)
+all: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) $(SARTARGET)
 
 $(SAVEVIDEOOBJ1): $(SAVEVIDEOSRC1)
 	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $<
@@ -115,11 +118,14 @@ $(OBJECTS): $(SRCS2)
  
 # MEX-files
 $(TARGETS1): $(SRCS1) 
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output $(TARGETS1) $< $(LDFLAGS)
 
 $(TARGETS2): $(SRCS3)
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output ${@:.$(MEXEXT)=} $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output $(TARGETS2) $< $(LDFLAGS)
+
+$(SARTARGET): $(SAR)
+	$(MEX) -largeArrayDims -output $(SARTARGET) $< 
 
 clean:
-	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS) $(TARGETDIR)/$(SAVEVIDEOOBJ) $(TARGETDIR)/$(SAVEVIDEOOBJ1)
+	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS) $(TARGETDIR)/$(SAVEVIDEOOBJ) $(TARGETDIR)/$(SAVEVIDEOOBJ1) $(TARGETDIR)/$(SARTARGET)
 

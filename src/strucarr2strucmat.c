@@ -123,7 +123,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
   s = 0;
   for (ifield = 0; ifield < nfields; ifield++) {
 
-    if (nofield[ifield]) {continue;};
+    if (nofield[ifield]|| nelements[ifield]==0) {continue;};
     fnames[s] = mxGetFieldNameByNumber(prhs[0],ifield);
     s++;
   }
@@ -147,27 +147,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
     if ((classIDflags[ifield] == mxCHAR_CLASS) || (classIDflags[ifield] == mxSTRUCT_CLASS) ) {
       fout = mxCreateCellArray(ndim, dims);
   
-    } else if (0) /* (classIDflags[ifield] == mxSTRUCT_CLASS)*/ {
-      tmp = mxGetFieldByNumber(prhs[0],firstnonzero[ifield],ifield);
-      cdims = mxGetDimensions(tmp);
-      cndim = mxGetNumberOfDimensions(tmp);
-      ccdims = mxCalloc(cndim, sizeof(int));
-      for (i = 0; i < cndim; i++) { ccdims[i] = cdims[i];}
-      ccdims[0] = cdims[0] * alldim;  /*cat all dims to first dim*/
-      
-      /*get fields*/
-      snfields = mxGetNumberOfFields(tmp);
-      fnames = mxCalloc(snfields, sizeof(*fnames));
-      /* Get field name pointers */
-      for (i = 0; i < snfields; i++) {
-	fnames[i] = mxGetFieldNameByNumber(tmp,i);
-      }
-
-      fout = mxCreateStructArray(cndim, ccdims,snfields,fnames);
-      mxFree(fnames);
-      mxFree(ccdims);
-
-    } else {
+    }  else {
 
       tmp = mxGetFieldByNumber(prhs[0],firstnonzero[ifield],ifield);
       cdims = mxGetDimensions(tmp);
@@ -176,7 +156,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
       for (i = 0; i < cndim; i++) { ccdims[i] = cdims[i];}
       ccdims[cndim] = alldim;  /*cat to new dimension*/
       fout = mxCreateNumericArray(cndim+1, ccdims, 
-          classIDflags[ifield], mxREAL);
+				  classIDflags[ifield], mxREAL);
       pdata = mxGetData(fout); 
       mxFree(ccdims);
     }

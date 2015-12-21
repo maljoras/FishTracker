@@ -21,7 +21,7 @@ map<int,Ptr<VideoHandler> > obj_;
 
 /// Field names for VideoHandler::Segments.
 #define NSEGMENTFIELD 19
-const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeatureRemapped","FishFeature","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize"};
+const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeature","FishFeatureRemapped","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize"};
 
 /**
  * Main entry called from Matlab
@@ -91,28 +91,31 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		if (!p)
 		    mexErrMsgIdAndTxt("mexopencv:error", "Allocation error");
 		
-
 		for (int i=0; i<segms.size(); i++) {
-		    mxSetField(p,i,"Image",MxArray(segms[i].Image,mxLOGICAL_CLASS));
-		    mxSetField(p,i,"FilledImage",MxArray(segms[i].FilledImage));
-		    mxSetField(p,i,"FilledImageFixedSize",MxArray(segms[i].FilledImageFixedSize));
-		    mxSetField(p,i,"RotImage",MxArray(segms[i].RotImage,mxLOGICAL_CLASS));
-		    mxSetField(p,i,"RotFilledImage",MxArray(segms[i].RotFilledImage));
-		    mxSetField(p,i,"FishFeature",MxArray(segms[i].FishFeature));
-		    mxSetField(p,i,"FishFeatureRemapped",MxArray(segms[i].FishFeatureRemap));
 		    mxSetField(p,i,"BoundingBox",MxArray(segms[i].Bbox));
+		    mxSetField(p,i,"Centroid",MxArray(segms[i].Centroid));
+		    mxSetField(p,i,"Area",MxArray(segms[i].Area));
 		    mxSetField(p,i,"Orientation",MxArray(-segms[i].Orientation + 90.));
 		    mxSetField(p,i,"Size",MxArray(segms[i].Size));
 		    mxSetField(p,i,"MajorAxisLength",MxArray(segms[i].MajorAxisLength));
 		    mxSetField(p,i,"MinorAxisLength",MxArray(segms[i].MinorAxisLength));
-		    mxSetField(p,i,"Centroid",MxArray(segms[i].Centroid));
+
+		    mxSetField(p,i,"Image",MxArray(segms[i].Image,mxLOGICAL_CLASS));
+		    mxSetField(p,i,"FilledImage",MxArray(segms[i].FilledImage));
+
+		    mxSetField(p,i,"RotImage",MxArray(segms[i].RotImage,mxLOGICAL_CLASS));
+		    mxSetField(p,i,"RotFilledImage",MxArray(segms[i].RotFilledImage));
+		    mxSetField(p,i,"FishFeature",MxArray(segms[i].FishFeature));
+		    mxSetField(p,i,"FishFeatureRemapped",MxArray(segms[i].FishFeatureRemap));
 
 		    mxSetField(p,i,"CenterLine",MxArray(segms[i].CenterLine));
 		    mxSetField(p,i,"Thickness",MxArray(segms[i].Thickness));
-		    mxSetField(p,i,"Area",MxArray(segms[i].Area));
+
 		    mxSetField(p,i,"mback",MxArray(segms[i].mback));
 		    mxSetField(p,i,"bendingStdValue",MxArray(segms[i].bendingStdValue));
-		    //mxSetField(p,i,"MSERregions",MxArray(NULL));
+		    mxSetField(p,i,"MSERregions",mxCreateDoubleMatrix( 0, 0, mxREAL ));
+
+		    mxSetField(p,i,"FilledImageFixedSize",MxArray(segms[i].FilledImageFixedSize));
 		}
 		plhs[0] = p;
 	    }

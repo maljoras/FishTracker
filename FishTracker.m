@@ -12,7 +12,7 @@ classdef FishTracker < handle;
                   'consequtiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
-                  'segment.MajorAxisLength','stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
+                  'segment.MajorAxisLength'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
     maxVelocity = [];
     displayif = 3;
 
@@ -54,7 +54,7 @@ classdef FishTracker < handle;
     videoWriter = [];
     
     fishClassifier = [];
-    
+
     writefile = '';
   end
   
@@ -65,13 +65,14 @@ classdef FishTracker < handle;
 
     nextId = 1; % ID of the next track
     
-    segments = [];
+
     centerLine = [];
     thickness = [];
     bboxes = [];
     centroids = [];
     idfeatures = [];
     features = [];
+    segments = [];
     
     classProb = [];
     classProbNoise = [];
@@ -1701,7 +1702,7 @@ classdef FishTracker < handle;
     %--------------------
     
     function savedTracks = appendSavedTracks(self,savedTracks)
-     s2mat = strucarr2strucmat(savedTracks);
+      s2mat = strucarr2strucmat(savedTracks);
       if isempty(self.savedTracks)
         self.savedTracks = s2mat;
         savedTracks(:) =  [];
@@ -2109,12 +2110,16 @@ classdef FishTracker < handle;
     % Main tracking loop
     %--------------------
   
-    function track(self,trange,writefile)
+    function track(self,trange,saveif,writefile)
     % TRACK(TIMERANGE). Detect objects, and track them across video frames. CAUTION:
     % Old tracking data will be overwritten
       
       if exist('writefile','var')
         self.writefile = writefile;
+      end
+
+      if ~exist('saveif','var') || isempty(saveif)
+        saveif = false;
       end
       
       if exist('trange','var') 
@@ -2122,7 +2127,13 @@ classdef FishTracker < handle;
       else
         self.timerange = []; % take all
       end
-      
+
+      if saveif
+        [fname,test] = self.getDefaultFileName();
+        if test
+          warning(sprintf('Filename %s will be overwritten !',fname));
+        end
+      end
       
       self.initTracking();
 
@@ -2153,13 +2164,15 @@ classdef FishTracker < handle;
                                                     self.videoHandler.frameSize,localTime);
         end
         localTime = toc(localTimeReference);
+
         savedTracks(1:self.nfish,s) = self.getCurrentTracks();
+
         
         if ~mod(s,100)
           savedTracks = self.appendSavedTracks(savedTracks);
           s = size(savedTracks,2);
         
-          if ~self.displayif && ~self.stmif &&  ~mod(self.currentFrame,25000)
+          if ~self.displayif && ~self.stmif &&  ~mod(self.currentFrame,25000) && saveif
             % occasionally save for long videos 
             verbose('Save tracking process to disk..');
             self.save();
@@ -2183,18 +2196,19 @@ classdef FishTracker < handle;
 
       self.cleanupCrossings();
 
-      if ~self.displayif && ~self.stmif &&  ~mod(self.currentFrame,10000)
-        % occasionally save for long videos 
-        verbose('Save tracking to disk...');
-        self.save();
-      end
-
       % make correct output structure
       if exist('savedTracks','var')
         self.appendSavedTracks(savedTracks);
         self.generateResults();
       end
       self.closeVideoObjects();
+    
+      if saveif
+        % occasionally save for long videos 
+        verbose('Save tracking to disk...');
+        self.save();
+      end
+
     end
     
     
@@ -2559,9 +2573,7 @@ classdef FishTracker < handle;
       clear videoWriter videoReader
     end
     
-    
-    function  save(self,savename,savepath,vname)
-    % SELF.SAVE([SAVENAME,SAVEPATH,VNAME]) saves the object
+    function [savemat,exists] = getDefaultFileName(self)
       if iscell(self.videoFile) && ~isempty(self.videoFile{2})
         vid = self.videoFile{2};
       elseif ischar(self.videoFile)
@@ -2570,34 +2582,34 @@ classdef FishTracker < handle;
         vid = '';
       end
       
-      if ~exist('savename','var')
-        if isempty(vid)
-          error('provide savename and path');
-        end
-        [~,savename] = fileparts(vid);
+      [savepath,savename] = fileparts(vid);
+      if isempty(savename)
+        savename = 'FishTrackerSave';
       end
       
-      if ~isempty(fileparts(savename))
-        [savepath,savename] = fileparts(savename);
-      else
-        [~,savename] = fileparts(savename);
-      end
-      
-      if ~exist('savepath','var') || isempty(savepath)
-        if isempty(vid)
-          warning('VideoFile is empty, save to PWD!');
-          savepath = '';
-        else
-          savepath = fileparts(vid);
-        end
-      end
+      savemat = [savepath filesep savename '.mat'];
+      exists = ~~exist(savemat,'file');
+        
+    end
+    
+    
+    function  save(self,savename,savepath,vname)
+    % SELF.SAVE([SAVENAME,SAVEPATH,VNAME]) saves the object
 
-      if ~exist('vname','var') || ~isempty(vname)
+      [defname,exists] = self.getDefaultFileName();
+      if ~exist('savename','var') || isempty(savename)
+        [~,savename] = fileparts(defname);
+      end
+      if ~exist('savepath','var') || isempty(savepath)
+        [savepath] = fileparts(defname);
+      end
+      
+      if ~exist('vname','var') || isempty(vname)
         vname = 'ft';
       end
       eval([vname '=self;']);
-      fname = [savepath '/' savename '.mat'];
-      save([savepath '/' savename],vname,'-v7.3');
+      fname = [savepath filesep savename '.mat'];
+      save([savepath filesep savename],vname,'-v7.3');
 
       verbose('saved variable %s to %s',vname,fname);
     end      

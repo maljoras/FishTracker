@@ -188,6 +188,7 @@ private:
     cv::Mat m_Frame;
     cv::Mat m_BWImg;
     vector<Segment> m_Segments;
+    vector<Segment> m_NextSegments;
     double m_TimeStamp;
     
     // thread stuff

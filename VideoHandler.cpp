@@ -338,7 +338,12 @@ int VideoHandler::step(vector<Segment> * pSegs,  double * pTimeStamp, cv::Mat * 
     // % always use the processed frame
     m_Frame.copyTo(*pFrame);
 
-    *pSegs = m_Segments; // this should evoke a copy...
+
+    vector <Segment> tmp(0);
+    m_Segments = m_NextSegments;
+    m_NextSegments = tmp; // clear memory
+
+    *pSegs = m_Segments; // this should evoke a copy... ?!?!
     *pTimeStamp = m_TimeStamp;
 
     if (plotif)
@@ -525,8 +530,6 @@ void VideoHandler::segmentThread()
 	m_emptyNextFrameCond.signal();
       }
       
-      vector <Segment> tmp(0);
-      m_Segments = tmp; // clear memory
       
       if (computeSegments) {
 	
@@ -550,6 +553,10 @@ void VideoHandler::segmentThread()
 #endif
 	
 	Segment segm;
+	vector <Segment> tmp(0);
+	m_NextSegments.clear();
+	m_NextSegments = tmp;
+
 	int ii=0;
 	int ssize;
 	ssize = contours.size();
@@ -560,7 +567,7 @@ void VideoHandler::segmentThread()
 	  getSegment(&segm,contours[i],m_BWImg,m_Frame,m_OFrame);
 	  if (testValid(&segm)) {
 	    ii++;
-	    m_Segments.push_back(segm);
+	    m_NextSegments.push_back(segm);
 	  }
 	  if (ii>=MAXVALIDCONTOUR)
 	    break;
@@ -568,7 +575,7 @@ void VideoHandler::segmentThread()
 	
 	
 #ifdef DEBUG 
-	cout << m_Segments.size() << endl;
+	cout << m_NextSegments.size() << endl;
 	cout << "segments: " <<  timer.elapsed() << endl;  
 #endif
       }
@@ -623,7 +630,9 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     }
 
     if (fixedSizeImage.width>0) {
-      getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,segm->FilledImageFixedSize,-1);
+      Mat tmpMat ;
+      getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
+      segm->FilledImageFixedSize = Mat(tmpMat); // copy;
     }
     
     // get the rotation and the center points

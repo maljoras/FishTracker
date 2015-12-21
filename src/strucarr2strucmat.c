@@ -28,14 +28,16 @@ void mexFunction(int nlhs, mxArray *plhs[],
                  int nrhs, const mxArray *prhs[])
 {
   const char **fnames;       /* pointers to field names */
-  const int  *dims,*cdims;
+  const size_t  *dims,*cdims;
   mxArray    *tmp, *fout;
   char       *pdata;
   int        ifield, jstruct, *classIDflags;
-  int        NStructElems, nfields, ndim, cndim;
-  int        s,*nofield,*ccdims,*nelements,*firstnonzero;
+  int        NStructElems, nfields, ndim;
+  size_t     cndim;
+  int        s,*nofield,*nelements,*firstnonzero;
   int        i,alldim,snfields;
-
+  size_t     *ccdims;
+	  
   /* Check proper input and output */
   if (nrhs != 1)
     mexErrMsgTxt("One input required.");
@@ -142,7 +144,8 @@ void mexFunction(int nlhs, mxArray *plhs[],
   s = 0;
   for (ifield = 0; ifield < nfields; ifield++) {
 
-    if (nofield[ifield]==1 || nelements[ifield]==0) {continue;};
+    if ((nofield[ifield]==1) || (nelements[ifield]==0)) {continue;};
+
     /* Create cell/numeric array */
     if ((classIDflags[ifield] == mxCHAR_CLASS) || (classIDflags[ifield] == mxSTRUCT_CLASS) ) {
       fout = mxCreateCellArray(ndim, dims);
@@ -152,7 +155,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
       tmp = mxGetFieldByNumber(prhs[0],firstnonzero[ifield],ifield);
       cdims = mxGetDimensions(tmp);
       cndim = mxGetNumberOfDimensions(tmp);
-      ccdims = mxCalloc(cndim+1, sizeof(int));      
+      ccdims = mxCalloc(cndim+1, sizeof(size_t));      
       for (i = 0; i < cndim; i++) { ccdims[i] = cdims[i];}
       ccdims[cndim] = alldim;  /*cat to new dimension*/
       fout = mxCreateNumericArray(cndim+1, ccdims, 

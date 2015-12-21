@@ -2704,23 +2704,26 @@ classdef FishTracker < handle;
       mx = nanmean(clx(:,:,:),1);
       my = nanmean(cly(:,:,:),1);
 
-      % find sudden changes
-      clf;
-      %tt = t(plotidx); 
-      tt = find(plotidx);% t is wrong in the txt file...
-      v2 = squeeze(abs(diff(mx,1,2)) + abs(diff(my,1,2))); 
-      a(1) = subplot(3,1,1);
-      plot(tt(1:end-1),v2);
-      title('Difference position')
-      a(2) = subplot(3,1,2);
-      seq = res.tracks.consequtiveInvisibleCount(plotidx,fishIds);
-      plot(tt,seq);
-      title('Conseq. invisible counts');
-      a(3) = subplot(3,1,3);
-      prob = res.tracks.classProb(plotidx,fishIds,fishIds);
-      plot(tt,prob(:,1:length(fishIds)+1:end));
-      title('Class prob');
-      linkaxes(a,'x');
+% $$$       % find sudden changes
+% $$$       clf;
+% $$$       %tt = t(plotidx); 
+% $$$       tt = find(plotidx);% t is wrong in the txt file...
+% $$$       v2 = squeeze(abs(diff(mx,1,2)) + abs(diff(my,1,2))); 
+% $$$       a(1) = subplot(3,1,1);
+% $$$       plot(tt(1:end-1),v2);
+% $$$       title('Difference position')
+% $$$       a(2) = subplot(3,1,2);
+% $$$       if isfield(res.tracks,'consequtiveInvisibleCount')
+% $$$         seq = res.tracks.consequtiveInvisibleCount(plotidx,fishIds);
+% $$$         plot(tt,seq);
+% $$$         title('Conseq. invisible counts');
+% $$$       end
+% $$$       
+% $$$       a(3) = subplot(3,1,3);
+% $$$       prob = res.tracks.classProb(plotidx,fishIds,fishIds);
+% $$$       plot(tt,prob(:,1:length(fishIds)+1:end));
+% $$$       title('Class prob');
+% $$$       linkaxes(a,'x');
       
       
       figure;

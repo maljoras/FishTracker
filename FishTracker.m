@@ -12,7 +12,7 @@ classdef FishTracker < handle;
                   'consequtiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
-                  'segment.MajorAxisLength'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
+                  'segment.MajorAxisLength','stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
     maxVelocity = [];
     displayif = 3;
 
@@ -135,8 +135,8 @@ classdef FishTracker < handle;
     
     
     function [player] = newVideoPlayer(self,vidname)
-    %player = vision.VideoPlayer();
-      player = FishVideoPlayer();
+      player = vision.VideoPlayer();
+      %player = FishVideoPlayer();
     end
     
     
@@ -793,7 +793,7 @@ classdef FishTracker < handle;
 
 
         % we force the permutation to be in the valiud fish only (otherwise too many errors for many fish)
-        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,self.opts.classifier.nFramesForUniqueUpdate); 
+        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,self.opts.classifier.nFramesAfterCrossing); 
         
         if  all(ismember(assignedFishIds,assumedFishIds)) 
           % we have a valid permutation and enough confidence (or the very same ordering)

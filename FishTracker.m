@@ -467,13 +467,13 @@ classdef FishTracker < handle;
             deli = i(1);
           end
 
-          imagesc(self.videoHandler.getCurrentFrame());
-          hold on;
-          plot(self.centroids(:,1),self.centroids(:,2),'x');
-          rectangle('position',self.bboxes(i(1),:),'edgecolor','k')
-          rectangle('position',self.bboxes(j(1),:),'edgecolor','k')
-          rectangle('position',self.bboxes(deli,:),'edgecolor','r')
-          keyboard
+% $$$           imagesc(self.videoHandler.getCurrentFrame());
+% $$$           hold on;
+% $$$           plot(self.centroids(:,1),self.centroids(:,2),'x');
+% $$$           rectangle('position',self.bboxes(i(1),:),'edgecolor','k')
+% $$$           rectangle('position',self.bboxes(j(1),:),'edgecolor','k')
+% $$$           rectangle('position',self.bboxes(deli,:),'edgecolor','r')
+% $$$           keyboard
           
           segm(deli) = [];
           self.segments(deli) = [];

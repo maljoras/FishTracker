@@ -35,6 +35,7 @@ public:
     cv::Mat Image;
     cv::Mat FilledImage;
     cv::Mat FilledImageFixedSize;
+    cv::Mat FilledImageFixedSizeRotated;
     cv::Mat RotImage;
     cv::Mat RotFilledImage;
     cv::Mat FishFeature;

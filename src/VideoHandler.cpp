@@ -543,7 +543,7 @@ void VideoHandler::segmentThread()
 	vector<Vec4i> hierarchy;
 	vector<vector<cv::Point> > contours;
 	{
-	  findContours(m_BWImg,contours,hierarchy,RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
+	  findContours(m_BWImg,contours,hierarchy,RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, Point(0, 0));
 	}
 	
 	
@@ -603,8 +603,9 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     segm->FilledImage = inFrame(segm->Bbox).clone();
   }
 
-  // getRectSubPix(inBwImg,Size(segm->Bbox.width*2,segm->Bbox.height*2),Point(segm->Bbox.x-segm->Bbox.width/2,segm->Bbox.y-segm->Bbox.height/2),segm->Image2x,-1);
-  // segm->Image2x = segm->Image2x>0;
+  // Mat Image2x;
+  // getRectSubPix(inBwImg,Size(segm->Bbox.width*2,segm->Bbox.height*2),Point(segm->Bbox.x-segm->Bbox.width/2,segm->Bbox.y-segm->Bbox.height/2),Image2x,-1);
+  // segm->Image2x = Image2x.clone()>0;
 
   segm->mback = mean(segm->FilledImage,segm->Image==0);
   //segm->FilledImage.setTo(segm->mback,msk);
@@ -614,6 +615,7 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
   segm->MinorAxisLength = 0.;
   segm->Centroid = Point2f(segm->Bbox.x +segm->Bbox.width/2.,segm->Bbox.y + segm->Bbox.height/2.);
 
+  
   // **** SEGMENT CALCULATION
   if ((inContour.size()>=5) && segm->Bbox.width>minWidth && segm->Bbox.height>minWidth){
 
@@ -773,17 +775,15 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     RotFilledMskImage.setTo(segm->mback,segm->RotImage==0);
 
     Point2f centerfish(szout.width - m_featureSize.width/2,szout.height/2);
-    Mat ff;
-    getRectSubPix(RotFilledMskImage,m_featureSize,centerfish,ff,-1);
-    segm->FishFeature = ff.clone();
+    getRectSubPix(RotFilledMskImage,m_featureSize,centerfish,segm->FishFeature,-1);
+
     
     // get the output to matlab right
     transpose(segm->FishFeature,segm->FishFeature);
     flip(segm->FishFeature,segm->FishFeature,0);
     segm->FishFeature.convertTo(segm->FishFeature,CV_32FC1);
 
-    
-
+    // get bending stddev
     int cols = segm->RotFilledImage.cols;
     int rows = segm->RotFilledImage.rows;
     
@@ -812,6 +812,23 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     meanStdDev(comy, temp, stdValue,comy>0);
     segm->bendingStdValue = stdValue.at<double>(0);
 
+    
+    // rotate the fixed size
+    if (fixedSizeImage.width>0) {
+      Mat tmpMat,rotTmpMat2x,rotTmpMat;
+
+      Size fixedSize2x(fixedSizeImage.width*2.,fixedSizeImage.height*2.);
+      Point2f center2(fixedSize2x.width/2.,fixedSize2x.height/2.); 
+      Mat T2 = (Mat_<float>(2,3) << v.x, v.y, (1-v.x)*center2.x-v.y*center2.y, -v.y,v.x,v.y*center2.x+(1-v.x)*center2.y);
+
+      getRectSubPix(inOFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
+      warpAffine(tmpMat,rotTmpMat2x,T2,fixedSize2x,INTER_CUBIC,BORDER_CONSTANT,segm->mback);
+      getRectSubPix(rotTmpMat2x,fixedSizeImage,center2,rotTmpMat,-1);
+      segm->FilledImageFixedSizeRotated = rotTmpMat.clone(); // copy;
+    }
+
+    
+    
     // REMAP ??
     bool REMAP=true;
     

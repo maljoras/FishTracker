@@ -20,8 +20,8 @@ map<int,Ptr<VideoHandler> > obj_;
 
 
 /// Field names for VideoHandler::Segments.
-#define NSEGMENTFIELD 19
-const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeature","FishFeatureRemapped","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize"};
+#define NSEGMENTFIELD 20
+const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeature","FishFeatureRemapped","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize","FilledImageFixedSizeRotated"};
 
 /**
  * Main entry called from Matlab
@@ -116,6 +116,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		    mxSetField(p,i,"MSERregions",mxCreateDoubleMatrix( 0, 0, mxREAL ));
 
 		    mxSetField(p,i,"FilledImageFixedSize",MxArray(segms[i].FilledImageFixedSize));
+		    mxSetField(p,i,"FilledImageFixedSizeRotated",MxArray(segms[i].FilledImageFixedSizeRotated));
 		}
 		plhs[0] = p;
 	    }

@@ -543,7 +543,7 @@ void VideoHandler::segmentThread()
 	vector<Vec4i> hierarchy;
 	vector<vector<cv::Point> > contours;
 	{
-	  findContours(m_BWImg,contours,hierarchy,RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, Point(0, 0));
+	  findContours(m_BWImg,contours,hierarchy,RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 	}
 	
 	

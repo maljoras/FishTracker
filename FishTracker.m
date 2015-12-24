@@ -455,25 +455,28 @@ classdef FishTracker < handle;
         self.bboxes = int32(cat(1,segm.BoundingBox));
         
         
-        overlap = self.bBoxOverlap(self.bboxes,self.bboxes,self.fishwidth);
+        overlap = self.bBoxOverlap(self.bboxes,self.bboxes,self.fishwidth*0);
         overlap(1:length(segm)+1:end) = 0;
         [i,j] =  find(overlap);
         
-        while ~isempty(i) && length(self.segments)>1
+        while ~isempty(i) && length(self.segments)>self.nfish
 
           if segm(i(1)).Area > segm(j(1)).Area
             deli = j(1);
           else
             deli = i(1);
           end
-
-% $$$           imagesc(self.videoHandler.getCurrentFrame());
-% $$$           hold on;
-% $$$           plot(self.centroids(:,1),self.centroids(:,2),'x');
-% $$$           rectangle('position',self.bboxes(i(1),:),'edgecolor','k')
-% $$$           rectangle('position',self.bboxes(j(1),:),'edgecolor','k')
-% $$$           rectangle('position',self.bboxes(deli,:),'edgecolor','r')
-% $$$           keyboard
+          
+          if self.displayif >4
+            figure(23)
+            imagesc(self.videoHandler.getCurrentFrame());
+            hold on;
+            plot(self.centroids(:,1),self.centroids(:,2),'x');
+            rectangle('position',self.bboxes(i(1),:),'edgecolor','k')
+            rectangle('position',self.bboxes(j(1),:),'edgecolor','k')
+            rectangle('position',self.bboxes(deli,:),'edgecolor','r')
+            drawnow;
+          end
           
           segm(deli) = [];
           self.segments(deli) = [];
@@ -625,7 +628,7 @@ classdef FishTracker < handle;
         self.pos(:,assignedFishIds(i),t) = pos(:,oldFishIds(i),t);
 
         self.tracks(trackIndices(i)).fishId = assignedFishIds(i);
-        %self.resetBatchIdx(trackIndices(i)); % !!! MAYBE SINCE DURING CROSSING THE REST WAS DONE, WE CAN SAVELY USE THIS DATA
+        self.resetBatchIdx(trackIndices(i)); % !!! MAYBE SINCE DURING CROSSING THE REST WAS DONE, WE CAN SAVELY USE THIS DATA
         %FOR THE NEXT UPDATE
       
        
@@ -663,6 +666,7 @@ classdef FishTracker < handle;
                                                         1:self.nfish,self.opts.classifier.nFramesForSingleUpdate);
 
       same = assignedFishIds==fishIds; 
+
       if updateif && (all(same) ||  min(prob)<self.opts.classifier.reassignProbThres)
         % change classifier
         feat = self.getFeatureDataFromTracks(trackIndices);
@@ -871,7 +875,12 @@ classdef FishTracker < handle;
               || minsteps>=self.opts.classifier.nFramesForUniqueUpdate % to avoid very long crossings
 
             [self.tracks(thisTrackIndices).crossedTrackIds] = deal([]);
-          
+            
+            if ~self.opts.classifier.learnDuringCrossings
+              %BETTER NOT USE THE DATA FOR IMMEDIATE UPDATE ?
+              self.resetBatchIdx(thisTrackIndices); 
+            end
+            
             %delete these ids from all others. They should not currently cross. 
             for i = 1:length(self.tracks)
               self.tracks(i).crossedTrackIds = setdiff(self.tracks(i).crossedTrackIds,thisTrackIds);
@@ -997,7 +1006,7 @@ classdef FishTracker < handle;
 
       %% handle the crossings
       updateIndices = find(hitBound & notHandled);
-      plotting = self.displayif>3 && ~isempty(updateIndices);
+      plotting = self.displayif>6 && ~isempty(updateIndices);
       
       if plotting
         self.plotCrossings_(1,updateIndices);
@@ -1015,7 +1024,9 @@ classdef FishTracker < handle;
       self.updateTrackCrossings();
 
       %% unique fish update
-      if self.uniqueFishFrames-1 > self.opts.classifier.nFramesForUniqueUpdate;
+      noCrossing = arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
+      if self.uniqueFishFrames-1 > self.opts.classifier.nFramesForUniqueUpdate ...
+          && (all(noCrossing) || ~self.opts.classifier.learnDuringCrossings)
         verbose('Perform unique frames update.\r')
         
         self.fishClassifierUpdate(1:self.nfish,1);
@@ -1025,9 +1036,7 @@ classdef FishTracker < handle;
 
       
       %% single fish update
-      noCrossing = arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
       enoughData =  [self.tracks.nextBatchIdx] > self.opts.classifier.nFramesForSingleUpdate;
-
       singleUpdateIdx = find(noCrossing & enoughData);
       if ~isempty(singleUpdateIdx)
         verbose('Perform single fish update.\r');
@@ -1243,7 +1252,7 @@ classdef FishTracker < handle;
       trackIdx = self.assignments(:, 1);
 
       centroids = self.centroids(detectionIdx, :);
-      latestcentroids = cat(1,self.tracks(trackIdx).centroid);
+      latestcentroids = cat(1,self.tracks.centroid);
       plot(latestcentroids(:,1),latestcentroids(:,2),'<k');
       plot(centroids(:,1),centroids(:,2),'or');
       plot(self.centroids(:,1),self.centroids(:,2),'xm');
@@ -1252,9 +1261,12 @@ classdef FishTracker < handle;
 
 
       bboxes = self.bboxes(detectionIdx, :);
-      latestbboxes = cat(1,self.tracks(trackIdx).bbox);
-      for i = 1:size(bboxes,1)
+      latestbboxes = cat(1,self.tracks.bbox);
+
+      for i = 1:size(latestbboxes,1)
         rectangle('position',latestbboxes(i,:),'edgecolor','k');
+      end
+      for i = 1:size(bboxes,1)
         rectangle('position',bboxes(i,:),'edgecolor','r');
       end
     end
@@ -1277,38 +1289,55 @@ classdef FishTracker < handle;
 
         % is there is currently a crossing then prob of non-assignement should be scaled down 
         costOfNonAssignment =  self.meanAssignmentCost*self.opts.tracks.costOfNonAssignment;
-        nvis = cat(1,self.tracks.consequtiveInvisibleCount);
-        
-        if length(self.tracks)==self.nfish
-          %costOfNonAssignment = max(costOfNonAssignment,self.opts.tracks.costOfNonAssignment);
-          currrentlyCrossing = sum(self.currentFrame - [self.tracks.lastFrameOfCrossing] ...
-                                   < self.opts.classifier.nFramesAfterCrossing);
-          if any(currrentlyCrossing)
-            costOfNonAssignment = costOfNonAssignment/min(currrentlyCrossing/2+1,3);
-          end
 
-% $$$           mnvis = max(nvis);
-% $$$           if mnvis > self.opts.tracks.invisibleForTooLong  
-% $$$             costOfNonAssignment = costOfNonAssignment*(1+mnvis-self.opts.tracks.invisibleForTooLong);
-% $$$           end
-% $$$           
+        if self.opts.tracks.adjustCostDuringCrossing
+          if length(self.tracks)==self.nfish
+            currrentlyCrossing = sum(self.currentFrame - [self.tracks.lastFrameOfCrossing] ...
+                                     < self.opts.classifier.nFramesAfterCrossing);
+            if any(currrentlyCrossing)
+              costOfNonAssignment = costOfNonAssignment/min(currrentlyCrossing/2+1,3);
+            end
+          end
         end
         
-
+        
         % determine cost of each assigment to tracks
         fcost = self.computeCostMatrix();
 
         % scale the cost
         sfcost = sum(bsxfun(@times,fcost,shiftdim(scale(:),-2)),3);
 
-        % reduce the cost if invisible
-        sfcost = bsxfun(@rdivide,sfcost,(nvis+1));
-
+        % reduce the cost if invisible --> leads to oscillations...
+        %sfcost1 = bsxfun(@rdivide,sfcost,(nvis+1)); % do not save this cost...
         
-        % Solve the assignment problem.
-        [self.assignments, self.unassignedTracks, self.unassignedDetections] = ...
-            assignDetectionsToTracks(sfcost,  costOfNonAssignment);
+        % Solve the assignment problem. First for the visible
+        nvis = cat(1,self.tracks.consequtiveInvisibleCount);
+        validIdx = find(~nvis);
 
+        [self.assignments, self.unassignedTracks, self.unassignedDetections] = ...
+            assignDetectionsToTracks(sfcost(validIdx,:),  costOfNonAssignment);
+
+        self.unassignedTracks = validIdx(self.unassignedTracks);
+        self.assignments(:,1) = validIdx(self.assignments(:,1)); 
+
+        invisibleIdx = find(nvis);       
+        if ~isempty(self.unassignedDetections) && ~isempty(invisibleIdx)
+          % Solve the assignment problem for the invisible tracks
+          sfcost1 = sfcost(invisibleIdx,self.unassignedDetections);
+          %sfcost1 = bsxfun(@rdivide,sfcost1,(nvis(invisibleIdx)+1)); 
+          mnvis = max(nvis);
+          costOfNonAssignment1 = costOfNonAssignment*(1+mnvis);
+
+
+          [assignments, unassignedTracks, unassignedDetections] = ...
+              assignDetectionsToTracks(sfcost1,  costOfNonAssignment1);
+
+          self.assignments = [self.assignments;...
+                              [invisibleIdx(assignments(:,1)),...
+                              self.unassignedDetections(assignments(:,2))]];
+          self.unassignedDetections = self.unassignedDetections(unassignedDetections);
+          self.unassignedTracks = [self.unassignedTracks;invisibleIdx(unassignedTracks)];
+        end
         
 
         % check max velocity of the assignments
@@ -1317,8 +1346,7 @@ classdef FishTracker < handle;
           centroids = self.centroids(detectionIdx, :);
           trackIdx = self.assignments(:, 1);
           latestCentroids = cat(1,self.tracks(trackIdx).centroid);
-          nvis = cat(1,self.tracks(trackIdx).consequtiveInvisibleCount);
-          velocity = sqrt(sum((centroids - latestCentroids).^2,2))./(nvis +1);
+          velocity = sqrt(sum((centroids - latestCentroids).^2,2))./(nvis(trackIdx) +1);
           
           idx = find(velocity>self.maxVelocity/self.videoHandler.frameRate);
 
@@ -1330,7 +1358,7 @@ classdef FishTracker < handle;
           end
         end
         
-
+        
         outcost = nan(1,size(sfcost,2));
         if ~isempty(self.assignments)
           for i = 1:size(self.assignments,1)
@@ -1343,36 +1371,28 @@ classdef FishTracker < handle;
 
         self.cost = outcost;
 
-        
         % save the individual mean cost
         mt = min(self.opts.tracks.costtau,self.currentFrame);
         self.meanCost = self.meanCost*(mt-1)/mt  + 1/mt*mean(reshape(fcost,[],size(fcost,3)),1);
 
         % save the mean assignment costs
-        costs = self.cost(self.assignments(:,2));
-        if ~isempty(costs)
-          self.meanAssignmentCost = self.meanAssignmentCost*(mt-1)/mt ...
-              + 1/mt*mean(costs);
-        end
-
-        if ~isempty(self.assignments) &&  self.displayif>3
-          figure(19);
-          trackIdx = self.assignments(:, 1);
-          detectionIdx = self.assignments(:, 2);
-          nvis = cat(1,self.tracks(trackIdx).consequtiveInvisibleCount);
-          idx = find([self.cost(detectionIdx)] > (3+nvis').*[self.tracks(trackIdx).assignmentCost]);
-          if  ~isempty(idx)
-            self.plotWrongAssignments(idx);
-            drawnow;
+        if ~isempty(self.assignments)
+          costs = self.cost(self.assignments(:,2));
+          if ~isempty(costs)
+            self.meanAssignmentCost = self.meanAssignmentCost*(mt-1)/mt ...
+                + 1/mt*mean(costs);
           end
         end
         
-
-
-        % compute the class prob switching matrix
-        if length(self.unassignedDetections) 
-          verbose('there were %d unassigned detections\r',length(self.unassignedDetections))
+        if self.displayif>4 && ~isempty(self.assignments) 
+          figure(19);
+          trackIdx = self.assignments(:, 1);
+          detectionIdx = self.assignments(:, 2);
+          self.plotWrongAssignments(1:length(trackIdx));
+          drawnow;
+          
         end
+        
         
         if self.displayif>4 && self.currentFrame>4
           figure(5);
@@ -1388,49 +1408,58 @@ classdef FishTracker < handle;
             end
             
           end
-
-
-          figure(6);
-          subplot(self.nfish+2,1,1);
-          hold on;   
-          plot(self.currentFrame,self.meanAssignmentCost','xk');
-          title('Assignment costs');
+          drawnow;
           
-          subplot(self.nfish+2,1,2);
-          hold on;
-          set(gca,'colororderindex',1);
-          plot(self.currentFrame,self.meanCost','x');
-          title('mean cost');
-          
-
-          plotcost = nan(self.nfish,size(fcost,3));
-          ssfcost = bsxfun(@times,fcost,shiftdim(scale(:),-2));
-          for i = 1:size(self.assignments,1)
-            plotcost(self.assignments(i,1),:) = ssfcost(self.assignments(i,1),self.assignments(i,2),:);
-          end
-          
-
-          
-          col = 'rgbykmc';
-          for i = 1:size(plotcost,1)
-            subplot(self.nfish+2,1,2+i);
+          if self.displayif>5
+            figure(6);
+            subplot(self.nfish+2,1,1);
+            hold on;   
+            plot(self.currentFrame,self.meanAssignmentCost','xk');
+            title('Assignment costs');
+            
+            subplot(self.nfish+2,1,2);
             hold on;
-            for j = 1:size(plotcost,2)
-              h(j) = plot(self.currentFrame,plotcost(i,j),['x',col(j)]);
+            set(gca,'colororderindex',1);
+            plot(self.currentFrame,self.meanCost','x');
+            title('mean cost');
+            
+            
+            plotcost = nan(self.nfish,size(fcost,3));
+            ssfcost = bsxfun(@times,fcost,shiftdim(scale(:),-2));
+            for i = 1:size(self.assignments,1)
+              plotcost(self.assignments(i,1),:) = ssfcost(self.assignments(i,1),self.assignments(i,2),:);
             end
-            idx = find(i==self.assignments(:,1));
-            if ~isempty(idx)
-              plot(self.currentFrame,sfcost(self.assignments(idx,1),self.assignments(idx,2)),'ok');
-            end
-            ylim([0,self.meanAssignmentCost*5])
-          end
-% $$$           if self.currentFrame==5
-% $$$             legend(h,self.costinfo);
-% $$$           end
+            
+
           
+            col = 'rgbykmc';
+            for i = 1:size(plotcost,1)
+              subplot(self.nfish+2,1,2+i);
+              hold on;
+              for j = 1:size(plotcost,2)
+                h(j) = plot(self.currentFrame,plotcost(i,j),['x',col(j)]);
+              end
+              idx = find(i==self.assignments(:,1));
+              if ~isempty(idx)
+                plot(self.currentFrame,sfcost(self.assignments(idx,1),self.assignments(idx,2)),'ok');
+              end
+              ylim([0,self.meanAssignmentCost*5])
+            end
+    % $$$           if self.currentFrame==5
+    % $$$             legend(h,self.costinfo);
+    % $$$           end
+            
+
+          end
           drawnow;
         end
-      
+
+        % compute the class prob switching matrix
+        if length(self.unassignedDetections) 
+          verbose('there were %d unassigned detections\r',length(self.unassignedDetections))
+        end
+
+        
       end
       
     end
@@ -1545,7 +1574,7 @@ classdef FishTracker < handle;
         self.tracks(ind).consequtiveInvisibleCount = ...
             self.tracks(ind).consequtiveInvisibleCount + 1;
       
-        self.tracks(ind).classProb = nan(1,self.nfish);
+        %self.tracks(ind).classProb = nan(1,self.nfish);
         self.tracks(ind).classProbHistory.update(nan(1,self.nfish),self.tracks(ind).classProbHistory.lambda);
 
       end
@@ -1599,7 +1628,7 @@ classdef FishTracker < handle;
     % create new tracks for unassigndetections (if less the number of fish)
 
       availablefishids = setdiff(1:self.nfish,cat(2,self.tracks.fishId));
-      if  ~self.opts(1).tracks.withTrackDeletion && ~length(availablefishids)
+      if  ~self.opts.tracks.withTrackDeletion && ~length(availablefishids)
         return;
       end
       
@@ -2169,11 +2198,11 @@ classdef FishTracker < handle;
       self.opts(1).detector.history = 250;  %[nframes]
       self.opts.detector.nskip = 5;          % skip nframes for thresholding (if not knn)
       self.opts.detector.inverted = false;   %% for IR image (white fish on dark barckground)
-      self.opts.detector.adjustThresScale = 0.9;   %% 0..1 : reduce to avoid many wrong detections in case of the thresholder
+      self.opts.detector.adjustThresScale = 0.91;   %% 0..1 : reduce to avoid many wrong detections in case of the thresholder
 
       self.opts.detector.fixedSize = 0; % set for saving the fixedSize image 
 
-      % reader / handler option
+      % reader / handler optio
       %self.opts.reader.resizeif = true; 
       %self.opts.reader.resizescale = 0.75; % faster if rescaled
       
@@ -2187,7 +2216,7 @@ classdef FishTracker < handle;
       self.opts(1).classifier.crossCostThres = 2.2; % Times the mean cost
       self.opts(1).classifier.bendingThres = 4; % fishwidth/fishheight
       self.opts(1).classifier.reassignProbThres = 0.5; % min p for reassign
-
+      self.opts(1).classifier.learnDuringCrossings = 1; % use data from crossings for update
       self.opts(1).classifier.npca = 40; 
       self.opts(1).classifier.nlfd = 10; 
       self.opts(1).classifier.outliersif = 0; 
@@ -2209,8 +2238,8 @@ classdef FishTracker < handle;
 
       self.opts(1).tracks.displayEveryNFrame = 10;
       self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
-      self.opts(1).tracks.costOfNonAssignment =  2; % scale the mean assignment cost
-
+      self.opts(1).tracks.costOfNonAssignment =  3; % scale the mean assignment cost
+      self.opts.tracks.adjustCostDuringCrossing = true; %reduced non-assignment cost during crossings 
       %lost tracks
       self.opts(1).tracks.invisibleForTooLong = 5; %% will reduce the cost of non assignment if not with deletion
       self.opts.tracks.ageThreshold = 10;
@@ -2337,8 +2366,8 @@ classdef FishTracker < handle;
         end
         
         
-        if ~mod(self.currentFrame,40)
-          t = datevec(seconds(localTime));
+        if ~mod(self.currentFrame,40) && ~isempty(self.tracks)
+          t = datevec(seconds(self.videoHandler.getCurrentTime()));
           verbose(['Currently at time %1.0fh %1.0fm %1.1fs                           ' ...
                    '\r'],t(4),t(5),t(6));
         end

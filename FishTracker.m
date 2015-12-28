@@ -457,7 +457,7 @@ classdef FishTracker < handle;
         self.bboxes = int32(cat(1,segm.BoundingBox));
         
         
-        overlap = self.bBoxOverlap(self.bboxes,self.bboxes,self.fishwidth*0);
+        overlap = self.bBoxOverlap(self.bboxes,self.bboxes,2);
         overlap(1:length(segm)+1:end) = 0;
         [i,j] =  find(overlap);
         
@@ -1457,7 +1457,7 @@ classdef FishTracker < handle;
         end
 
         % compute the class prob switching matrix
-        if length(self.unassignedDetections) 
+        if length(self.unassignedDetections)>2
           verbose('there were %d unassigned detections\r',length(self.unassignedDetections))
         end
 

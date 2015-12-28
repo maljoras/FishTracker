@@ -77,14 +77,16 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       
     end
     
-    function setOpts(self,opts)
+    function setOpts(self,opts,force)
 
       for f1 = fieldnames(opts)'
         if any(strcmp(f1{1},{'blob','reader','detector'}))
           for f2 = fieldnames(opts.(f1{1}))'
             if isprop(self,f2{1})
-              verbose('Set option "%s" to "%s"',f2{1},num2str(opts.(f1{1}).(f2{1})));
-              self.(f2{1}) = opts.(f1{1}).(f2{1});
+              if any(self.(f2{1}) ~= opts.(f1{1}).(f2{1}))
+                verbose('Set "%s.%s" to "%s"',f1{1},f2{1},num2str(opts.(f1{1}).(f2{1})));
+                self.(f2{1}) = opts.(f1{1}).(f2{1});
+              end
             else
               warning(sprintf('unknown property: %s',f2{1}));
             end

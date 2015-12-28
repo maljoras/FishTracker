@@ -720,10 +720,10 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
     if (fixedSizeImage.width>0) {
       Mat tmpMat ;
-      if (colorfeature) {
-	getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
-      } else {
+      if (difffeature) {
 	getRectSubPix(inFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
+      } else {
+	getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
       }
       segm->FilledImageFixedSize = tmpMat.clone(); // copy;
     }
@@ -910,7 +910,12 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
       Point2f center2(fixedSize2x.width/2.,fixedSize2x.height/2.); 
       Mat T2 = (Mat_<float>(2,3) << v.x, v.y, (1-v.x)*center2.x-v.y*center2.y, -v.y,v.x,v.y*center2.x+(1-v.x)*center2.y);
 
-      getRectSubPix(inOFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
+      if (difffeature) {
+	getRectSubPix(inFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
+      }
+      else {
+	getRectSubPix(inOFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
+      }
       warpAffine(tmpMat,rotTmpMat2x,T2,fixedSize2x,INTER_CUBIC,BORDER_CONSTANT,segm->mback);
       getRectSubPix(rotTmpMat2x,fixedSizeImage,center2,rotTmpMat,-1);
       segm->FilledImageFixedSizeRotated = rotTmpMat.clone(); // copy;

@@ -720,7 +720,11 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
     if (fixedSizeImage.width>0) {
       Mat tmpMat ;
-      getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
+      if (colorfeature) {
+	getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
+      } else {
+	getRectSubPix(inFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
+      }
       segm->FilledImageFixedSize = tmpMat.clone(); // copy;
     }
     

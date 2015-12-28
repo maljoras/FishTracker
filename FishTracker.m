@@ -13,24 +13,25 @@ classdef FishTracker < handle;
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
                   'segment.MajorAxisLength','stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
-    maxVelocity = [];
-    displayif = 3;
-
-    costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area','BoundingBox'};
-    scalecost = [10,3,3,2,1,2,1];
-
     stimulusPresenter = [];
-    stmif = 0;
-
-    useMex = 1;
-    useOpenCV = 1;
-    useScaledFormat = 0;
-    useKNN = 0;
 
 
   end
 
   properties (SetAccess = private)
+
+    maxVelocity = [];
+    displayif = 3;
+
+    useMex = 1;
+    useOpenCV = 1;
+    useScaledFormat = 0;
+    useKNN = 0;
+    stmif = 0;
+    
+    costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area','BoundingBox'};
+    scalecost = [10,3,3,2,1,2,1];
+
 
     nfish = [];
     fishlength = [];

@@ -266,7 +266,7 @@ classdef FishTracker < handle;
       self.videoHandler.setCurrentTime(self.timerange(1));
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
-      self.videoHandler.setOpts(self.opts);
+      self.setOpts();
       self.videoHandler.initialize();
       
       
@@ -858,7 +858,7 @@ classdef FishTracker < handle;
 
 
         % we force the permutation to be in the valiud fish only (otherwise too many errors for many fish)
-        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,self.opts.classifier.nFramesAfterCrossing); 
+        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,self.opts.classifier.nFramesForUniqueUpdate); 
         
         if  all(ismember(assignedFishIds,assumedFishIds)) 
           % we have a valid permutation and enough confidence (or the very same ordering)
@@ -2258,7 +2258,7 @@ classdef FishTracker < handle;
       doc.detector.inverted = {'Set 1 for IR videos (white fish on ' ...
                           'dark background)'};
       
-      def.opts.detector.adjustThresScale = 0.95;   
+      def.opts.detector.adjustThresScale = 0.91;   
       doc.detector.adjustThresScale = {'0..1 : reduce to avoid many wrong ' ...
                           ' detections in case of the','thresholder'};
 
@@ -2367,7 +2367,7 @@ classdef FishTracker < handle;
       doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter ' ...
                           '(DEPRECIATED)'};
       
-      def.opts.tracks.costOfNonAssignment =  3; 
+      def.opts.tracks.costOfNonAssignment =  2; 
       doc.tracks.costOfNonAssignment = {'Higher values force (possible  ' ...
                           'spurious) assignments', '[re. to  mean cost]'};
 
@@ -2407,6 +2407,19 @@ classdef FishTracker < handle;
 
       % construct object
       self = self@handle();  
+
+      self.opts = opts;
+      self.setupSystemObjects(vid);
+      self.setOpts(opts);      
+      
+    end
+
+    function setOpts(self,opts)
+      
+      if nargin<2
+        opts = self.opts;
+      end
+      
       for f = fieldnames(opts)'
         if ~any(strcmp(f{1},{'tracks','classifier','blob','detector','reader'}))
           self.(f{1}) = opts.(f{1});
@@ -2414,12 +2427,8 @@ classdef FishTracker < handle;
           self.opts(1).(f{1}) = opts.(f{1});
         end
       end
-      
-      self.setupSystemObjects(vid);
-      
-      
+      self.videoHandler.setOpts(self.opts);
     end
-
     
        
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

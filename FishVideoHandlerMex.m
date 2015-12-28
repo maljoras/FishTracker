@@ -36,6 +36,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     adjustThresScale
   end
 
+  
+  
   methods 
     
     function self = FishVideoHandlerMex(vidname,timerange,knnMethod,opts)
@@ -61,8 +63,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       end
 
       self@FishVideoReader(vidname);       
-      self@FishBlobAnalysis(); 
-
+      self@FishBlobAnalysis();       
+      
       self.frameFormat = 'RGBU'; % default
       self.knnMethod = global_knnMethod;
       clear global global_knnMethod;
@@ -73,17 +75,19 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
 
       if nargin >3
         setOpts(self,opts);
+      else
+        self.initialize(); % initialize blob
       end
       
     end
     
-    function setOpts(self,opts,force)
-
+    function setOpts(self,opts)
+      
       for f1 = fieldnames(opts)'
         if any(strcmp(f1{1},{'blob','reader','detector'}))
           for f2 = fieldnames(opts.(f1{1}))'
             if isprop(self,f2{1})
-              if any(self.(f2{1}) ~= opts.(f1{1}).(f2{1}))
+              if any(self.(f2{1}) ~= opts.(f1{1}).(f2{1})) 
                 verbose('Set "%s.%s" to "%s"',f1{1},f2{1},num2str(opts.(f1{1}).(f2{1})));
                 self.(f2{1}) = opts.(f1{1}).(f2{1});
               end
@@ -93,6 +97,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
           end
         end
       end
+      self.initialize(0); % update Blob
     end
     
     
@@ -155,6 +160,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     function set.fixedSize(self,value);
       FishVideoHandler_(self.id, 'set', 'fixedSize',value);
     end
+
 
     function value = get.resizescale(self);
       value = FishVideoHandler_(self.id, 'get', 'resizescale');
@@ -453,7 +459,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     function a_init(self);
     % pass all  the properties to the C-core
           
-      a_init@FishBlobAnalysis(self);
+      %a_init@FishBlobAnalysis(self);
       
       FishVideoHandler_(self.id, 'set','minArea',self.minArea);
       FishVideoHandler_(self.id, 'set','maxArea',self.maxArea);

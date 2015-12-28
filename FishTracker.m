@@ -2314,7 +2314,7 @@ classdef FishTracker < handle;
       doc.classifier.reassignProbThres = {'minimal probability for ' ...
                           'reassignment/crossing exits'};
       
-      def.opts.classifier.learnDuringCrossings = 1; 
+      def.opts.classifier.learnDuringCrossings = false; 
       doc.classifier.learnDuringCrossings = {'Use data during crossings for ' ...
                           'classifier update'};
 

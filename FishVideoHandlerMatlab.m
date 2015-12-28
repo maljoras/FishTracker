@@ -4,7 +4,16 @@ classdef FishVideoHandlerMatlab < handle & FishVideoReader & FishBlobAnalysisMat
 % Class for video reading of the FishTracker
 %
 %
-  
+
+  properties
+    computeSegments = true; % NOT SUPORTED
+    resizeif = 0; % % NOT SUPORTED
+    resizescale = 1; % NOT SUPORTED
+    knnMethod = false;% NOT SUPORTED
+    fixedSize = 0;  % NOT SUPORTED WITHOUT MEX
+    difffeature = false; % no supported
+  end
+
   properties (SetAccess = private)
     detector;
   end

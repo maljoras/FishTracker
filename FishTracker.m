@@ -18,7 +18,7 @@ classdef FishTracker < handle;
 
     costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area','BoundingBox'};
     scalecost = [10,3,3,2,1,2,1];
-  
+
     stimulusPresenter = [];
     stmif = 0;
 
@@ -86,8 +86,9 @@ classdef FishTracker < handle;
     assignments = [];
     unassignedTracks = [];
     unassignedDetections = [];
-
     featurecosttypes = {'Area','Size','BoundingBox'};
+
+
   end
   
 
@@ -268,6 +269,7 @@ classdef FishTracker < handle;
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
       self.videoHandler.initialize();
+      
       
       if isscalar(self.writefile) && self.writefile
         [a,b,c] = fileparts(self.videoFile);
@@ -2185,94 +2187,234 @@ classdef FishTracker < handle;
     % Constructor
     %--------------------
     function self = FishTracker(vid,varargin) 
-    % constructor
-      self = self@handle();
+    % FISHTRACKER(VID,...) starts a FishTracker objects on a given video file
+    % VID. If VID==[] a uidialog is opened to select the video file. Run
+    % 
+    % Options can the set with FISHTRACKER(VID,OPTNAME1,OPTVALUE1,...) or
+    % FISHTRACKER(VID,OPTS) where OPTS is a structure with fields identical
+    % to the names of the options.
+    %  
+    % To see an help for the possible options run (without arguments):
+    %  >> FishTracker
+    %
+    % Example:
+    %  >> ft = FishTracker([],'nfish',3);
+    %  >> ft.track([0,20]); 
+    %  >> ft.plot();
 
-      if ~exist('emclustering') && exist('helper')
+      
+
+      def.vid = [];
+      doc.vid = 'Video file name';
+      
+      %% properties
+      def.opts.displayif = 3;
+      doc.displayif = {'0: no display, set to higher values ' ...
+                        '(2-7) for more plots'};
+      
+      def.opts.nfish = [];
+      doc.nfish = {'Number of fish. Needs to be fixed ' ...
+                   '(ATTEMPT to be estimated if empty)'};
+      
+      def.opts.fishlength = [];
+      doc.fishlength = {'Approx length of fish in pixel (will' ...
+                        'be estimated if empty)'};
+      def.opts.fishwidth = [];
+      doc.fishwidth = {'Approx width of fish in pixel (will' ...
+                        'be estimated if empty)'};
+
+      def.opts.maxVelocity = [];
+      doc.maxVelocity = {'Maximal velocity in px/sec [will be ' ...
+                          'estimated if empty]'};
+      
+      def.opts.stimulusPresenter = [];
+      doc.stimulusPresenter = {'Stimulus presenter object ','[for STMIF=true]'};
+      
+      def.opts.stmif = false;
+      doc.stmif = 'Use online stimulation';
+
+      def.opts.useMex = true;
+      doc.useMex = {'Use the C++ version FishVideoHandler','(FAST)'};
+
+      def.opts.useOpenCV = true;
+      doc.useOpenCV = 'uses mexopencv library (FAST)';
+
+      def.opts.useKNN = false;
+      doc.useKNN = {'Use the KNN instead of thresholding ' ...
+                    'for background segmentation (SLOW)'};
+
+      def.opts.useScaledFormat = false;
+      doc.useScaledFormat = 'Use adaptive scaled gray format';
+
+      
+      %% additional options      
+      % detector
+      def.opts.detector(1).history = 250;  %[nframes]
+      doc.detector(1).history = 'Background update time [nFrames]';
+      
+      def.opts.detector.nskip = 5; 
+      doc.detector.nskip = 'Skip frmaes for thresh. (useKNN=0)';
+
+      def.opts.detector.inverted = false;  
+      doc.detector.inverted = {'Set 1 for IR videos (white fish on ' ...
+                          'dark background)'};
+      
+      def.opts.detector.adjustThresScale = 0.95;   
+      doc.detector.adjustThresScale = {'0..1 : reduce to avoid many wrong ' ...
+                          ' detections in case of the','thresholder'};
+
+      def.opts.detector.fixedSize = 0;  
+      doc.detector.fixedSize = 'Set 1 for saving the fixedSize image';
+
+      % reader
+      def.opts.reader(1).resizeif = false;
+      doc.reader(1).resizeif = {'Whether to resize the frame before','tracking'};
+
+      def.opts.reader.resizescale = 0.75; 
+      doc.reader.resizescale = {'Fraction to resizing the frame for ' ...
+                          'RESIZEIF = true'};
+      
+      
+      % blob anaylser
+      def.opts(1).blob(1).computeMSERthres= 2; % just for init str
+      doc.blob(1).computeMSERthres =  {'When to compute MSER (SLOW; only ' ...
+                          'for useMex=0)'};
+
+      def.opts.blob.interpif = 1;
+      doc.blob.interpif = {'Whether to interpolate while','debending'};
+      
+      def.opts.blob.colorfeature = false; 
+      doc.blob.colorfeature = {'Use color information for fish','feature'};
+      self.opts(1).classifier.learnDuringCrossings = 1; % use data from crossings for update
+      def.opts.blob.difffeature = true; 
+      doc.blob.difffeature = {'Use background subtracted gray' ...
+                          'images for fish feature'};
+
+      % classification
+      def.opts(1).classifier.crossCostThres = 2.2; 
+      doc.classifier.crossCostThres = {'candidates for crossings: scales ' ...
+                          'mean assignment cost'};
+
+      def.opts.classifier.bendingThres = 4; % fishwidth/fishheight
+      doc.classifier.bendingThres = {'For exclusion of features for ' ...
+                          'classfication'};
+
+      def.opts.classifier.reassignProbThres = 0.5; 
+      doc.classifier.reassignProbThres = {'minimal probability for ' ...
+                          'reassignment/crossing exits'};
+      
+      def.opts.classifier.learnDuringCrossings = 1; 
+      doc.classifier.learnDuringCrossings = {'Use data during crossings for ' ...
+                          'classifier update'};
+
+      def.opts.classifier.npca = 40; 
+      doc.classifier.npca = 'Number of PCA components';
+
+      def.opts.classifier.nlfd = 10; 
+      doc.classifier.nlfd = {'Number of LFD components.','Set to 0 to turn off.'};
+
+      def.opts.classifier.outliersif = false; 
+      doc.classifier.outliersif = 'Exclude outliers before update';
+
+      def.opts.classifier.minBatchN = 8; 
+      doc.classifier.minBatchN = 'minimum sample size for batch update'; 
+
+      def.opts.classifier.nFramesForInit = 200; 
+      doc.classifier.nFramesForInit = {'Number of unique frames for ' ...
+                          'initialize the classifier'};
+
+      def.opts.classifier.nFramesAfterCrossing = 16;
+      doc.classifier.nFramesAfterCrossing = {'When to check for ' ...
+                          'permutations after crossings'};
+      
+      def.opts.classifier.nFramesForUniqueUpdate = 60;
+      doc.classifier.nFramesForUniqueUpdate = {'Unique frames for update all' ...
+                          ' simultanously'};
+  
+      def.opts.classifier.nFramesForSingleUpdate = 250; 
+      doc.classifier.nFramesForSingleUpdate = {'single fish update. Should be ' ...
+                          'larger than unique.'};
+
+      def.opts.classifier.maxFramesPerBatch = 280;
+      doc.classifier.maxFramesPerBatch = {'Maximal frames for saving ' ...
+                          'the fish feature'};
+
+      % tracks
+      def.opts(1).tracks.costtau = 500;
+      doc.tracks.costtau = {'Time constant for computing the mean ' ...
+                          'cost [nFrames]'};
+
+      def.opts.tracks.tauVelocity = 5; 
+      doc.tracks.tauVelocity = {'Time constant to compute the ' ...
+                          'velocity [nFrames]'};
+      
+      def.opts.tracks.probThresForFish = 0.05;
+      doc.tracks.probThresForFish = {'Classification probability to ' ...
+                          'assume a fish feature'};
+      
+      def.opts.tracks.crossBoxLengthScale = 1; 
+      doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded' ...
+                          'as a crossing'};
+
+      def.opts.tracks.crossBoxLengthScalePreInit = 0.5; 
+      doc.tracks.crossBoxLengthScalePreInit = {'Before classifier init ' ...
+                          '(reduced somewhat)'};
+      
+      def.opts.tracks.displayEveryNFrame = 10;
+      doc.tracks.displayEveryNFrame = {'How often to update the track ' ...
+                          'display window (SLOW)'};
+      
+      def.opts.tracks.kalmanFilterPredcition = false; 
+      doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter ' ...
+                          '(DEPRECIATED)'};
+      
+      def.opts.tracks.costOfNonAssignment =  3; 
+      doc.tracks.costOfNonAssignment = {'Higher values force (possible  ' ...
+                          'spurious) assignments', '[re. to  mean cost]'};
+
+      def.opts.tracks.adjustCostDuringCrossing = true; 
+      doc.tracks.adjustCostDuringCrossing = {'Whether to reduced non-assignment' ...
+                          ' cost during crossings'};
+      
+
+      STRICT = 1; % be not too strict. Some settings of the videoHandler are not
+                  % explicitly given here
+      VERBOSELEVEL = 0;
+      ALLFIELDNAMES = 1;
+      
+      parseInputs;
+      if HELP;  return;end
+
+
+
+      %% other developmental parameters
+      %lost tracks
+      opts.tracks.invisibleForTooLong = 15;
+      opts.tracks.ageThreshold = 10;
+      opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
+      
+      
+      if ~exist('chooseNFish') && exist('helper','dir')
         addpath('helper');
       end
       
-      % some additional defaults [can be overwritten by eg 'detector.thres' name]
-
-      % background change time scale
-      self.opts(1).detector.history = 250;  %[nframes]
-      self.opts.detector.nskip = 5;          % skip nframes for thresholding (if not knn)
-      self.opts.detector.inverted = false;   %% for IR image (white fish on dark barckground)
-      self.opts.detector.adjustThresScale = 0.91;   %% 0..1 : reduce to avoid many wrong detections in case of the thresholder
-
-      self.opts.detector.fixedSize = 0; % set for saving the fixedSize image 
-
-      % reader / handler optio
-      %self.opts.reader.resizeif = true; 
-      %self.opts.reader.resizescale = 0.75; % faster if rescaled
-      
-      % blob anaylser
-      self.opts(1).blob(1).computeMSERthres= 2.5; % just for init str
-      self.opts.blob.interpif = 1;
-      self.opts.blob.colorfeature = true; % set blob to color if color might help in classifying
-                                          % the fish
-      
-      % classifier 
-      self.opts(1).classifier.crossCostThres = 2.2; % Times the mean cost
-      self.opts(1).classifier.bendingThres = 4; % fishwidth/fishheight
-      self.opts(1).classifier.reassignProbThres = 0.5; % min p for reassign
-      self.opts(1).classifier.learnDuringCrossings = 1; % use data from crossings for update
-      self.opts(1).classifier.npca = 40; 
-      self.opts(1).classifier.nlfd = 10; 
-      self.opts(1).classifier.outliersif = 0; 
-
-      % update of the classifier
-      self.opts(1).classifier.minBatchN = 8; 
-      self.opts(1).classifier.nFramesForInit = 200; % unique frames needed for init classifier
-      self.opts(1).classifier.nFramesAfterCrossing = 16;
-      self.opts(1).classifier.nFramesForUniqueUpdate = 60; % all simultanously...
-      self.opts(1).classifier.nFramesForSingleUpdate = 250; % single. should be larger than unique...
-      self.opts(1).classifier.maxFramesPerBatch = 280;
-
-      % tracks
-      self.opts(1).tracks.costtau = 500;
-      self.opts(1).tracks.tauVelocity = 5; % nFrames to compute the velocity running average
-      self.opts(1).tracks.probThresForFish = 0.1;
-      self.opts(1).tracks.crossBoxLengthScale = 1; % how many times the max bbox length is regarded as a crossing. 
-      self.opts(1).tracks.crossBoxLengthScalePreInit = 0.5; % before classifier init
-
-      self.opts(1).tracks.displayEveryNFrame = 10;
-      self.opts(1).tracks.kalmanFilterPredcition = 0; % better without
-      self.opts(1).tracks.costOfNonAssignment =  3; % scale the mean assignment cost
-      self.opts.tracks.adjustCostDuringCrossing = true; %reduced non-assignment cost during crossings 
-      %lost tracks
-      self.opts(1).tracks.invisibleForTooLong = 5; %% will reduce the cost of non assignment if not with deletion
-      self.opts.tracks.ageThreshold = 10;
-      self.opts(1).tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later for very noisy
-                                                     % data. However,seems not really working...
-      
-      args = varargin;
-      nargs = length(args);
-      if nargs>0 && mod(nargs,2)
-        error('expected arguments of the type ("PropName",pvalue)');
+      if isempty(vid)
+        vid = getVideoFile();
       end
-      for i = 1:2:nargs
-        if ~ischar(args{i})
-          error('expected arguments of the type ("PropName",pvalue)');
+
+      if isempty(opts.nfish) 
+        chooseNFish(vid,1);
+      end
+
+      % construct object
+      self = self@handle();  
+      for f = fieldnames(opts)'
+        if ~any(strcmp(f{1},{'tracks','classifier','blob','detector','reader'}))
+          self.(f{1}) = opts.(f{1});
         else
-          idx = findstr(args{i},'.');
-          if ~isempty(idx)
-            optsname = args{i}(1:idx-1); 
-            assert(any(strcmp(optsname,fieldnames(self.opts))))
-            self.opts.(optsname).(args{i}(idx+1:end)) = args{i+1};
-          else
-            assert(~strcmp(args{i},'opts'));
-            assert(isprop(self,args{i}))
-            self.(args{i}) = args{i+1};
-          end
+          self.opts(1).(f{1}) = opts.(f{1});
         end
       end
-      
-      if ~exist('vid','var') || isempty(vid)
-        vid = getVideoFile();
-        self.nfish = chooseNFish(vid,1);
-      end
-
       
       self.setupSystemObjects(vid);
       

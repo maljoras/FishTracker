@@ -23,6 +23,7 @@ classdef FishBlobAnalysis < handle;
 
 
   properties (Access=protected)
+
     mser = [];
     minArea  = [];
     maxArea = [];
@@ -34,26 +35,13 @@ classdef FishBlobAnalysis < handle;
 
   end
   
-% $$$   
-% $$$   methods (Abstract);
-% $$$     [oimg,msk,oimg_col] = a_imrotate(self,ori,oimg,mback,omsk,oimg_col,mback_col);
-% $$$     [outregion] = a_computeMSERregions(self,inregion,bb2);
-% $$$     
-% $$$     regions = a_getRegions(self,bwimg,Iframe,rprops);
-% $$$ 
-% $$$     [boundingBox,centroid] = a_getMaxAreaRegion(self,bwimg);
-% $$$     doimg = a_interp(self,foimg,xshift,mback,type);
-% $$$     msk = a_closeHoles(self,msk);
-% $$$     a_init(self);
-% $$$   end
-% $$$   
   
   methods (Access=protected) %%% THIS FUNCTIONS CAN BE OVERLOADED
     
     function a_init(self);
     % initialize mser
       if isempty(self.mser)
-        self.mser  =  [];%cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
+        self.mser  =  cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
         if isa(self.se,'strel')
           self.se = getnhood(self.se);
         end
@@ -92,10 +80,13 @@ classdef FishBlobAnalysis < handle;
     function [region] = a_computeMSERregions(self,region,bb2)
 
       featim = region.FilledImage2x;
+
       if ~isa(featim,'uint8')
         featim = uint8(featim*255);
       end
+      featim(~region.Image2x) = uint8(mean(featim(~region.Image2x)));
 
+      
       [p,bboxes] = self.mser.detectRegions(featim);
       loc = zeros(length(p),2);
       ori = zeros(length(p),1);
@@ -141,32 +132,36 @@ classdef FishBlobAnalysis < handle;
         end
         
         region.MSERregionsOffset = bb2(1:2);
-      end
       
       
-      DEBUG = 0;
-      if DEBUG
-
-        p1= detectMSERFeatures(featim,'MaxAreaVariation',0.6);
-
-        subplot(1,2,1);
-        cla;
-        imshow(featim);hold on;
-        plot(p1, 'showPixelList', true, 'showEllipses', false);      
-        title('matlab')
-        subplot(1,2,2);
-        cla;
-        imshow(featim);hold on;
-        idx =find(idxmsk);
-        if ~isempty(idx)
-          pixelList =cellfun(@int32,pixelList,'uni',0);
-          pcv = MSERRegions(pixelList(idx));
-          plot(pcv, 'showPixelList', true, 'showEllipses', false);
+            
+      
+        DEBUG = 0;
+        if DEBUG
+          
+          p1= detectMSERFeatures(featim,'MaxAreaVariation',0.6);
+          
+          subplot(1,2,1);
+          cla;
+          imshow(featim);hold on;
+          plot(p1, 'showPixelList', true, 'showEllipses', false);      
+          title('matlab')
+          subplot(1,2,2);
+          cla;
+          imshow(featim);hold on;
+          idx =find(idxmsk);
+          if ~isempty(idx)
+            pixelList =cellfun(@int32,pixelList,'uni',0);
+            pcv = MSERRegions(pixelList(idx));
+            plot(pcv, 'showPixelList', true, 'showEllipses', true);
+          end
+          title('openCV')
+          drawnow;
+          keyboard
         end
-        title('openCV')
-        keyboard
-      end
+
       
+      end
       
       
       
@@ -253,6 +248,7 @@ classdef FishBlobAnalysis < handle;
 
         rp(s,1).Centroid = info.center;
         rp(s,1).BoundingBox = bb;
+        rp(s,1).Size = info.size;
         rp(s,1).MajorAxisLength = max(info.size);
         rp(s,1).MinorAxisLength = min(info.size);
         rp(s,1).Orientation = -info.angle + 90;
@@ -279,11 +275,18 @@ classdef FishBlobAnalysis < handle;
       
       regionext = [];
 
+      if ~isfield(regions,'Size');
+        [regions.Size] = deal([]);
+      end
       
       
       for i = 1:length(regions)
         region = regions(i);
         bb = floor(double(region.BoundingBox));
+        
+        if isempty(region.Size)
+          region.Size = [region.MajorAxisLength,region.MinorAxisLength];
+        end
         
         % save some features 
         
@@ -386,7 +389,7 @@ classdef FishBlobAnalysis < handle;
               idx = intersect(pl1,pl2);
               
               overlap(ii,jj) = length(idx)/min(length(pl2),length(pl1));
-              if overlap(ii,jj)<self.overlapthres
+              if overlap(ii,jj)>self.overlapthres
                 newspots.PixelIdxList{jj} = setdiff(pl2,idx);
                 newspots.PixelIdxList{ii} = setdiff(pl1,idx);
               else

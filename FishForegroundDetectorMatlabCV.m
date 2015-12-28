@@ -39,9 +39,9 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
     function [bwimg, thres] = applyAutoThres(self,frame)
     % use the Autothresholder
       if self.inverted
-        [bwimg, thres] = cv.threshold(frame, 'auto', 'Method', 'Binary');
+        [bwimg, thres] = cv.threshold(frame, 'Otsu', 'Method', 'Binary');
       else
-        [bwimg, thres] = cv.threshold(frame, 'auto', 'Method', 'BinaryInv');
+        [bwimg, thres] = cv.threshold(frame, 'Otsu', 'Method', 'BinaryInv');
       end
     end
     

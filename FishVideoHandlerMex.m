@@ -29,6 +29,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     resizeif
     resizescale
     fixedSize 
+    difffeature
     
     inverted
     nskip
@@ -136,6 +137,13 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     end
     function set.resizeif(self,value);
       FishVideoHandler_(self.id, 'set', 'resizeif',value);
+    end
+    
+    function value = get.difffeature(self);
+      value = FishVideoHandler_(self.id, 'get', 'difffeature');
+    end
+    function set.difffeature(self,value);
+      FishVideoHandler_(self.id, 'set', 'difffeature',value);
     end
 
     function value = get.fixedSize(self);

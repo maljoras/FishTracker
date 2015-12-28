@@ -3,7 +3,7 @@ CFLAGS=-c -Wall -Wno-sign-compare  -I/usr/local/include/opencv -I/usr/local/incl
 
 LDFLAGS=   -L/usr/local/lib -lopencv_core -lopencv_objdetect -lopencv_video  -lopencv_imgproc -lopencv_highgui -lopencv_videoio -lstdc++  -lsigc-2.0  -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
 
-SOURCES=FrameRateCounter.cpp SaveVideoClass.cpp VideoHandler.cpp 
+SOURCES=src/FrameRateCounter.cpp src/SaveVideoClass.cpp src/VideoHandler.cpp 
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=VideoHandler
 
@@ -16,4 +16,4 @@ $(EXECUTABLE): $(OBJECTS)
 .cpp.o:
 	$(CC) $(CFLAGS) $< -o $@
 clean:
-	rm *.o VideoHandler
+	rm src/*.o VideoHandler

@@ -65,7 +65,7 @@ public:
     BackgroundThresholder();
     virtual ~BackgroundThresholder();
 
-    void apply(cv::Mat frame, cv::Mat * bwimg);
+    void apply(cv::Mat frame, cv::Mat * bwimg, cv::Mat * dframe);
     void clear(void);
     void setInverted(bool invertedif);
     int getNSkip(void);
@@ -172,6 +172,7 @@ public:
 private:
     
     void getSegment(Segment * segm, vector<cv::Point>inContour, cv::Mat inBwImg, cv::Mat inFrame,cv::Mat inOFrame);
+    void findFishContours(cv::Mat inBwImg, vector<vector<cv::Point> > * newcontours);
     void plotFrame(cv::Mat pFrame,const string windowName);
     bool testValid(Segment * pSeg);
     void initPars();
@@ -184,6 +185,7 @@ private:
     cv::Mat m_NextFrame;
     cv::Mat m_NextOFrame;
     cv::Mat m_NextBWImg;
+    cv::Mat m_NextDFrame;
     double m_NextTimeStamp;
     cv::Mat m_OFrame;
     cv::Mat m_Frame;
@@ -242,6 +244,7 @@ protected:
     int nprobe;
 
     bool colorfeature;
+    bool difffeature;
     int minWidth; // pixels for patch
     int minExtent;
     int maxExtent;

@@ -11,11 +11,13 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     resizescale = 1; 
     knnMethod = true;
     fixedSize = 0;  % NOT SUPORTED WITHOUT MEX
+    difffeature = false; % no supported
   end
   
   
   properties (SetAccess = private)
     detector;
+    bwmsk = [];
   end
   
   properties (Dependent)
@@ -61,6 +63,11 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
     function bool = isGrabbing(self);
       bool = false ; % not supported;
     end
+    
+    function bwmsk = getCurrentBWImg(self);
+      bwmsk = self.bwmsk;
+    end
+    
     
     function self = setOpts(self,opts)
     % to set the OPTIONS use the keywords "blob" "reader" and "detector"
@@ -132,7 +139,7 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
         oframe = frame;
       end
       bwmsk = self.detector.step(frame);
-      self.bwmsk = [];
+      self.bwmsk = bwmsk;
       
       if self.computeSegments
         segm = self.stepBlob(bwmsk,frame,oframe);

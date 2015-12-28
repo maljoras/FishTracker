@@ -2,6 +2,7 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
 % $$$   
    properties;
      range = [];
+     
    end
    
 % $$$     minArea  = [];
@@ -36,6 +37,7 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
         spots = bwimg;
       end
       rp = regionprops(spots,Iframe,[self.rprops,{'Image','MajorAxisLength','MinorAxisLength'}]);
+      
     end
     
     function [bb,center] = a_getMaxAreaRegion(self,bwimg);

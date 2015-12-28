@@ -218,7 +218,7 @@ classdef FishTracker < handle;
       
     %% Create a video file reader.
       self.videoHandler = [];
-      [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange,self.opts);
+      [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange);
       self.videoFile = vid;
       
       if self.stmif
@@ -255,8 +255,6 @@ classdef FishTracker < handle;
         self.nfish = nfish;
       end
       assert(self.fishlength>self.fishwidth);
-      
-      
     end
 
     
@@ -268,6 +266,7 @@ classdef FishTracker < handle;
       self.videoHandler.setCurrentTime(self.timerange(1));
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
+      self.videoHandler.setOpts(self.opts);
       self.videoHandler.initialize();
       
       
@@ -2285,7 +2284,7 @@ classdef FishTracker < handle;
       
       def.opts.blob.colorfeature = false; 
       doc.blob.colorfeature = {'Use color information for fish','feature'};
-      self.opts(1).classifier.learnDuringCrossings = 1; % use data from crossings for update
+
       def.opts.blob.difffeature = true; 
       doc.blob.difffeature = {'Use background subtracted gray' ...
                           'images for fish feature'};

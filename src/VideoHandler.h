@@ -50,6 +50,7 @@ public:
     double MinorAxisLength;
     double Area;
     double bendingStdValue;
+    double reversed;
     cv::Size2f Size;
 
     vector<double> Thickness;

@@ -20,8 +20,8 @@ map<int,Ptr<VideoHandler> > obj_;
 
 
 /// Field names for VideoHandler::Segments.
-#define NSEGMENTFIELD 20
-const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeature","FishFeatureRemapped","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize","FilledImageFixedSizeRotated"};
+#define NSEGMENTFIELD 21
+const char *segments_fields[NSEGMENTFIELD] = { "BoundingBox","Centroid","Area","Orientation","Size","MinorAxisLength","MajorAxisLength","Image","FilledImage","RotImage","RotFilledImage","FishFeature","FishFeatureRemapped","CenterLine","Thickness","mback","bendingStdValue","MSERregions","FilledImageFixedSize","FilledImageFixedSizeRotated","reversed"};
 
 /**
  * Main entry called from Matlab
@@ -117,6 +117,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 
 		    mxSetField(p,i,"FilledImageFixedSize",MxArray(segms[i].FilledImageFixedSize));
 		    mxSetField(p,i,"FilledImageFixedSizeRotated",MxArray(segms[i].FilledImageFixedSizeRotated));
+		    mxSetField(p,i,"reversed",MxArray(segms[i].reversed));
 		}
 		plhs[0] = p;
 	    }

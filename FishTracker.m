@@ -12,7 +12,8 @@ classdef FishTracker < handle;
                   'consequtiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
-                  'segment.MajorAxisLength','stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
+                  'segment.MajorAxisLength','segment.reversed',...
+                  'stmInfo'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
     stimulusPresenter = [];
 
 
@@ -221,7 +222,8 @@ classdef FishTracker < handle;
       self.videoHandler = [];
       [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange);
       self.videoFile = vid;
-      
+      self.setOpts();
+
       if self.stmif
         if isempty(self.stimulusPresenter) 
           self.stimulusPresenter = FishStimulusPresenter();
@@ -337,7 +339,7 @@ classdef FishTracker < handle;
       self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScalePreInit;
       
       if isempty(self.maxVelocity)
-        self.maxVelocity = self.fishlength*50; % Ucrit for sustained swimming is 20 BodyLength/s (see Plaut 2000). Thus set
+        self.maxVelocity = self.fishlength*80; % Ucrit for sustained swimming is 20 BodyLength/s (see Plaut 2000). Thus set
                                                % twice for short accelaration bursts
       end
     
@@ -1498,20 +1500,23 @@ classdef FishTracker < handle;
           vel = self.tracks(trackIdx).velocity; % already updated velocity 
           % check whether centerLIne is in the right direction
           p = centeredCenterLine * vel';
-          if sum(p(1:n2))<sum(p(n2:end))
+          if sum(p(1:n2))>sum(p(n2:end))
             %reverse
             centerLine = centerLine(end:-1:1,:);
             thickness = thickness(end:-1:1);
-            
+            self.segments(detectionIdx).reversed = 1;
             if self.opts.detector.fixedSize
               self.segments(detectionIdx).FilledImageFixedSizeRotated = ...
                   self.segments(detectionIdx).FilledImageFixedSizeRotated(:,end:-1:1,:);
             end
           
+          else
+            self.segments(detectionIdx).reversed = 0;
           end
         else
           centerLine = [];
           thickness = [];
+          self.segments(detectionIdx).reversed = 0; % could estimate this from Orientation ... not implemented yet
         end
         self.tracks(trackIdx).centerLine = centerLine;
         self.tracks(trackIdx).thickness = thickness;
@@ -1523,8 +1528,14 @@ classdef FishTracker < handle;
         else
           classprob = nan(1,self.nfish);
         end
-        self.tracks(trackIdx).classProb =  classprob;
-        self.tracks(trackIdx).classProbHistory.update(classprob, self.classProbNoise(detectionIdx));
+
+        if self.opts.classifier.discardPotentialReversed && self.segments(detectionIdx).reversed 
+          % not update.. fishfeature reversed (cannot be changed outside of mex)
+          self.tracks(trackIdx).classProbHistory.update(classprob, NaN);
+        else
+          self.tracks(trackIdx).classProb =  classprob;
+          self.tracks(trackIdx).classProbHistory.update(classprob, self.classProbNoise(detectionIdx));
+        end
         
         
         % Replace predicted bounding box with detected bounding box.
@@ -2307,6 +2318,9 @@ classdef FishTracker < handle;
       doc.classifier.learnDuringCrossings = {'Use data during crossings for ' ...
                           'classifier update'};
 
+      def.opts.classifier.discardPotentialReversed = true;
+      doc.classifier.discardPotentialReversed = {'Discard potential reversed during','classification (better ?)'};
+
       def.opts.classifier.npca = 40; 
       doc.classifier.npca = 'Number of PCA components';
 
@@ -2410,8 +2424,7 @@ classdef FishTracker < handle;
       self = self@handle();  
 
       self.opts = opts;
-      self.setupSystemObjects(vid);
-      self.setOpts(opts);      
+      self.setupSystemObjects(vid); % will call setOpts
       
     end
 
@@ -2484,12 +2497,12 @@ classdef FishTracker < handle;
         
         self.detectObjects();
         self.handleTracks();
-        
+
+        localTime = toc(localTimeReference);        
         if self.stmif && ~isempty(self.stimulusPresenter) 
-          self.tracks = self.stimulusPresenter.step(self.tracks,...
-                                                    self.videoHandler.frameSize,localTime);
+          self.tracks = self.stimulusPresenter.step(self.tracks,self.videoHandler.frameSize,localTime);
         end
-        localTime = toc(localTimeReference);
+
 
         if self.opts.tracks.withTrackDeletion
           savedTracks(1:length(self.tracks),s) = self.getCurrentTracks();
@@ -2519,8 +2532,7 @@ classdef FishTracker < handle;
         
         if ~mod(self.currentFrame,40) && ~isempty(self.tracks)
           t = datevec(seconds(self.videoHandler.getCurrentTime()));
-          verbose(['Currently at time %1.0fh %1.0fm %1.1fs                           ' ...
-                   '\r'],t(4),t(5),t(6));
+          verbose(['Currently at time %1.0fh %1.0fm %1.1fs                           \r'],t(4),t(5),t(6));
         end
       end
 

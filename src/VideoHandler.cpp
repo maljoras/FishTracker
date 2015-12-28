@@ -681,6 +681,8 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
   segm->Bbox = boundingRect(inContour);
   segm->Image = Mat(inBwImg(segm->Bbox)>0).clone();
 
+  segm->reversed = 0.; // dummmy;
+  
   if (colorfeature)  {
     segm->FilledImage = inOFrame(segm->Bbox).clone();
   }

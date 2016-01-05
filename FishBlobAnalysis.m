@@ -793,17 +793,21 @@ classdef FishBlobAnalysis < handle;
       if ~exist('verboseif','var')
         verboseif = 1;
       end
-      
-      if ~isempty(fishlength) && ~isempty(fishwidth) && verboseif
-        verbose('Initiated %s with fish features.',upper(class(self)))
-        verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
-      end
-      
+
       if ~isempty(fishlength)
         self.fishlength = fishlength;
       end
       if ~isempty(fishwidth)
         self.fishwidth = fishwidth;        
+      end
+
+      if ~isempty(self.fishlength) && ~isempty(self.fishwidth) 
+        if verboseif
+          verbose('Initiated %s with fish features.',upper(class(self)))
+          verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
+        end
+      else
+        error('Provide valid fishsizes');
       end
 
       

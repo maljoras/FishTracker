@@ -46,7 +46,6 @@ classdef FishClassProbHistory < handle;
       self.buffer = nan(self.nHistory,nfish);
       self.weightbuffer = nan(self.nHistory,1);
       self.movavg = zeros(1,nfish);
-      self.movavgLast = zeros(1,nfish);
       self.currentIdx = 0;
       self.age = 0;
       self.movage = 0;
@@ -54,17 +53,20 @@ classdef FishClassProbHistory < handle;
 
     
     
-    function update(self,vector,somenoiseval)
+    function reasonable = update(self,vector,somenoiseval)
       self.currentIdx = mod(self.currentIdx,self.nHistory) + 1;
       self.age = self.age +1;
       self.movage = self.movage +1;
       self.buffer(self.currentIdx,:) = vector(:)';
 
+
       if isnan(somenoiseval) || any(isnan(vector))
-        self.weightbuffer(self.currentIdx,1) = 0;
+        w = 0;
       else
-        self.weightbuffer(self.currentIdx,1) = exp(-somenoiseval/self.lambda);
+        w = exp(-somenoiseval/self.lambda);
       end
+      self.weightbuffer(self.currentIdx,1) = w;
+      reasonable = w>self.reasonableThres;
       
       if self.movage >= self.tau
         p =  self.weightbuffer(self.currentIdx)/self.tau;
@@ -72,13 +74,16 @@ classdef FishClassProbHistory < handle;
         p =  1/min(self.tau,self.movage);
       end
       
-      self.movavgLast = self.movavg;
-      self.movavg = nansum([self.movavg*(1-p); p*self.buffer(self.currentIdx,:)]);
+      x = self.buffer(self.currentIdx,:);
+      if any(isnan(x))
+        x(isnan(x)) = self.movavg(isnan(x));
+      end
+      self.movavg = self.movavg*(1-p) +  p*x;
     
       % also update lambda 
-      if ~isinf(self.taulambda)
+      if ~isnan(somenoiseval) 
         p =  1/self.taulambda;
-        self.lambda = nansum([self.lambda*(1-p),p*somenoiseval]);
+        self.lambda = self.lambda*(1-p) + p*somenoiseval;
       end
       
     end
@@ -110,20 +115,12 @@ classdef FishClassProbHistory < handle;
       
     end
 
-    function mclassProb = leakyMaxProb(self,omitLatestIf)
-      if nargin>1 && omitLatestIf
-        mclassProb = max(self.movavgLast);
-      else
-        mclassProb = max(self.movavg);
-      end
+    function mclassProb = leakyMaxProb(self)
+      mclassProb = max(self.movavgLast);
     end
     
-    function mclassProb = leakyMean(self,omitLatestIf)
-      if nargin>1 && omitLatestIf
-        mclassProb = self.movavgLast;
-      else
-        mclassProb = self.movavg;
-      end
+    function mclassProb = leakyMean(self)
+      mclassProb = self.movavg;
     end
     
     function id = leakyID(self)
@@ -131,20 +128,12 @@ classdef FishClassProbHistory < handle;
       [~,id] = max(mClassProb);
     end
       
-    function [mclassProb usedN] = mean(self,N,omitLatestIf)
-    % MCLASSPROB = MEAN(SELF,N,OMITLATESTIF) returns the weighted mean
-    % class prob for the last N steps (omitting the latest prob if
-    % OMITLATESTIF is set, default: OMITLATESTIF==0).
-      
-      if nargin<3
-        omitLatestIf = 0;
-      end
+    function [mclassProb usedN] = mean(self,N)
+    % MCLASSPROB = MEAN(SELF,N) returns the weighted mean
+    % class prob for the last N steps 
       
       [cl,w] = self.getData(N);
-      if omitLatestIf
-        cl = cl(1:end-1,:);
-        w = w(1:end-1,:);
-      end
+
       msk = w>self.reasonableThres;
       w = w(msk);
       

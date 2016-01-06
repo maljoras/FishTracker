@@ -72,6 +72,14 @@ FLYCAPFLAGS =  -lsigc-2.0 -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycaptur
 SAR = $(SRCDIR)/strucarr2strucmat.c
 SARTARGET = $(TARGETDIR)/strucarr2strucmat.$(MEXEXT)
 
+# pdist
+PDIST = $(SRCDIR)/pdist2Euclidean.c
+PDISTTARGET = $(TARGETDIR)/pdist2Euclidean.$(MEXEXT)
+
+# pcenterlinedist
+PCLDIST = $(SRCDIR)/pdist2CenterLine.c
+PCLDISTTARGET = $(TARGETDIR)/pdist2CenterLine.$(MEXEXT)
+
 
 # mexopencv files and targets
 HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
@@ -103,7 +111,7 @@ override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPFLAGS)
 
 
 # targets
-all: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) $(SARTARGET)
+all: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET)
 
 $(SAVEVIDEOOBJ1): $(SAVEVIDEOSRC1)
 	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $<
@@ -126,6 +134,12 @@ $(TARGETS2): $(SRCS3)
 $(SARTARGET): $(SAR)
 	$(MEX) -largeArrayDims -output $(SARTARGET) $< 
 
+$(PDISTTARGET): $(PDIST)
+	$(MEX) -largeArrayDims -output $(PDISTTARGET) $< 
+
+$(PCLDISTTARGET): $(PCLDIST)
+	$(MEX) -largeArrayDims -output $(PCLDISTTARGET) $< 
+
 clean:
-	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS) $(TARGETDIR)/$(SAVEVIDEOOBJ) $(TARGETDIR)/$(SAVEVIDEOOBJ1) $(TARGETDIR)/$(SARTARGET)
+	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS) $(TARGETDIR)/$(SAVEVIDEOOBJ) $(TARGETDIR)/$(SAVEVIDEOOBJ1) $(TARGETDIR)/$(SARTARGET) $(TARGETDIR)/$(PDISTTARGET) $(TARGETDIR)/$(PCLDISTTARGET)
 

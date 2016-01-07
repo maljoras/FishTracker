@@ -3,7 +3,7 @@ classdef FishClassProbHistory < handle;
   
   
   properties 
-    nHistory = 500;
+    nHistory = 2000;
     lambda = 1.5;
     tau = 10; % for moving average (step==frame)
     taulambda = 100; % for lambda adjustements. Set to Inf if not wanted

@@ -596,13 +596,27 @@ classdef FishTracker < handle;
     end
 
     
-    function nc = connectedComponents(self,trackIndices,assignedFishIds)
+    function [nc,ncidx] = connectedComponents(self,trackIndices,assignedFishIds)
       oldFishIds = [self.tracks(trackIndices).fishId];
       A = zeros(self.nfish);
       A(sub2ind(size(A),oldFishIds,assignedFishIds)) = 1;
       [~,~,nc] = networkComponents(A | A');
-      nc(cellfun('length',nc)==1) = []; % delete self-components
-    
+      % delete self-components
+      nc(cellfun('length',nc)==1) = []; 
+      
+      % recode into the trackIndex
+      ncidx = cell(size(nc));
+      for i = 1:length(nc)
+        ncidx{i} = find(ismember(oldFishIds,nc{i}));
+      end
+      
+      % add those single components which are actually present
+      idx = find(oldFishIds == assignedFishIds);
+      for i = 1:length(idx)
+        ncidx{end+1} = idx(i);
+        nc{end+1} = oldFishIds(idx(i));
+      end
+      
     end
       
     function switchFish(self,trackIndices,assignedFishIds,crossingflag)
@@ -626,7 +640,7 @@ classdef FishTracker < handle;
       self.uniqueFishFrames = 0;
       
       % check whether it is only swapping
-      nc = self.connectedComponents(trackIndices,assignedFishIds);
+      [nc ncidx]= self.connectedComponents(trackIndices,assignedFishIds);
 
       % build Gaussian kernel
       sigma = self.tracks(1).classProbHistory.tau; % same for dist/clprob based
@@ -639,29 +653,32 @@ classdef FishTracker < handle;
       %% switch the tracks for each connected component
       f2t = self.fishId2TrackId;
       pos = self.pos;
+      self.resetBatchIdx(trackIndices); % reset for all
+      
+      for i = 1:length(ncidx)
+        idx = ncidx{i};
 
-      for i = 1:length(nc)
-        msk = ismember(oldFishIds,nc{i});
+        tminfinal = calcDistanceBasedSwitchPoint(trackIndices(idx),assignedFishIds(idx));
+        tminfinalp = calcClassProbBasedSwitchPoint(trackIndices(idx),assignedFishIds(idx));
 
         if crossingflag
-          tmin = calcDistanceBasedSwitchPoint(trackIndices(msk),assignedFishIds(msk));
+          verbose('Using Dist.');
         else
-          tmin = calcClassProbBasedSwitchPoint(trackIndices(msk),assignedFishIds(msk));
+          tminfinal = tminfinalp;
+          verbose('Using ClassProb.');
         end
         
-        idx = find(msk);
-        t = tmin:self.currentFrame;        
+        t = tminfinal:self.currentFrame;        
         % swap
         for j = idx(:)'
           self.fishId2TrackId(t,assignedFishIds(j)) = f2t(t,oldFishIds(j));
           self.pos(:,assignedFishIds(j),t) = pos(:,oldFishIds(j),t);
           self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
-          self.resetBatchIdx(trackIndices(j)); 
         end
       end
       
       
-      function tmin = calcDistanceBasedSwitchPoint(inTrackIndices,inAssignedFishIds)
+      function tminOut = calcDistanceBasedSwitchPoint(inTrackIndices,inAssignedFishIds)
       % to be called from switchFish: calculated the end point based on the distance of
       % the tracks. It is assumed that the given indices are only ONE permutation
         localOldFishIds = [self.tracks(inTrackIndices).fishId];
@@ -670,8 +687,8 @@ classdef FishTracker < handle;
         % should be the same crossing, since we expect just one fully connected component
         if isempty([self.tracks(inTrackIndices).crossedTrackIds])
           % not currently crossing. Thus: compute from current frame
-          tend = tcurrent;
           tstart = max([self.tracks(inTrackIndices).lastFrameOfCrossing]);
+          tend = tcurrent;
         else
           % during the crossing
           tstart = min([self.tracks(inTrackIndices).firstFrameOfCrossing]);
@@ -685,13 +702,13 @@ classdef FishTracker < handle;
         cdist = cdist(2*g2:end-2*g2+1,:);
         mdist = mean(cdist,2); %just one component and symmetric distance. 
         [~,tminsub] = min(mdist);
-        tmin = tstart + tminsub-1;
+        tminOut = tstart + tminsub-1;
 
-        verbose('N(dist) = %d',tmin-tcurrent);
+        verbose('N(dist) = %d',tminOut-tcurrent);
       
       end % nested function
         
-      function tmin = calcClassProbBasedSwitchPoint(inTrackIndices,inAssignedFishIds)
+      function tminOut = calcClassProbBasedSwitchPoint(inTrackIndices,inAssignedFishIds)
       % get time from classification accuracy 
         
         localOldFishIds = [self.tracks(inTrackIndices).fishId];
@@ -716,18 +733,18 @@ classdef FishTracker < handle;
         % zeros. Otherwise the convolution boundary will fail..
         mpdiff = mean(pdiff,2);
         if mpdiff(end)<0
-          idx = find(mpdiff>0,1,'last');
-          mpdiff(idx:end) = mpdiff(idx);
+          idx1 = find(mpdiff>0,1,'last');
+          mpdiff(idx1:end) = mpdiff(idx1);
         end
         
         mpdiff = [mpdiff(1)*ones(g2,1);mpdiff;mpdiff(end)*ones(g2,1)];
         cpdiff = conv2(mpdiff,G);
         cpdiff = cpdiff(2*g2:end-2*g2+1);
         
-        tpmin = find(cpdiff(end:-1:1)<=nanmean(cpdiff),1,'first');
-        tmin = tcurrent-tpmin+1; 
+        tminsub = find(cpdiff(end:-1:1)<=nanmean(cpdiff),1,'first');
+        tminOut = tcurrent-tminsub+1; 
 
-        verbose('N(clprob) = %d',tmin-tcurrent);
+        verbose('N(clprob) = %d',tminOut-tcurrent);
 
         
       end % nested function
@@ -742,7 +759,7 @@ classdef FishTracker < handle;
 
 
     
-    function changed = fishClassifierUpdate(self,trackIndices,updateif,forceif)
+    function changed = fishClassifierUpdate(self,trackIndices,updateif)
     % updates and tests the collected features according to the current fishIDs. It does NOT
     % force and update, update is only done if the batch is likly to come from the true
     % fish. In case a valid permutation is detected and reassignProb is higher than a
@@ -753,34 +770,53 @@ classdef FishTracker < handle;
       fishIds = cat(2,self.tracks(trackIndices).fishId);
       changed = 0;
       % test on the whole set of possible fishIds
-      [assignedFishIds prob minsteps probdiag] = self.predictFish(trackIndices,...
-                                                        1:self.nfish,self.opts.classifier.nFramesForSingleUpdate);
+      [assignedFishIds prob steps probdiag] = self.predictFish(trackIndices,1:self.nfish,...
+                                                        self.opts.classifier.nFramesForSingleUpdate);
       same = assignedFishIds==fishIds; 
 
-      if updateif && all(same) || self.enoughEvidenceForForcedUpdate(prob,minsteps,probdiag) 
+      if updateif && (all(same) || self.enoughEvidenceForForcedUpdate(prob,steps,probdiag))
         % do not update if classes might be mixed up (wait for more data)
         % change classifier
         feat = self.getFeatureDataFromTracks(trackIndices);
         [assignedFishIds prob] = self.fishClassifier.batchUpdate(fishIds,feat,1); % force
         self.resetBatchIdx(trackIndices);
+        self.uniqueFishFrames = 0;
         changed  = 1;
         return
       end
       
-      if length(same)>1 && ~all(same) &&  (forceif || self.enoughEvidenceForReassignment(prob,minsteps,probdiag))
+      %we here also check whether some unaccounted switching occurred (maybe outside of
+      %a crossing)
+      if length(same)>1 && ~all(same) 
+        % we have some mixed classes 
 
-        verbose('mixed and min prob is %1.2f',min(prob));
-        if all(ismember(assignedFishIds,fishIds))
-          % only permute if true permutation  
-          verbose('Switching fish with fishClassifierUpdate')
-          self.switchFish(trackIndices,assignedFishIds,self.opts.tracks.purelyDistanceBasedSwitching);
-          self.resetBatchIdx(trackIndices);
-          changed = 1;
-        else
-          verbose('like to switch fish, but could not find a permutation.');
+        % might be some NaNs...
+        msk = ~isnan(assignedFishIds);
+        trackIndices = trackIndices(msk);
+        assignedFishIds = assignedFishIds(msk);
+        prob = prob(msk);
+        probdiag = probdiag(msk);
+        steps = steps(msk);
+        fishIds = cat(2,self.tracks(trackIndices).fishId);
+        
+        [nc,ncidx] = connectedComponents(self,trackIndices,assignedFishIds);
+        
+        for i = 1:length(ncidx)
+          if length(ncidx{i})==1
+            continue;
+          end
+          idx = ncidx{i};
+          if all(ismember(nc{i},fishIds)) ...
+              && (self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx)))
+
+            % only permute if true permutation and enough evidence
+            verbose('Switching fish with fishClassifierUpdate [%1.2f,%d]',min(prob(idx)),min(steps(idx)))
+
+            self.switchFish(trackIndices(idx),assignedFishIds(idx),self.opts.tracks.purelyDistanceBasedSwitching);
+            changed = 1;
+            self.uniqueFishFrames = 0;
+          end
         end
-      elseif length(same)>1 && ~all(same) 
-        verbose('considered not mixed: min prob is %1.2f\r',min(prob));
       end
       
     end
@@ -864,34 +900,30 @@ classdef FishTracker < handle;
       
     end
     
-    function  [assignedFishIds, prob, minsteps, probdiag] = predictFish(self,trackIndices,fishIdSet,maxSteps);
+    function  [assignedFishIds, prob, steps, probdiag] = predictFish(self,trackIndices,fishIdSet,maxSteps);
     % predicts the fish according to the values saved in the classProbHistory up to the lastFrameOfCrossing
       
       %assumedFishIds = [self.tracks(trackIndices).fishId];
       % feat = self.getFeatureDataFromTracks(trackIndices);
       % [assignedFishIds1,prob1] = self.fishClassifier.predictPermutedAssignments(feat,assumedFishIds);
     
-      % we could also use the class probhistory
+      % we instead use the classProbHistory (instead of testing again)
       C = zeros(length(trackIndices),length(fishIdSet));
-      minsteps = maxSteps;   
 
       assignedFishIds = nan(size(trackIndices));
       prob = nan(size(assignedFishIds));
       probdiag = nan(size(assignedFishIds));
-
+      steps = nan(size(assignedFishIds));
       
       for i = 1:length(trackIndices)
         track = self.tracks(trackIndices(i));
-        nsteps = max(self.currentFrame-track.lastFrameOfCrossing,1);
+        nsteps = min(max(self.currentFrame-track.lastFrameOfCrossing,1),maxSteps);
         [p nsteps] = track.classProbHistory.mean(nsteps);
-        minsteps = min(nsteps,minsteps);
-        
-        if minsteps==0
-          return;
-        end
-        
+        steps(i) = nsteps;
         C(i,:) = 1-p(fishIdSet);
       end
+      C(isnan(C)) = Inf;
+      
       assignments = assignDetectionsToTracks(C',2);
       
       assignedFishIds(assignments(:,2)) = fishIdSet(assignments(:,1)); % fishIDs have 1:nfish order
@@ -902,32 +934,32 @@ classdef FishTracker < handle;
     end
 
     
-    function bool = enoughEvidenceForReassignment(self,prob,minsteps,probdiag)
+    function bool = enoughEvidenceForReassignment(self,prob,steps,probdiag)
       if any(isnan(prob))
         bool = false;
       else
-        bool = min(prob)>self.opts.classifier.reassignProbThres && minsteps>=self.opts.classifier.minBatchN;
+        bool = min(prob)>self.opts.classifier.reassignProbThres && min(steps)>=self.opts.classifier.minBatchN;
       end
     end
     
-    function bool = enoughEvidenceForForcedUpdate(self,prob,minsteps,probdiag)
+    function bool = enoughEvidenceForForcedUpdate(self,prob,steps,probdiag)
       if any(isnan(prob)) || length(prob)~=self.nfish
         bool = false;
       else
-        bool = minsteps >= self.opts.classifier.nFramesAfterCrossing;
+        bool = min(steps) >= self.opts.classifier.nFramesAfterCrossing;
         bool = bool && max(prob)<=self.opts.classifier.reassignProbThres;
       end
       
       
     end
     
-    function bool = enoughEvidenceForBeingHandled(self,prob,minsteps,probdiag)
+    function bool = enoughEvidenceForBeingHandled(self,prob,steps,probdiag)
       if any(isnan(prob))
         bool = false;
       else
         bool = (min(prob)>self.opts.classifier.reassignProbThres ...
-                && minsteps>=self.opts.classifier.nFramesAfterCrossing) ... 
-               || minsteps>=self.opts.classifier.nFramesForUniqueUpdate; % to avoid very long crossings
+                && min(steps)>=self.opts.classifier.nFramesAfterCrossing) ... 
+               || min(steps)>=self.opts.classifier.nFramesForUniqueUpdate; % to avoid very long crossings
       end
     end
     
@@ -992,54 +1024,58 @@ classdef FishTracker < handle;
         crossedFishIds = unique(crossedFishIds)';
 
         assumedFishIds = fishIds(thisTrackIndices);
-        if ~all(ismember(assumedFishIds,crossedFishIds))
-          %shoudl no happen because fishIDs swapping should be blocked
-          %during crossing
-          keyboard;
-        end
 
+        %this should no happen because fishIDs swapping should be blocked during crossing
+        assert(all(ismember(assumedFishIds,crossedFishIds)));
+        
 
         % we force the permutation to be in the valiud fish only (otherwise too many errors for many fish)
-        [assignedFishIds prob minsteps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,...
+        [assignedFishIds prob steps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,...
                                                           self.opts.classifier.nFramesForUniqueUpdate); 
         
         if  all(ismember(assignedFishIds,assumedFishIds)) 
-          % we have a valid permutation and enough confidence (or the very same ordering)
-          nc = self.connectedComponents(thisTrackIndices,assignedFishIds);
+          % we have a valid assignment (note that it is always a permutation inside
+          % those that cross because that is guaranteed in predictFish)
+          [nc ncidx] = self.connectedComponents(thisTrackIndices,assignedFishIds);
           
-          for i_nc = 1:length(nc)
-            msk = ismember(assumedFishIds,nc{i_nc});
+          for i_nc = 1:length(ncidx)
+            idx = ncidx{i_nc};
             
-            if self.enoughEvidenceForReassignment(prob(msk),minsteps,probdiag(msk))
-              % permutation : switch tracks and delete from others. 
-              verbose('valid permutation.. switch...')
-              self.switchFish(thisTrackIndices(msk),assignedFishIds(msk),true); % set the crossing flag
-              deleteCrossedTrackIds(thisTrackIndices(msk));
+            if length(idx)==1 
+              % identity 
+              if  self.enoughEvidenceForBeingHandled(prob(idx),steps(idx),probdiag(idx)) ...
+                  || length(self.tracks(thisTrackIndices(idx)).crossedTrackIds)<=1
+                % delete from crossings
+                deleteCrossedTrackIds(thisTrackIndices(idx));
+              end
+            else
+              % permutation
+              
+              if self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx))
+                % enough evidence switch tracks and delete from others. 
+                verbose('valid permutation [%1.2f,%d]: switch...',min(prob(idx)),min(steps(idx)))
+                self.switchFish(thisTrackIndices(idx),assignedFishIds(idx),true); % set the crossing flag
+
+                % SHOULD WE TEST THIS AGAIN FOR HANDLING ? 
+                if  self.enoughEvidenceForBeingHandled(prob(idx),steps(idx),probdiag(idx))
+                  deleteCrossedTrackIds(thisTrackIndices(idx));
+                end
+              end
             end
           end
-          equalIndices = find(assignedFishIds == assumedFishIds);
-          for i = equalIndices(:)'
-            if self.enoughEvidenceForReassignment(prob(i),minsteps,probdiag(i)) ...
-                || length(self.tracks(thisTrackIndices(i)).crossedTrackIds)==1
-              deleteCrossedTrackIds(thisTrackIndices(i));
-            end
-          end
-% $$$           
-% $$$           if isempty(nc) && self.enoughEvidenceForBeingHandled(prob,minsteps,probdiag)
-% $$$             % signal that things are handled if enough confidence
-% $$$             deleteCrossedTrackIds(thisTrackIndices);
-% $$$           end
-% $$$           
-        else
-          % now the assignedFishIds are outside of the assumedFishIds but still insight the possible crossed. That
-          % means that there is at least another fish involved in the crossing. (see above the asssumedFishIds are
-          % necessaryly in the crossed, so we do not need to account for that problem)
           
-          % wait. Will trigger next time
+        else
+          % Still inside the fishID previously involved in the crossing. We better put
+          % the track back into the crossing
+          if ~any(isnan(prob))
+            verbose('Put tracks back into crossings!')
+            fishIds = [self.tracks.fishId];
+            self.crossings{end +1 } = find(ismember(fishIds,crossedFishIds));
+          end
+          % wait will trigger next time frame
           for i = thisTrackIndices(:)'
             self.tracks(i).lastFrameOfCrossing = self.tracks(i).lastFrameOfCrossing+ 1;
           end
-          verbose('wait for others to exit crossing\r')
         end
 
       end
@@ -1190,16 +1226,10 @@ classdef FishTracker < handle;
         handledIndices = find(handled);
         [misif,pdiff] = self.testTrackMisalignment(handledIndices);
         if misif 
-          if pdiff < self.opts.classifier.reassignProbThres
-            verbose('Probably misaligned (%1.2f): better test again and switch..\r',pdiff);
-            forceif = 0;
-          else
-            verbose('Surely misaligned (%1.2f): try to force switch..',pdiff);
-            forceif = 1;
-          end
-          if self.fishClassifierUpdate(handledIndices,0,forceif); % use function for testing/switching 
-            self.uniqueFishFrames = 0;
-          end
+
+          verbose('Probably misaligned (%1.2f): better test again..',pdiff);
+          self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
+        
         end
       end
       
@@ -1207,7 +1237,7 @@ classdef FishTracker < handle;
         
       %% unique fish update
       if (self.uniqueFishFrames-1 > self.opts.classifier.nFramesForUniqueUpdate)  && allhandled
-        if self.fishClassifierUpdate(1:length(self.tracks),1,0);
+        if self.fishClassifierUpdate(1:length(self.tracks),1);
           verbose('Performed unique frames update.\r')
         end
         self.uniqueFishFrames = 0; % anyway reset;
@@ -1218,9 +1248,9 @@ classdef FishTracker < handle;
       enoughData =  [self.tracks.nextBatchIdx] > self.opts.classifier.nFramesForSingleUpdate;
       singleUpdateIdx = find(handled & enoughData);
       if ~isempty(singleUpdateIdx)
-        if ~self.fishClassifierUpdate(singleUpdateIdx,1,0) 
+        if ~self.fishClassifierUpdate(singleUpdateIdx,1) 
           if  allhandled
-            self.fishClassifierUpdate(1:length(self.tracks),0,0); % something might be wrong. Try all
+            self.fishClassifierUpdate(1:length(self.tracks),0); % something might be wrong. Try all
           end
           self.resetBatchIdx(singleUpdateIdx); % anyway reset          
         else
@@ -1234,10 +1264,7 @@ classdef FishTracker < handle;
     function cleanupCrossings(self)
       %switch if necessary
       trackIndices = 1:length(self.tracks);
-      [assignedFishIds,prob,~,probdiag] = self.predictFish(trackIndices,1:self.nfish,Inf);
-      if self.enoughEvidenceForReassignment(prob,Inf,probdiag)
-        self.switchFish(trackIndices,assignedFishIds,self.opts.tracks.purelyDistanceBasedSwitching);
-      end
+      self.fishClassifierUpdate(trackIndices,0);
     end
     
 
@@ -1331,7 +1358,7 @@ classdef FishTracker < handle;
               %dst = bsxfun(@rdivide,dst,thresDist).^2;
               dst = (dst/thresDist).^2;
 
-              dst(dst>5) = 5;
+              dst(dst>highCost) = highCost;
               
               fcost(:,:,k) = dst;
 
@@ -1356,7 +1383,7 @@ classdef FishTracker < handle;
                 %dst = bsxfun(@rdivide,dst,thresDist).^2; % better square?
                 dst = (dst/thresDist).^2; % better square?
 
-                dst(dst>5) = 5;
+                dst(dst>highCost) = highCost;
               
                 % makes not sense to compare the distance to others if one is nan
                 dst(nidx,:) = 1;
@@ -1804,13 +1831,15 @@ classdef FishTracker < handle;
           
         self.tracks = self.tracks(~lostInds);
 
+        % WE SHOULD PROB AVOID DELTEING TRACKS CURRENTLY CROSSING !
         %delete the track ids from the crossings
         for i = 1:length(self.tracks)
           self.tracks(i).crossedTrackIds = setdiff(self.tracks(i).crossedTrackIds,lostTrackIds);
-% $$$           if ~isempty(setdiff(self.tracks(i).crossedTrackIds,lostTrackIds))
-% $$$             self.tracks(i).crossedTrackIds = []; % we have to delete all the
-% $$$                                                  % crossings. otherwise mixup happens
-% $$$           end
+
+    % $$$           if ~isempty(setdiff(self.tracks(i).crossedTrackIds,lostTrackIds))
+    % $$$             self.tracks(i).crossedTrackIds = []; % we have to delete all the
+    % $$$                                                  % crossings. otherwise mixup happens
+    % $$$           end
         end
       
         verbose('Deleted %d tracks',sum(lostInds));
@@ -2455,7 +2484,7 @@ classdef FishTracker < handle;
       doc.detector.inverted = {'Set 1 for IR videos (white fish on ' ...
                           'dark background)'};
       
-      def.opts.detector.adjustThresScale = 0.91;   
+      def.opts.detector.adjustThresScale = 0.92;   
       doc.detector.adjustThresScale = {'0..1 : reduce to avoid many wrong ' ...
                           ' detections in case of the','thresholder'};
 
@@ -2495,7 +2524,7 @@ classdef FishTracker < handle;
       doc.classifier.bendingThres = {'For exclusion of features for ' ...
                           'classfication'};
 
-      def.opts.classifier.reassignProbThres = 0.45; 
+      def.opts.classifier.reassignProbThres = 0.3; %0.45
       doc.classifier.reassignProbThres = {'minimal probability for ' ...
                           'reassignment/crossing exits'};
       
@@ -2544,11 +2573,11 @@ classdef FishTracker < handle;
       doc.tracks.tauVelocity = {'Time constant to compute the ' ...
                           'velocity [nFrames]'};
       
-      def.opts.tracks.probThresForFish = 0.25;
+      def.opts.tracks.probThresForFish = 0.2; % .25
       doc.tracks.probThresForFish = {'Classification probability to ' ...
                           'assume a fish feature'};
       
-      def.opts.tracks.crossBoxLengthScale = 1; 
+      def.opts.tracks.crossBoxLengthScale = 0.5; %1 
       doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded' ...
                           'as a crossing'};
 

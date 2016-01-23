@@ -1,11 +1,12 @@
 LOAD = 1;
-PLOT = 1;
-SAVEIF = 1;
+PLOT = 0;
+SAVEIF = 0;
+
 if LOAD
 
   %id = load('~/work/projects/zebra/trackering/trajectories.mat');
-  id = load('~/Videos/segm/trajectories.mat');
-  idres.pos = permute(id.trajectories,[1,3,2]);
+  %id = load('~/Videos/segm/trajectories.mat');
+  %idres.pos = permute(id.trajectories,[1,3,2]);
 
   vid = '/home/malte/Videos/5Zebrafish_nocover_22min.avi';  
   ft = FishTracker(vid,'detector.adjustThresScale',1,'nfish',5,'classifier.reassignProbThres',0.3,...

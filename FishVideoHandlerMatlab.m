@@ -1,4 +1,4 @@
-classdef FishVideoHandlerMatlab < handle & FishVideoReader & FishBlobAnalysisMatlab
+classdef FishVideoHandlerMatlab < handle & FishVideoReaderMatlab & FishBlobAnalysisMatlab
 %FISHVIDEOHANDER  wrapper class
 %
 % Class for video reading of the FishTracker
@@ -6,9 +6,10 @@ classdef FishVideoHandlerMatlab < handle & FishVideoReader & FishBlobAnalysisMat
 %
 
   properties
-    computeSegments = true; % NOT SUPORTED
-    resizeif = 0; % % NOT SUPORTED
-    resizescale = 1; % NOT SUPORTED
+    computeSegments = true; 
+    resizeif = 0; 
+    resizescale = 1;
+    
     knnMethod = false;% NOT SUPORTED
     fixedSize = 0;  % NOT SUPORTED WITHOUT MEX
     difffeature = false; % no supported
@@ -24,11 +25,15 @@ classdef FishVideoHandlerMatlab < handle & FishVideoReader & FishBlobAnalysisMat
 
   methods
     
-    function self = FishVideoHandlerMatlab(vidname,timerange,opts)
+    function self = FishVideoHandlerMatlab(vidname,timerange,useKnn,opts)
     %VIDEOCAPTURE  Create a new FishVideoHandler object
     %
+      if useKnn
+        error('knn method not supported in Matlab');
+      end
+      
       self@FishBlobAnalysisMatlab(); 
-      self@FishVideoReader(vidname,timerange);  %%% SOMEHOW
+      self@FishVideoReaderMatlab(vidname,timerange);  %%% SOMEHOW
                                                   %%% MATALB READER
                                                   %%% DOES
                                                   %%% NOT WORK ?!?
@@ -77,6 +82,10 @@ classdef FishVideoHandlerMatlab < handle & FishVideoReader & FishBlobAnalysisMat
 
       self.frameFormat = [self.grayFormat,self.detector.expectedFrameFormat];
     end
+    
+    function plotting(self,bool);
+    % plotting not implemented...
+    end
 
     
     function [segm,bwmsk,frame,varargout] = step(self)
@@ -89,15 +98,27 @@ classdef FishVideoHandlerMatlab < handle & FishVideoReader & FishBlobAnalysisMat
       if nargout>3 || self.colorfeature
         self.originalif = true; 
         [frame,oframe] = self.readFrame();            
+        if self.resizeif
+          oframe = imresize(oframe,self.resizescale);
+          frame = imresize(frame,self.resizescale);
+        end
         varargout{1} = oframe;
       else
         self.originalif = false;
         frame = self.readFrame();
+        if self.resizeif
+          frame = imresize(frame,self.resizescale);
+        end
         oframe = frame;
       end
+            
       
       bwmsk = self.detector.step(frame);
-      segm = self.stepBlob(bwmsk,frame,oframe);
+      if self.computeSegments
+        segm = self.stepBlob(bwmsk,frame,oframe);
+      else
+        segm = [];
+      end
     end        
 
     %% detector methods

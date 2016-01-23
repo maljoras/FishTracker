@@ -31,7 +31,7 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
     
     function rp = a_getRegions(self,bwimg,Iframe,rprops);
       if ~isstruct(bwimg)
-        bwimg = bwareaopen(bwimg,self.minArea); % needed ?
+        %bwimg = bwareaopen(bwimg,self.minArea); % needed ?
         spots=bwconncomp(bwimg,8);
       else
         spots = bwimg;

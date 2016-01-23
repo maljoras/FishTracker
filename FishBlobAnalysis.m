@@ -4,7 +4,7 @@ classdef FishBlobAnalysis < handle;
     
     rprops = {'Centroid','BoundingBox','Orientation','Area'};
 
-    computeMSER = 1;
+    computeMSER = 0;
     minMSERDistance = 3; % in pixels
     computeMSERthres = 3; % when to compute MSER (extent larger than computerMSERthres*fishwidth*fishlength)
     overlapthres = 0.8;
@@ -278,6 +278,9 @@ classdef FishBlobAnalysis < handle;
       if ~isfield(regions,'Size');
         [regions.Size] = deal([]);
       end
+      if ~isfield(regions,'reversed');
+        [regions.reversed] = deal(0);
+      end
       
       
       for i = 1:length(regions)
@@ -415,8 +418,12 @@ classdef FishBlobAnalysis < handle;
           newspots.NumObjects = length(newspots.PixelIdxList);
 
           newrp = regionprops(newspots,Iframe,[self.rprops,{'Image','MajorAxisLength','MinorAxisLength'}]);
-          newrp = self.getMoreFeatures(newrp,Iframe, Cframe);
-          newrplist = cat(1,newrplist, newrp);
+          newrp(~cat(1,newrp.Area)) = [];
+          if ~isempty(newrp)
+            newrp = self.getMoreFeatures(newrp,Iframe, Cframe);
+            newrplist = cat(1,newrplist, newrp);
+          end
+          
           
         end
         
@@ -437,6 +444,8 @@ classdef FishBlobAnalysis < handle;
           rp = [rp;rpnew];
         end
       end
+      
+     
     end
     
     
@@ -466,7 +475,7 @@ classdef FishBlobAnalysis < handle;
         segments(i).FishFeature = [];
         segments(i).bendingStdValue = [];
 
-
+        
     % $$$         if ~isempty(seg.MSERregions)
     % $$$           oimg = seg.FilledImage2x;
     % $$$           if self.colorfeature && isfield(seg,'FilledImageCol2x')

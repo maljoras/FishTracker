@@ -11,6 +11,7 @@ classdef FishBatchClassifier < handle;
     featdim = [];
     outliersif = 0;
     plotif = 0;
+    tau = Inf; % in fact 1/tau in frames
   end
 
   properties (SetAccess = private)
@@ -277,13 +278,14 @@ classdef FishBatchClassifier < handle;
         mu_old = self.mu(idx,:);
         Sigma_old = self.Sigma(:,:,idx);
         b = size(X{s},1);
-        n = self.n(idx);
+        n = min(self.n(idx),self.tau);
         
         % UPDATE WITH WEIGHT ACCORDING TO PROB WOULD BE BETTER (LIKE KALMAN GAIN)
         mu_new = n/(n+b)*mu_old + sum(X{s},1)/(b+n);
         self.Sigma(:,:,idx)  = n/(n+b)*(Sigma_old + mu_old'*mu_old) + X{s}'*X{s}/(n+b) - mu_new'*mu_new;
         self.mu(idx,:) = mu_new;
         self.n(idx) = n + b;
+        
         
         self.updatePars(idx);
       end

@@ -192,6 +192,13 @@ classdef FishVideoReader < handle;
       tmp = dlmread(tfile);
       self.tframe = tmp(:,3)-tmp(1,3);
     end
+  
+    function startReader(self)
+      self.a_startReader();
+    end
+
+
+  
   end
   
   
@@ -231,7 +238,7 @@ classdef FishVideoReader < handle;
         end
       end
       
-      self.a_startReader();
+      self.startReader();
       self.init();
 
       if nargin==1

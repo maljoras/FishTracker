@@ -12,8 +12,6 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
 %   sudo sysctl -w vm.max_map_count=16777216
 
   
-  
-  
   properties (SetAccess=private)
     id = [];
     knnMethod = true;
@@ -108,9 +106,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     % [segments [ frame]] = vh.step();
     %
     %
-
       
-      if nargout<2
+      if nargout<2 
         [seg,timeStamp] = FishVideoHandler_(self.id, 'step');
       else
         [seg,timeStamp,frame] = FishVideoHandler_(self.id, 'step');
@@ -118,7 +115,8 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       
       self.increaseCounters(timeStamp); % implicit read frame, so increase
                                         % the counters
-      
+            
+
 % $$$       if self.computeSegments
 % $$$         self.segm = seg;
 % $$$         bwimg = self.getCurrentBWImg(); 

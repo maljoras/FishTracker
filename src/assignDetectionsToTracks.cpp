@@ -16,12 +16,13 @@ void mexFunction(int nlhs, mxArray *plhs[],
   double   nonCostTrack,nonCostDetect;
   mwSize  i,j,n;
 
-
+  constexpr auto infinity = std::numeric_limits<double>::infinity();
+  
 /* Check proper input and output */
   if ((nrhs != 2) && (nrhs != 3))  {
     mexErrMsgTxt("Two or three inputs required (cost,costUnassignedTracks,costUnassignedDetections).");
   } else if ((nlhs <1 ) || (nlhs > 4)){
-    mexErrMsgTxt("Otputs required (assignments,unmatchedTracks,unmatchedDetections).");
+    mexErrMsgTxt("Outputs required (assignments,unmatchedTracks,unmatchedDetections).");
   } else if ((mxGetClassID(prhs[0])!=mxDOUBLE_CLASS) || (mxGetClassID(prhs[1])!=mxDOUBLE_CLASS)) {
     mexErrMsgTxt("Expect DOUBLE.");
   }
@@ -31,16 +32,12 @@ void mexFunction(int nlhs, mxArray *plhs[],
   /* Get input arguments */
   ndim1 = mxGetNumberOfDimensions(prhs[0]);
   dims1 = mxGetDimensions(prhs[0]);
-  ndim2 = mxGetNumberOfDimensions(prhs[1]);
-  dims2 = mxGetDimensions(prhs[1]);
 
   
   if (ndim1 != 2) {
     mexErrMsgTxt("Expect cost matrix as input.");		     
-  } else if ((ndim2 != 2) || (dims2[1]!=dims2[0]) || (dims2[0]!=1)){
-    mexErrMsgTxt("Expect scalar costUnassignedTracks");		     
   }
-
+  
   dimsout = (mwSize *) mxCalloc(2, sizeof(mwSize));      
 
   n =dims1[1]+dims1[0];
@@ -49,27 +46,6 @@ void mexFunction(int nlhs, mxArray *plhs[],
   
   Matrix<double> matrix(n, n);
   pdata1 = (double *) mxGetData(prhs[0]); 
-  pdata2 = (double *) mxGetData(prhs[1]); 
-
-  nonCostTrack = pdata2[0];
-
-  if (nrhs==3) {
-    if (mxGetClassID(prhs[2])!=mxDOUBLE_CLASS)
-      mexErrMsgTxt("Expect DOUBLE.");
-
-    ndim3 = mxGetNumberOfDimensions(prhs[2]);
-    dims3 = mxGetDimensions(prhs[2]);
-    if ((ndim3 != 2) || (dims3[1]!=dims3[0]) || (dims3[0]!=1)){
-      mexErrMsgTxt("Expect scalar costUnassignedDetections");		     
-    }
-    pdata3 = (double *) mxGetData(prhs[2]); 
-    nonCostDetect =  pdata3[0];
-  } else {
-    nonCostDetect = nonCostTrack;
-  }
-    
-  constexpr auto infinity = std::numeric_limits<double>::infinity();
-
   /* make padded data */
   for (i=0;i<n;i++) {
     for (j=0;j<n;j++) {
@@ -82,19 +58,88 @@ void mexFunction(int nlhs, mxArray *plhs[],
       matrix(i,j) = pdata1[i + j*rows];
     }
   }
-  for (i=0;i<rows;i++) {
-    matrix(i,i+cols) = nonCostTrack;
-  }
-  
-  for (j=0;j<cols;j++) {
-    matrix(rows+j,j) = nonCostDetect;
-  }
 
   for (j=cols;j<n;j++) {
     for (i=rows;i<n;i++) {
       matrix(i,j) = 0;
     }
   }
+
+  /* Non assignment costs*/
+  ndim2 = mxGetNumberOfDimensions(prhs[1]);
+  dims2 = mxGetDimensions(prhs[1]);
+
+  if ((ndim2 != 2) || ((dims2[1]!=1) && (dims2[0]!=1))) {
+    mexErrMsgTxt("Expect scalar or vector as costUnassignedTracks");		     
+  }
+  else if ((dims2[1]==dims2[0]) && ((dims2[0]==1) || (dims2[1]==1))){
+    /* Scalar*/
+    pdata2 = (double *) mxGetData(prhs[1]); 
+    nonCostTrack = pdata2[0];
+
+    if (infinity==nonCostTrack)
+      mexErrMsgTxt("Cost cannot be inf.");		     
+    for (i=0;i<rows;i++) {
+      matrix(i,i+cols) = nonCostTrack;
+    }
+  }
+  else if ((dims2[1]!=dims2[0]) && ((dims2[0]==rows) || (dims2[1]==rows) )) {
+    pdata2 = (double *) mxGetData(prhs[1]); 
+
+    for (i=0;i<rows;i++) {
+      if (infinity==pdata2[i])
+	mexErrMsgTxt("Cost cannot be inf.");		     
+     
+      matrix(i,i+cols) = pdata2[i];
+    }
+  } else {
+    mexErrMsgTxt("Expect scalar or vector as  costUnassignedTracks");
+  }
+  
+
+  if (nrhs==3) {
+    if (mxGetClassID(prhs[2])!=mxDOUBLE_CLASS) {
+      mexErrMsgTxt("Expect DOUBLE.");
+    }
+
+    ndim3 = mxGetNumberOfDimensions(prhs[2]);
+    dims3 = mxGetDimensions(prhs[2]);
+    if ((ndim3 != 2) || ((dims3[1]!=1) && (dims3[0]!=1))) {
+      mexErrMsgTxt("Expect scalar or vector as costUnassignedDetections");		     
+    }
+    else if ((dims3[1]==dims3[0]) && ((dims3[0]==1) || (dims3[1]==1))){
+      /* Scalar*/
+      pdata3 = (double *) mxGetData(prhs[2]); 
+      nonCostDetect =  pdata3[0];
+      if (infinity==nonCostDetect)
+	mexErrMsgTxt("Cost cannot be inf.");		     
+
+      for (j=0;j<cols;j++) {
+	matrix(rows+j,j) = nonCostDetect;
+      }
+    }  else if ((dims3[1]!=dims3[0]) && ((dims3[0]==cols) || (dims3[1]==cols) )) {
+      /*VEctor cost*/
+      pdata3 = (double *) mxGetData(prhs[2]); 
+      for (j=0;j<cols;j++) {
+	if (infinity== pdata3[j])
+	  mexErrMsgTxt("Cost cannot be inf.");		     
+	matrix(rows+j,j) = pdata3[j];
+      }
+      
+    } else {
+      mexErrMsgTxt("Expect scalar or vector as  costUnassignedDetections");
+    }
+  }
+  else if ((dims2[1]==dims2[0]) && (dims2[0]==1)) {
+    for (j=0;j<cols;j++) {
+      matrix(rows+j,j) = nonCostTrack; /* take same cost as for tracks*/ 
+    }
+  } else {
+    /* need scalar detection if vector in tracknoncost*/
+    mexErrMsgTxt("Need costUnassignedDetections for vectorial costUnassignedTracks.");
+  }
+    
+    
 
   
 

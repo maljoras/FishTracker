@@ -645,89 +645,96 @@ classdef FishTracker < handle;
       
       self.uniqueFishFrames = 0;
       
-      %  it should be guranteed that it is a true permutation !!
-      %[nc ncidx]= self.connectedComponents(trackIndices,assignedFishIds);
+      %  it should be guranteed that it is a true permutation !! Do it anyway...
+      [nc ncidx]= self.connectedComponents(trackIndices,assignedFishIds);
 
-      % build Gaussian kernel
-      sigma = self.opts.classifier.clpMovAvgTau; % same for dist/clprob based
-      dt = 1; % in frames
-      l = 0:dt:sigma*8;
-      l = [l(end:-1:2) l];
-      G = (exp(-(l.^2/2/sigma^2))/sqrt(2*pi)/sigma*dt)';
-      g2 = ceil(length(G)/2);
 
       %% switch the tracks for each connected component
       f2t = self.fishId2TrackId;
-      pos = self.pos;
+      orgpos = self.pos;
       self.resetBatchIdx(trackIndices); % reset for all
 
+      if self.opts.display.switchFish && self.displayif && self.opts.display.tracks;
+        self.displayCurrentTracks();
+      end
       
-      %for i_ncidx = 1:length(ncidx)  % actually do not need to check again.
-      %  idx = ncidx{i_ncidx};
-      idx = 1:length(trackIndices);
-      
-      
-      [tminfinalclprob,pdifference,tfinalsearchstart,tfinalsearchend] ...
-        = subCalcClassProbBasedSwitchPoint(trackIndices(idx),assignedFishIds(idx));
+      for i_ncidx = 1:length(ncidx)  % actually do not need to check again.
+        idx = ncidx{i_ncidx};
 
-      tminfinaldist ...
-        = subCalcDistanceBasedSwitchPoint( trackIndices(idx),assignedFishIds(idx));
-
-      if crossingflag && ~self.opts.tracks.purelyDistanceBasedSwitching
-        if length(idx)>2 % multiple crossings. Better distance based
-          tminfinal = tminfinaldist;
+        % define common pars for subfunctions
+        idxOldFishIds = [self.tracks(trackIndices(idx)).fishId]; 
+        idxTrackIndices = trackIndices(idx);
+        idxAssignedFishIds = assignedFishIds(idx);
+        tfirst =[self.tracks(idxTrackIndices).firstFrameOfCrossing]; 
+        tlast = [self.tracks(idxTrackIndices).lastFrameOfCrossing]; 
+        tcurrent = self.currentFrame;
+        
+        if crossingflag
+          tstart = max(min(tfirst) - self.opts.classifier.nFramesAfterCrossing,1);
+          tend = min(self.currentFrame,max(tlast) + self.opts.classifier.nFramesAfterCrossing);
         else
-          tminfinal = tminfinalclprob;
-          % BETTER DISTNACE BASED FROM MANY NANS...
+          tstart = max(max(tlast) - 2*self.opts.classifier.nFramesAfterCrossing,1) ; % put about last crossing in...
+          tend = tcurrent;
         end
-      else
-        % for fishCLass better use distance based. ??!??!?!?  SOME TIMES ONE IS
-        % INACCURATE (e.g. 0).. FOR VERY LONG ONES ? DISTNACE PROBABLY
-        % BETTER ??
-        tminfinal = min(tminfinaldist,tminfinalclprob);
-      end
         
-      % swap
-      for j = idx(:)'
+        % calculate switch points & delmsk
+        [tminfinallost,delmsk] = subCalcLostTrackBasedSwitchPoint();
         
-        t = tminfinal:self.currentFrame;        
+        %% choose one of the points..
+        if ~isempty(tminfinallost)
+          tminfinal = tminfinallost;
+        else
+          tminfinal = subCalcDistanceBasedSwitchPoint();
+        end
         
-        self.fishId2TrackId(t,assignedFishIds(j)) = f2t(t,oldFishIds(j));
-        self.pos(:,assignedFishIds(j),t) = pos(:,oldFishIds(j),t);
-        self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
-        % if crossingflag
-        %tfinalfirst = self.tracks(trackIndices(j)).firstFrameOfCrossing;
-        %tfinallast = self.tracks(trackIndices(j)).lastFrameOfCrossing;
         
-        %tcross = tfinalsearchstart:tminfinal; % maybe too conservative ?
-        %self.pos(:,assignedFishIds(j),tcross) = NaN; % delete unsure postions; 
-        %% REALLSE SET ALL TO ZERO ? BETTER MAKE CROSSING INDEX..
+        if crossingflag 
+          % delete some of the critical points
+          tcross = tstart:tend;
+          p = orgpos(:,oldFishIds(idx),tcross);
+          p(:,delmsk') = NaN;
+          orgpos(:,oldFishIds(idx),tcross) = p;
+        end
         
-        %handle this offline...
-        % end
-      end
+        %% swap
+        for j = idx(:)'
+          
+          t = tminfinal:self.currentFrame;        
+          
+          self.fishId2TrackId(t,assignedFishIds(j)) = f2t(t,oldFishIds(j));
+          self.pos(:,assignedFishIds(j),t) = orgpos(:,oldFishIds(j),t);
+          self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
+
+        end
+        
+        if length(idx)>2
+          warning(['Higher order permutation! Do not account for multiple crossings, ' ...
+                   'thus tracks might be inaccurate during the crossing.'])
+          %tcross = tstart:tend;
+          %self.pos(:,assignedFishIds(idx),tcross) = NaN; % too conservative
+        end
+        
+        if self.opts.display.switchFish && self.displayif
+          subPlotCrossings();
+        end
       
-      if self.opts.display.switchFish
-        subPlotCrossings();
-      end
+      end % for ncidx
 
       
       function subPlotCrossings();
-        
-        self.displayCurrentTracks();
 
-        tfirst = min(cat(1,self.tracks(trackIndices(idx)).firstFrameOfCrossing));
-        tlast = max(cat(1,self.tracks(trackIndices(idx)).lastFrameOfCrossing));
+        [tminfinalclprob,pdifference,tfinalsearchstart,tfinalsearchend] = subCalcClassProbBasedSwitchPoint();
+        tminfinaldist = subCalcDistanceBasedSwitchPoint();
 
         figure(124);
         clf;
         subplot(1,2,1);
         imagesc(self.leakyAvgFrame);
         hold on;
-        t1 = max(tfirst - 2*self.opts.classifier.nFramesAfterCrossing,1);
+        t1 = tstart;
         tt = t1:self.currentFrame;
         plotFishIds =oldFishIds(idx); 
-        pold =pos(:,plotFishIds,tt); % old pos
+        pold =orgpos(:,plotFishIds,tt); % old pos
         plot(squeeze(pold(1,:,:))',squeeze(pold(2,:,:))','o-');
         title('before')
         
@@ -749,46 +756,37 @@ classdef FishTracker < handle;
         plot([tminfinaldist([1,1])] - t1 + 1,ylim(),'--m');
         
         plot([tfinalsearchstart,tfinalsearchend]-t1 + 1,[0,0],'r-o','linewidth',2);
-        plot([tfirst,tlast]-t1 + 1,[0,0],'m-x','linewidth',2);        
-
+        if crossingflag
+          plot([min(tfirst),max(tlast)]-t1 + 1,[0,0],'m-x','linewidth',2);        
+        end
+        
         subplot(4,1,3);
         plot(tt-t1+1,squeeze(pnew(1,:,:))')
         hold on;
+        set(gca,'colororderindex',1)
+        plot(tt-t1+1,squeeze(pold(1,:,:))',':')
         ylabel('x');
-        yl2 = diff(ylim)/2;
-        plot([tfirst,tlast]-t1 + 1,[1,1]*yl2,'r--','linewidth',2);
-        plot([tfinalsearchstart,tfinalsearchend]-t1 + 1,[1,1]*yl2,'r.','linewidth',2);
         
         subplot(4,1,4,'align');
         plot(tt-t1+1,squeeze(pnew(2,:,:))')
         hold on;
+        set(gca,'colororderindex',1)
+        plot(tt-t1+1,squeeze(pold(2,:,:))',':')
         ylabel('y');
-        yl2 = diff(ylim)/2;
-        plot([tfirst,tlast]-t1 + 1,[1,1]*yl2,'r--','linewidth',2);
-        plot([tfinalsearchstart,tfinalsearchend]-t1 + 1,[1,1]*yl2,'r.','linewidth',2);
 
         
         
         % TODO: 
-        % - do not adjust the non assignment cost of nonvisible tracks too
-        % much (results in very far noise detections)
         % - determine multiple switching points within a crossing based on
         % distance permutation points.
-        % - delete sigular noise detection points out of the crossings (far
-        % away signular detections)
+        % -  problem is: some of the not changed tracks might have multiple
+        % switching !!!! how to account for this ?
+        % - search for multiple switchpoints within crossing
 
         
-        %function tswitch = subGetSwitchPoints(self,inTrackIndices,inAssignedFishIds)
-        inTrackIndices = trackIndices(idx);
-        inAssignedFishIds = assignedFishIds(idx);
-
-        tcurrent = self.currentFrame;
+        %function tswitch = subGetSwitchPoints()
         if crossingflag
-          %!!! PROBLEM IS: SOME OF THE NOT CHANGED TRACKS MIGHT HAVE MULTIPLE
-          %SWITCHING !!!! HOW TO ACCOUNT FOR THIS ?
 
-          tfirst = [self.tracks(inTrackIndices).firstFrameOfCrossing]; 
-          tlast = [self.tracks(inTrackIndices).lastFrameOfCrossing]; 
         
           % first frames of crossings are always switch points
           tswitch =  unique(tfirst);
@@ -796,20 +794,12 @@ classdef FishTracker < handle;
           % crossings get extended for all participating tracks);
           tswitch =  [tswitch,unique(tlast)];
         else
-          tlast = tcurrent;
-          tfirst =  max([self.tracks(inTrackIndices).lastFrameOfCrossing]); 
           tswitch = [];
         end
-        tswitch
         
         % add switch points based on distance
-        localOldFishIds= [self.tracks(inTrackIndices).fishId]; 
-        
-        tstart = max(min(tfirst) - self.opts.classifier.nFramesAfterCrossing,1);
-        tend = min(max(tlast) + self.opts.classifier.nFramesAfterCrossing,tcurrent);
-        oldpos = pos;
-        localpos = permute(oldpos(:,localOldFishIds,tstart:tend),[3,2,1]);
-        
+        oldpos = orgpos;
+        localpos = permute(oldpos(:,idxOldFishIds,tstart:tend),[3,2,1]);
         
         xd = bsxfun(@minus,localpos(1:end-1,:,1),permute(localpos(2:end,:,1),[1,3,2]));
         yd = bsxfun(@minus,localpos(1:end-1,:,2),permute(localpos(2:end,:,2),[1,3,2]));
@@ -820,80 +810,60 @@ classdef FishTracker < handle;
 
         tswitch = [tswitch, find(any(crosses,2))'+tstart-1];
         
-        % should be at least ntracks-1 switches... take minimum distance
-        if length(tswitch)<length(inTrackIndices)
-          md = bsxfun(@minus,d,d(:,1:size(d,2)+1:end));
-          md(~md) = Inf;
-          [~,mint] = min(min(md,[],2),[],1);
-          tswitch = [tswitch,mint(:)'+tstart-1];
-        end
-        
         tswitch = unique(tswitch);
 
         ttt = tswitch - t1 + 1;
+
         subplot(2,1,1);
         yl = ylim;
         hold on;
-        plot([ttt(:),ttt(:)]',yl'*ones(1,length(ttt)),'-b');
-        figure(124);
-        subplot(1,2,1);
-        plot(squeeze(oldpos(1,localOldFishIds,tswitch))',squeeze(oldpos(2,localOldFishIds,tswitch))','<w');
-        plot(squeeze(oldpos(1,localOldFishIds,tswitch+1))',squeeze(oldpos(2,localOldFishIds,tswitch+1))','oy');
+        plot([ttt(:),ttt(:)]',yl'*ones(1,length(ttt)),':b');
         
-        keyboard
         
       end
+
       
-      
-      
-      function [tminOut,pdiff,tsearchstart,tsearchend] = ...
-            subCalcClassProbBasedSwitchPoint(inTrackIndices,inAssignedFishIds)
+      function [tminOut,pdiff,tsearchstart,tsearchend] = subCalcClassProbBasedSwitchPoint()
         % get switch time time from classification accuracy 
         
-        localOldFishIds = [self.tracks(inTrackIndices).fishId]; 
-        tcurrent = self.currentFrame;
-       
-        tfirst = min([self.tracks(inTrackIndices).firstFrameOfCrossing]); 
-        tlast = max([self.tracks(inTrackIndices).lastFrameOfCrossing]); 
-
-        tstart = max(tfirst - 2*self.opts.classifier.nFramesAfterCrossing,1);
-        tend = self.currentFrame;
-        tt = tstart:tend;
+        tt = tstart:tcurrent;
         t1 = tstart;
         
         pdiff = [];
-        tspan = tend-tstart + 1;
-        for ii = 1:length(inTrackIndices)
-          trIdx = inTrackIndices(ii);
+        tspan = tcurrent-tstart + 1;
+        for ii = 1:length(idxTrackIndices)
+          trIdx = idxTrackIndices(ii);
           [p,w] = self.tracks(trIdx).classProbHistory.getData(tspan);
           if isempty(pdiff)
-            pdiff = zeros(length(w),length(inTrackIndices));
+            pdiff = zeros(length(w),length(idxTrackIndices));
           end
-          pdiff(:,ii) = p(:,localOldFishIds(ii)) - p(:,inAssignedFishIds(ii));
+          pdiff(:,ii) = p(:,idxOldFishIds(ii)) - p(:,idxAssignedFishIds(ii));
           %rt =self.tracks(trIdx).classProbHistory.reasonableThres;
           pdiff(w==0,ii) = NaN;
         end
 
 
-        if ~isempty([self.tracks(inTrackIndices).crossedTrackIds])
+        if crossingflag
           % currently crossing
           % if currently crossing restrict on the region between
           % the crossings + nearby lost points
-
+          
+          tfirstlocal = min(tfirst);
+          tlastlocal = max(tlast);
           srel = ones(1,3);
-          crossingMsk = (tt>=(tfirst) & tt<=(tlast))';
+          crossingMsk = (tt>=(tfirstlocal) & tt<=(tlastlocal))';
           nanmsk = any(isnan(pdiff),2);
           crossingMsk = crossingMsk | imerode(imdilate(nanmsk,srel),srel);
 
-          tlast1 = tlast-t1+1;
-          tfirst1 = tfirst -t1 + 1;
+          tlast1 = tlastlocal-t1+1;
+          tfirst1 = tfirstlocal -t1 + 1;
 
           % find continuous region around the last crossings
           findidx = find(~crossingMsk(tlast1+1:end),1,'first');
           if ~isempty(findidx)
             tsearchend1 = findidx+ tlast1-1;
           else
-            tsearchend1 = tend - t1 + 1;
+            tsearchend1 = tcurrent - t1 + 1;
           end
           
           findidx = find(~crossingMsk(tfirst1-1:-1:1),1,'first');
@@ -905,7 +875,7 @@ classdef FishTracker < handle;
           
         else
           tsearchstart1 = 1;
-          tsearchend1 = tend - t1 + 1;
+          tsearchend1 = tcurrent - t1 + 1;
         end
         tsearchstart = tsearchstart1 + t1 -1;
         tsearchend = tsearchend1 + t1 -1;
@@ -922,41 +892,104 @@ classdef FishTracker < handle;
           tminOut = lastidx + tsearchstart1 + t1 - 1; %
         end
 
-        verbose('N(clprob) = %d',tminOut-self.currentFrame);
+        verbose('N[P] = %d',tminOut-tcurrent);
 
       end % nested function
-
         
-      function tminOut = subCalcDistanceBasedSwitchPoint(inTrackIndices,inAssignedFishIds)
+        
+      function [tminOut,nanmskOut] = subCalcLostTrackBasedSwitchPoint()
+      % candidate switch points where tracks were lost
+
+        localpos = permute(self.pos(:,idxOldFishIds,tstart:tend),[3,2,1]);;
+        localpos(isnan(localpos)) = 0;
+        sz = size(localpos);
+        sz(1) = 1;
+        localpos1 = cat(1,zeros(sz),localpos,-ones(sz));
+        msk1 = all(~diff(localpos1,[],1),3);
+        msk = diff(msk1==1);
+        tcandidates = find(any(msk,2))' + 1 + tstart -1;
+        
+        tc1 = min(tcandidates-tstart+1,size(localpos,1));
+        [~,change] = ismember(idxOldFishIds,idxAssignedFishIds);
+        d = localpos(tc1,:,:) - localpos(tc1,change,:);
+        [m, tidx1] = nanmin(sum(sqrt(d(:,:,1).^2 + d(:,:,2).^2),2));
+        nanmskOut = msk | msk1(1:end-1,:);
+
+        if ~isnan(m)
+          tswitch1 = tc1(tidx1);
+          %localpos(cat(3,msk,msk)~=0 | cat(3,msk1(1:end-1,:),msk1(1:end-1,:) )) = NaN; 
+          %finalpos = cat(1,localpos(1:tswitch31-1,:,:),localpos(tswitch31:end,change,:));
+          tminOut = tswitch1 +tstart -1;
+        
+          verbose('N[L] = %d',tminOut-tcurrent);
+        else 
+          tminOut = [];
+        end
+
+      end
+      
+        
+      function tminOut = subCalcDistanceBasedSwitchPoint()
       % to be called from switchFish: calculated the end point based on the distance of
       % the tracks. It is assumed that the given indices are only ONE permutation
-        localOldFishIds = [self.tracks(inTrackIndices).fishId];
 
-        tcurrent = self.currentFrame;
-        % should be the same crossing, since we expect just one fully connected component
-        if isempty([self.tracks(inTrackIndices).crossedTrackIds])
-          % not currently crossing. Thus: compute from current frame
-          tstart = max([self.tracks(inTrackIndices).lastFrameOfCrossing]);
-          tend = tcurrent;
-        else
-          % during the crossing
-          tstart = min([self.tracks(inTrackIndices).firstFrameOfCrossing]);
-          tend =  max([self.tracks(inTrackIndices).lastFrameOfCrossing]);
+
+        % build Gaussian kernel
+        %sigma = self.opts.classifier.clpMovAvgTau; % same for dist/clprob based
+        %dt = 1; % in frames
+        %l = 0:dt:sigma*8;
+        %l = [l(end:-1:2) l];
+        %G = (exp(-(l.^2/2/sigma^2))/sqrt(2*pi)/sigma*dt)';
+        %g2 = ceil(length(G)/2);
         
+
+      % check min distance within crossing
+        tt = tstart:tend;
+        localpos = permute(self.pos(:,idxOldFishIds,tt),[3,2,1]);
+        %some positions might be nan. 
+        localpos(cat(3,delmsk,delmsk)) = NaN;
+
+        for i_inter = 1:size(localpos,2)
+          inter_msk = isnan(localpos(:,i_inter,1));
+          if sum(~inter_msk)>2
+            if any(inter_msk) 
+              localpos(inter_msk,i_inter,:) = ...
+                  interp1(tt(~inter_msk),localpos(~inter_msk,i_inter,:),tt(inter_msk),'linear','extrap');
+            end     
+          else
+            % all nan...!?!
+            if all(inter_msk)
+              localpos(inter_msk,i_inter,:) = 0;
+              if length(idxOldFishIds)==2
+                % cannot be distance based for two fish. just take start
+                tminOut =  tstart;
+                return;
+              end
+            else
+              % just one non-nan
+              for i_xy = 1:2
+                localpos(:,i_inter,i_xy) = nanmean(localpos(:,i_inter,i_xy));
+              end
+            end
+          end
         end
         
-        % check min distance within crossing
-        dist = squeeze(sum((self.pos(:,localOldFishIds,tstart:tend) - self.pos(:,inAssignedFishIds,tstart:tend)).^2,1))';
-        dist = [repmat(dist(1,:),g2,1);dist;repmat(dist(end,:),g2,1)];
-        cdist = conv2(dist,G);
-        cdist = cdist(2*g2:end-2*g2+1,:);
-        mdist = mean(cdist,2); %just one component and symmetric distance. 
+        [~,change] = ismember(idxOldFishIds,idxAssignedFishIds);
+        dist = sum((localpos - localpos(:,change,:)).^2,3);
+        %dist = squeeze(sum((self.pos(:,idxOldFishIds,tstart:tend) - self.pos(:,idxAssignedFishIds,tstart:tend)).^2,1))';
+        %dist = [repmat(dist(1,:),g2,1);dist;repmat(dist(end,:),g2,1)];
+        %cdist = conv2(dist,G);
+        %cdist = cdist(2*g2:end-2*g2+1,:);
+        mdist = mean(dist,2); %just one component and symmetric distance. (DOES NOT
+                              %ACCOUNT FOR MULTIPLE CROSSINGS)
         [~,tminsub] = min(mdist);
         tminOut = tstart + tminsub-1;
-
-        verbose('N(dist) = %d',tminOut-tcurrent);
+        
+        
+        verbose('N[D] = %d',tminOut-tcurrent);
         
       end % nested function
+        
           
     end
         
@@ -1564,7 +1597,7 @@ classdef FishTracker < handle;
       % $$$         nvis = cat(1,self.tracks.consequtiveInvisibleCount);
       % $$$         thresDist = min(max(meanDist,minDist),maxDist).*(1+nvis);
           thresDist = maxDist;
-          
+
           % Compute the cost of assigning each detection to each track.
           for k = 1:length(self.costinfo)
             switch lower(self.costinfo{k})
@@ -1575,10 +1608,10 @@ classdef FishTracker < handle;
                 centers = cat(1,self.tracks.centroid);
                 dst = pdist2Euclidean(centers,self.centroids);
                 %dst = bsxfun(@rdivide,dst,thresDist).^2;
-                dst = (dst/thresDist).^2;
 
-                dst(dst>highCost) = highCost;
-                
+                dst = (dst/thresDist);%.^2;
+                dst(dst>highCost) = highCost; % also ^2?
+
                 fcost(:,:,k) = dst;
 
                 
@@ -1596,13 +1629,13 @@ classdef FishTracker < handle;
 
                   %% use the mex-file instead of the above
                   dst = pdist2CenterLine(cat(3,self.tracks.centerLine),self.centerLine);
-                  % CAUTION: DOES NAN ALWAY "WORK" IN C ??!??  seems to work on my system tough... 
                   
                   nidx = any(isnan(dst),2);
                   %dst = bsxfun(@rdivide,dst,thresDist).^2; % better square?
-                  dst = (dst/thresDist).^2; % better square?
 
+                  dst = (dst/thresDist);%.^2; % better square?
                   dst(dst>highCost) = highCost;
+                  
                   
                   % makes not sense to compare the distance to others if one is nan
                   dst(nidx,:) = 1;
@@ -1720,16 +1753,12 @@ classdef FishTracker < handle;
           costOfNonAssignment =  self.meanAssignmentCost*self.opts.tracks.costOfNonAssignment;
 
           
-          
           % determine cost of each assigment to tracks
           fcost = self.computeCostMatrix();
 
           % scale the cost
           sfcost = sum(bsxfun(@times,fcost,shiftdim(scale(:),-2)),3);
 
-          % reduce the cost if invisible --> leads to oscillations...
-          %sfcost1 = bsxfun(@rdivide,sfcost,(nvis+1)); % do not save this cost...
-          
           % Solve the assignment problem. First for the visible
           nvis = cat(1,self.tracks.consequtiveInvisibleCount);
           validIdx = find(~nvis);
@@ -1741,28 +1770,21 @@ classdef FishTracker < handle;
           self.assignments(:,1) = validIdx(self.assignments(:,1)); 
 
           invisibleIdx = find(nvis);       
+
           if ~isempty(self.unassignedDetections) && ~isempty(invisibleIdx)
             % Solve the assignment problem for the invisible tracks
             sfcost1 = sfcost(invisibleIdx,self.unassignedDetections);
-            %sfcost1 = bsxfun(@rdivide,sfcost1,(nvis(invisibleIdx)+1)); 
-            mnvis = max(nvis);
+
+            costOfNonAssignment1 = costOfNonAssignment*(1+nvis(invisibleIdx)*self.opts.tracks.invisibleCostScale);
 
             if self.opts.tracks.adjustCostDuringCrossing
-              if length(self.tracks)==self.nfish
-                currrentlyCrossing = sum(self.currentFrame - [self.tracks.lastFrameOfCrossing] ...
-                                         < self.opts.classifier.nFramesAfterCrossing);
-                if any(currrentlyCrossing(invisibleIdx))
-                  mnvis = mnvis/2; % cut in half
-                                   %!!! BETTER USE THE INDIVIDUAL NONASSIGNEMTCOST!!
-                end
-              end
+              crossMsk = ~self.testHandled();
+              crossMsk = crossMsk(invisibleIdx);
+              costOfNonAssignment1(crossMsk) = costOfNonAssignment1(crossMsk)*self.opts.tracks.crossingCostScale;
             end
 
-            costOfNonAssignment1 = costOfNonAssignment*(1+mnvis*self.opts.tracks.invisibleCostScale);
-
-
             [assignments, unassignedTracks, unassignedDetections] = ...
-                assignDetectionsToTracks(sfcost1,  costOfNonAssignment1);
+                assignDetectionsToTracks(sfcost1,  costOfNonAssignment1',max(costOfNonAssignment1)*ones(1,size(sfcost1,2)));
 
             self.assignments = [self.assignments;...
                                 [invisibleIdx(assignments(:,1)),...
@@ -2552,9 +2574,9 @@ classdef FishTracker < handle;
         doc.useScaledFormat = 'Use adaptive scaled gray format';
 
         
-        %% additional options      
-        % detector
-        def.opts.detector(1).history = 250;  %[nframes]
+
+        %% detector options
+        def.opts.detector(1).history = 500;  %250 [nframes]
         doc.detector(1).history = 'Background update time [nFrames]';
         
         def.opts.detector.nskip = 5; 
@@ -2571,7 +2593,7 @@ classdef FishTracker < handle;
         def.opts.detector.fixedSize = 0;  
         doc.detector.fixedSize = 'Set 1 for saving the fixedSize image';
 
-        % reader
+        %% reader
         def.opts.reader(1).resizeif = false;
         doc.reader(1).resizeif = {'Whether to resize the frame before','tracking'};
 
@@ -2580,7 +2602,7 @@ classdef FishTracker < handle;
                             'RESIZEIF = true'};
         
         
-        % blob anaylser
+        %% blob anaylser
         def.opts(1).blob(1).computeMSERthres= 2; % just for init str
         doc.blob(1).computeMSERthres =  {'When to compute MSER (SLOW; only ' ...
                             'for useMex=0)'};
@@ -2597,16 +2619,16 @@ classdef FishTracker < handle;
         doc.blob.difffeature = {'Use background subtracted gray' ...
                             'images for fish feature'};
 
-        % classification
-        def.opts(1).classifier.crossCostThres = 2.0; 
+        %% classification
+        def.opts(1).classifier.crossCostThres = 2;  
         doc.classifier.crossCostThres = {'candidates for crossings: scales ' ...
                             'mean assignment cost'};
 
-        def.opts.classifier.bendingThres = 4; % fishwidth/fishheight
+        def.opts.classifier.bendingThres = 4; 
         doc.classifier.bendingThres = {'For exclusion of features for ' ...
                             'classfication'};
 
-        def.opts.classifier.reassignProbThres = 0.5; %0.45
+        def.opts.classifier.reassignProbThres = 0.4; %0.45
         doc.classifier.reassignProbThres = {'minimal probability for ' ...
                             'reassignments'};
         
@@ -2633,14 +2655,14 @@ classdef FishTracker < handle;
         def.opts.classifier.outliersif = false; 
         doc.classifier.outliersif = 'Exclude outliers before update';
 
-        def.opts.classifier.minBatchN = 5; %8 
+        def.opts.classifier.minBatchN = 5;  
         doc.classifier.minBatchN = 'minimum sample size for batch update'; 
 
         def.opts.classifier.nFramesForInit = 200; 
         doc.classifier.nFramesForInit = {'Number of unique frames for ' ...
                             'initialize the classifier'};
 
-        def.opts.classifier.nFramesAfterCrossing =  10; % 16
+        def.opts.classifier.nFramesAfterCrossing =  10; % 10
         doc.classifier.nFramesAfterCrossing = {'When to check for ' ...
                             'permutations after crossings'};
         
@@ -2656,7 +2678,7 @@ classdef FishTracker < handle;
         doc.classifier.maxFramesPerBatch = {'Maximal frames for saving ' ...
                             'the fish feature'};
 
-        % tracks
+        %% tracks
         def.opts(1).tracks.costtau = 500;
         doc.tracks.costtau = {'Time constant for computing the mean ' ...
                             'cost [nFrames]'};
@@ -2665,11 +2687,11 @@ classdef FishTracker < handle;
         doc.tracks.tauVelocity = {'Time constant to compute the ' ...
                             'velocity [nFrames]'};
         
-        def.opts.tracks.probThresForFish = 0.1; % .25
+        def.opts.tracks.probThresForFish = 0.2; 
         doc.tracks.probThresForFish = {'Classification probability to ' ...
                             'assume a fish feature'};
         
-        def.opts.tracks.crossBoxLengthScale = 0.5; %1 
+        def.opts.tracks.crossBoxLengthScale = 0.5; %0.5 
         doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded' ...
                             'as a crossing'};
 
@@ -2677,28 +2699,28 @@ classdef FishTracker < handle;
         doc.tracks.crossBoxLengthScalePreInit = {'Before classifier init ' ...
                             '(reduced somewhat)'};
 
-        def.opts.tracks.purelyDistanceBasedSwitching = false;
-        doc.tracks.purelyDistanceBasedSwitching = {'Switching strictly','on min. distance.'};
-        
-        
         def.opts.tracks.kalmanFilterPredcition = false; 
         doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter ' ...
                             '(DEPRECIATED)'};
-        
-        def.opts.tracks.costOfNonAssignment =  2; 
-        doc.tracks.costOfNonAssignment = {'Higher values force (possible  ' ...
-                            'spurious) assignments', '[re. to  mean cost]'};
-
-        def.opts.tracks.adjustCostDuringCrossing = true; 
-        doc.tracks.adjustCostDuringCrossing = {'Whether to reduced non-assignment' ...
-                            ' cost during crossings'};
-
-        def.opts.tracks.invisibleCostScale = 5;
-        doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};
 
         def.opts.tracks.keepFullTrackStruc = false;
         doc.tracks.keepFullTrackStruc = {'Whether to keep full track' ...
                             ' structure. ONLY FOR DEBUG!'};
+
+        def.opts.tracks.costOfNonAssignment =  2; 
+        doc.tracks.costOfNonAssignment = {'Higher values force (possible  ' ...
+                            'spurious) assignments', '[re. to  mean cost]'};
+
+        def.opts.tracks.adjustCostDuringCrossing = false; 
+        doc.tracks.adjustCostDuringCrossing = {'Whether to scale non-assignment' ...
+                            ' cost during crossings'};
+
+        def.opts.tracks.crossingCostScale = 0.5; 
+        doc.tracks.crossingCostScale = {'Scaling of non-assignment' ...
+                            ' cost during crossings'};
+
+        def.opts.tracks.invisibleCostScale = 1;
+        doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};
                 
         %% display opts
         def.opts.displayif = 3;
@@ -2935,7 +2957,7 @@ classdef FishTracker < handle;
         localTime = toc(localTimeReference);
         s = 0;
         while  hasFrame(self.videoHandler) && ...
-            (~self.opts.display.tracks || isOpen(self.videoPlayer)) ...
+            (~self.opts.display.tracks || ~self.displayif || isOpen(self.videoPlayer)) ...
             && (~self.stmif || ~self.stimulusPresenter.isFinished(localTime))
 
           

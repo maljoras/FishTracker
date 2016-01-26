@@ -91,7 +91,7 @@ classdef FishClassProbHistory < handle;
     % returns available data. The order is from past to preset
 
       t = self.currentIdx;
-      if (N>self.nHistory) || N>self.age
+      if (N>self.nHistory) 
         error(['Too long history requested. Consider incresing ' ...
                'nHistory']);
       end

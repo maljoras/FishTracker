@@ -850,14 +850,13 @@ classdef FishTracker < handle;
         tspan = tcurrent-tstart + 1;
 
         for ii = 1:length(idxTrackIndices)
+          trIdx = idxTrackIndices(ii);
           if tspan>self.tracks(trIdx).classProbHistory.nHistory
             tminOut = tcurrent; % cannot compute
             tsearchstart = t1; % dummy
             tsearchend = tcurrent;
             return;
           end
-          
-          trIdx = idxTrackIndices(ii);
           [p,w] = self.tracks(trIdx).classProbHistory.getData(tspan);
           if isempty(pdiff)
             pdiff = zeros(length(w),length(idxTrackIndices));

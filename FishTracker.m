@@ -2683,6 +2683,10 @@ classdef FishTracker < handle;
         VERBOSELEVEL = 0;
         ALLFIELDNAMES = 1;
         
+        if ~exist('parseInputs') && exist('helper','dir')
+          addpath('helper');
+        end
+
         parseInputs;
         if HELP;  return;end
 
@@ -2785,28 +2789,45 @@ classdef FishTracker < handle;
         opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
 
         %% paramter checking
-        if ~exist('chooseNFish') && exist('helper','dir')
-          addpath('helper');
-        end
 
         if isempty(vid)
           vid = getVideoFile();
         end
-        
-        if all(vid(1:2)=='~/') && isunix()
-          [~,home] = unix('eval echo ~$USER');
-          vid = [home(1:end-1) vid(2:end)];
-        elseif vid(1)=='~'
-          error('provide full path name. Cannot start with "~"');        
-        end
 
-        if ~exist(vid)
-          error(sprintf('Video file "%s" not found',vid));
+        if iscell(vid)
+          if length(vid)==1
+            vid{2} = '';
+          end
+          vname = vid{2};
+        else
+          vname = vid;
         end
         
-        if isempty(opts.nfish) 
-          chooseNFish(vid,1);
+        if ~isempty(vname)
+          if all(vname(1:2)=='~/') && isunix()
+            [~,home] = unix('eval echo ~$USER');
+            vname = [home(1:end-1) vname(2:end)];
+          elseif vname(1)=='~'
+            error('provide full path name. Cannot start with "~"');        
+          end
+
+          if ~exist(vname) && ~iscell(vid)
+            error(sprintf('Video file "%s" not found',vname));
+          end
         end
+        
+        if isempty(opts.nfish) && ~iscell(vid)
+          chooseNFish(vname,1);
+        end
+        
+        if ~iscell(vid)
+          vid = vname;
+        else
+          vid{2} = vname;
+        end
+        
+        
+        
 
         % construct object
         self = self@handle();  

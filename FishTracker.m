@@ -46,6 +46,7 @@ classdef FishTracker < handle;
 
 
     meanAssignmentCost =1;
+    maxAssignmentCost =1;
     tracks = [];
     cost = [];
     res = [];
@@ -679,12 +680,28 @@ classdef FishTracker < handle;
         
         % calculate switch points & delmsk
         [tminfinallost,delmsk] = subCalcLostTrackBasedSwitchPoint();
-        
+        tminfinaldist = subCalcDistanceBasedSwitchPoint();
+
         %% choose one of the points..
-        if ~isempty(tminfinallost)
-          tminfinal = tminfinallost;
-        else
-          tminfinal = subCalcDistanceBasedSwitchPoint();
+        if crossingflag
+          if ~isempty(tminfinallost)
+            tminfinal = tminfinallost;
+          else
+            tminfinal = tminfinaldist;
+          end
+        else 
+          % fishClassUpdate
+          tminprob = subCalcClassProbBasedSwitchPoint();
+
+          if tcurrent-tminprob> 2*self.opts.classifier.nFramesAfterCrossing
+            tminfinal = tminprob;
+          else
+            if length(idx)>2
+              tminfinal = subCalcDistanceBasedSwitchPoint();
+            else
+              tminfinal = tminfinallost;
+            end
+          end
         end
         
         
@@ -707,12 +724,12 @@ classdef FishTracker < handle;
 
         end
         
-        if length(idx)>2
-          warning(['Higher order permutation! Do not account for multiple crossings, ' ...
-                   'thus tracks might be inaccurate during the crossing.'])
+        %if length(idx)>2
+          %warning(['Higher order permutation! Tracks might got mixed up during the time ' ...
+          %         'of the crossing.'])
           %tcross = tstart:tend;
           %self.pos(:,assignedFishIds(idx),tcross) = NaN; % too conservative
-        end
+          %end
         
         if self.opts.display.switchFish && self.displayif
           subPlotCrossings();
@@ -1182,7 +1199,7 @@ classdef FishTracker < handle;
       if any(isnan(probdiag))
         bool = false;
       else
-        bool = sum(prob-probdiag)>self.opts.classifier.reassignProbThres && min(steps)>=self.opts.classifier.minBatchN;
+        bool = mean(prob-probdiag)>self.opts.classifier.reassignProbThres && min(steps)>=self.opts.classifier.minBatchN;
 
         if bool
           verbose('Enough evidence: %1.2f',sum(prob-probdiag));
@@ -1750,7 +1767,7 @@ classdef FishTracker < handle;
           scale = scalecost./self.meanCost;
 
           % is there is currently a crossing then prob of non-assignement should be scaled down 
-          costOfNonAssignment =  self.meanAssignmentCost*self.opts.tracks.costOfNonAssignment;
+          costOfNonAssignment =  self.maxAssignmentCost + self.meanAssignmentCost;%*self.opts.tracks.costOfNonAssignment;
 
           
           % determine cost of each assigment to tracks
@@ -1835,6 +1852,9 @@ classdef FishTracker < handle;
             if ~isempty(costs)
               self.meanAssignmentCost = self.meanAssignmentCost*(mt-1)/mt ...
                   + 1/mt*mean(costs);
+              self.maxAssignmentCost = self.maxAssignmentCost*(mt-1)/mt ...
+                  + 1/mt*max(costs);
+                          
             end
           end
           
@@ -2015,7 +2035,8 @@ classdef FishTracker < handle;
           end
 
           %% save IDfeatures
-          thres = classopts.crossCostThres*self.meanAssignmentCost;
+          %thres = classopts.crossCostThres*self.meanAssignmentCost;
+          thres =self.maxAssignmentCost + self.meanAssignmentCost;
           if self.cost(detectionIdx) <= thres && (reasonable  || ~self.isInitClassifier)
             batchIdx = self.tracks(trackIdx).nextBatchIdx;
             self.tracks(trackIdx).batchFeatures(batchIdx,:)  = self.idfeatures(detectionIdx,:);
@@ -2208,8 +2229,7 @@ classdef FishTracker < handle;
             'stmInfo',[]);
 
           % update the classprobhistory and set the parameters
-          %newTrack.classProbHistory.lambda = self.fishwidth/self.fishlength;
-          newTrack.classProbHistory.lambda = self.opts.classifier.bendingThres;
+          newTrack.classProbHistory.lambda = self.fishlength/self.fishwidth;
           newTrack.classProbHistory.update(clprob,clprobnoise);
           
           % Add it to the array of tracks.
@@ -2240,7 +2260,8 @@ classdef FishTracker < handle;
         bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
         bBoxOverlap = bBoxXOverlap & bBoxYOverlap;
 
-        costThres = self.opts.classifier.crossCostThres*self.meanAssignmentCost;
+        %costThres = self.opts.classifier.crossCostThres*self.maxAssignmentCost;
+        costThres = self.maxAssignmentCost + self.opts.classifier.crossCostThres*self.meanAssignmentCost;
         for i = 1:length(self.tracks)
           
           if sum(msk(i,:))>1  || sum(bBoxOverlap(i,:))>1  
@@ -2524,7 +2545,7 @@ classdef FishTracker < handle;
       % FISHTRACKER(VID,OPTS) where OPTS is a structure with fields identical
       % to the names of the options.
       %  
-      % To see an help for the possible options run (without arguments):
+      % To see information about the possible options, run (without arguments):
       %  >> FishTracker
       %
       % Example:
@@ -2540,38 +2561,33 @@ classdef FishTracker < handle;
         %% properties
         
         def.opts.nfish = [];
-        doc.nfish = {'Number of fish. Needs to be fixed ' ...
-                     '(ATTEMPT to be estimated if empty)'};
+        doc.nfish = {'Number of fish. Needs to be fixed ' '(*attempt* to be estimated if empty)'};
         
         def.opts.fishlength = [];
-        doc.fishlength = {'Approx length of fish in pixel (will' ...
-                          'be estimated if empty)'};
+        doc.fishlength = {'Approx length of fish in pixel (estimated if empty)'};
         def.opts.fishwidth = [];
-        doc.fishwidth = {'Approx width of fish in pixel (will' ...
-                         'be estimated if empty)'};
+        doc.fishwidth = {'Approx width of fish in pixel (estimated if empty)'};
 
         def.opts.maxVelocity = [];
-        doc.maxVelocity = {'Maximal velocity in px/sec [will be ' ...
-                           'estimated if empty]'};
+        doc.maxVelocity = {'Maximal fish velocity in px/sec (estimated if empty)'};
         
         def.opts.stimulusPresenter = [];
-        doc.stimulusPresenter = {'Stimulus presenter object ','[for STMIF=true]'};
+        doc.stimulusPresenter = {'Stimulus presenter object  (for STMIF=true)'};
         
         def.opts.stmif = false;
-        doc.stmif = 'Use online stimulation';
+        doc.stmif = 'Use online visual stimulation';
 
         def.opts.useMex = true;
-        doc.useMex = {'Use the C++ version FishVideoHandler','(FAST)'};
+        doc.useMex = {'Use the C++ version FishVideoHandler (FAST)'};
 
         def.opts.useOpenCV = true;
         doc.useOpenCV = 'uses mexopencv library (FAST)';
 
         def.opts.useKNN = false;
-        doc.useKNN = {'Use the KNN instead of thresholding ' ...
-                      'for background segmentation (SLOW)'};
+        doc.useKNN = {'Use the KNN instead of thresholding ' 'for background segmentation (SLOW)'};
 
         def.opts.useScaledFormat = false;
-        doc.useScaledFormat = 'Use adaptive scaled gray format';
+        doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)' ''};
 
         
 
@@ -2579,191 +2595,79 @@ classdef FishTracker < handle;
         def.opts.detector(1).history = 500;  %250 [nframes]
         doc.detector(1).history = 'Background update time [nFrames]';
         
-        def.opts.detector.nskip = 5; 
-        doc.detector.nskip = 'Skip frmaes for thresh. (useKNN=0)';
-
         def.opts.detector.inverted = false;  
-        doc.detector.inverted = {'Set 1 for IR videos (white fish on ' ...
-                            'dark background)'};
+        doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
         
-        def.opts.detector.adjustThresScale = 0.91;   
-        doc.detector.adjustThresScale = {'0..1 : reduce to avoid many wrong ' ...
-                            ' detections in case of the','thresholder'};
+        def.opts.detector.adjustThresScale = 0.95;   
+        doc.detector.adjustThresScale = {'0..1 : reduce when bwmask noisy (useKNN=0)' ,''};
 
-        def.opts.detector.fixedSize = 0;  
-        doc.detector.fixedSize = 'Set 1 for saving the fixedSize image';
 
         %% reader
         def.opts.reader(1).resizeif = false;
-        doc.reader(1).resizeif = {'Whether to resize the frame before','tracking'};
+        doc.reader(1).resizeif = {'Whether to resize the frame before tracking'};
 
         def.opts.reader.resizescale = 0.75; 
-        doc.reader.resizescale = {'Fraction to resizing the frame for ' ...
-                            'RESIZEIF = true'};
-        
+        doc.reader.resizescale = {'Fraction to resizing the frame for RESIZEIF = true',''};
         
         %% blob anaylser
-        def.opts(1).blob(1).computeMSERthres= 2; % just for init str
-        doc.blob(1).computeMSERthres =  {'When to compute MSER (SLOW; only ' ...
-                            'for useMex=0)'};
-        def.opts(1).blob(1).computeMSER= 0;
-        doc.blob(1).computeMSER = {'Whether to compute MSER'};
 
-        def.opts.blob.interpif = 1;
-        doc.blob.interpif = {'Whether to interpolate while','debending'};
-        
-        def.opts.blob.colorfeature = false; 
-        doc.blob.colorfeature = {'Use color information for fish','feature'};
+        def.opts.blob(1).colorfeature = false; 
+        doc.blob.colorfeature = {'Use color information for fish feature',''};
 
-        def.opts.blob.difffeature = true; 
-        doc.blob.difffeature = {'Use background subtracted gray' ...
-                            'images for fish feature'};
 
         %% classification
-        def.opts(1).classifier.crossCostThres = 2;  
-        doc.classifier.crossCostThres = {'candidates for crossings: scales ' ...
-                            'mean assignment cost'};
-
-        def.opts.classifier.bendingThres = 4; 
-        doc.classifier.bendingThres = {'For exclusion of features for ' ...
-                            'classfication'};
-
-        def.opts.classifier.reassignProbThres = 0.4; %0.45
-        doc.classifier.reassignProbThres = {'minimal probability for ' ...
-                            'reassignments'};
-        
-        def.opts.classifier.handledProbThres = 0.3; %0.45
-        doc.classifier.handedProbThres = {'minimal probability for ' ...
-                            'crossing exits'};
-        
-        def.opts.classifier.discardPotentialReversed = true;
-        doc.classifier.discardPotentialReversed = {'Discard potential reversed during','classification (better ?)'};
-
         def.opts.classifier.npca = 40; 
         doc.classifier.npca = 'Number of PCA components';
 
         def.opts.classifier.nlfd = 10; 
-        doc.classifier.nlfd = {'Number of LFD components.','Set to 0 to turn off.'};
+        doc.classifier.nlfd = {'Number of LFD components. Set to 0 to turn off.'};
 
         def.opts.classifier.tau = 5000; 
-        doc.classifier.nlfd = {'Time constant of classifier','update [nFrames].'};
+        doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
-        def.opts.classifier.clpMovAvgTau = 10; 
-        doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
-
+        def.opts.classifier.reassignProbThres = 0.4; %0.45
+        doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
         
-        def.opts.classifier.outliersif = false; 
-        doc.classifier.outliersif = 'Exclude outliers before update';
-
-        def.opts.classifier.minBatchN = 5;  
-        doc.classifier.minBatchN = 'minimum sample size for batch update'; 
+        def.opts.classifier.handledProbThres = 0.3; %0.45
+        doc.classifier.handledProbThres = {'minimal diff probability for crossing exits'};
 
         def.opts.classifier.nFramesForInit = 200; 
-        doc.classifier.nFramesForInit = {'Number of unique frames for ' ...
-                            'initialize the classifier'};
+        doc.classifier.nFramesForInit = {'Number of unique frames for initialize the classifier'};
 
-        def.opts.classifier.nFramesAfterCrossing =  10; % 10
-        doc.classifier.nFramesAfterCrossing = {'When to check for ' ...
-                            'permutations after crossings'};
+        def.opts.classifier.nFramesAfterCrossing =  5; % 8
+        doc.classifier.nFramesAfterCrossing = {'When to check for permutations after crossings'};
         
         def.opts.classifier.nFramesForUniqueUpdate = 70;
-        doc.classifier.nFramesForUniqueUpdate = {'Unique frames for update all' ...
-                            ' simultaneously'};
+        doc.classifier.nFramesForUniqueUpdate = {'Unique frames needed for update all fish simultaneously',''};
         
-        def.opts.classifier.nFramesForSingleUpdate = 250; 
-        doc.classifier.nFramesForSingleUpdate = {'single fish update. Should be ' ...
-                            'larger than unique.'};
 
-        def.opts.classifier.maxFramesPerBatch = 280;
-        doc.classifier.maxFramesPerBatch = {'Maximal frames for saving ' ...
-                            'the fish feature'};
 
         %% tracks
         def.opts(1).tracks.costtau = 500;
-        doc.tracks.costtau = {'Time constant for computing the mean ' ...
-                            'cost [nFrames]'};
+        doc.tracks.costtau = {'Time constant for computing the mean cost [nFrames]'};
 
-        def.opts.tracks.tauVelocity = 5; 
-        doc.tracks.tauVelocity = {'Time constant to compute the ' ...
-                            'velocity [nFrames]'};
+        def.opts.tracks.crossBoxLengthScale = 0.75; %0.5 
+        doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded as a crossing'};
         
-        def.opts.tracks.probThresForFish = 0.2; 
-        doc.tracks.probThresForFish = {'Classification probability to ' ...
-                            'assume a fish feature'};
-        
-        def.opts.tracks.crossBoxLengthScale = 0.5; %0.5 
-        doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded' ...
-                            'as a crossing'};
+        def.opts.tracks.adjustCostDuringCrossing = true; 
+        doc.tracks.adjustCostDuringCrossing = {'Whether to scale non-assignment cost during crossings',''};
 
-        def.opts.tracks.crossBoxLengthScalePreInit = 0.75; 
-        doc.tracks.crossBoxLengthScalePreInit = {'Before classifier init ' ...
-                            '(reduced somewhat)'};
-
-        def.opts.tracks.kalmanFilterPredcition = false; 
-        doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter ' ...
-                            '(DEPRECIATED)'};
-
-        def.opts.tracks.keepFullTrackStruc = false;
-        doc.tracks.keepFullTrackStruc = {'Whether to keep full track' ...
-                            ' structure. ONLY FOR DEBUG!'};
-
-        def.opts.tracks.costOfNonAssignment =  2; 
-        doc.tracks.costOfNonAssignment = {'Higher values force (possible  ' ...
-                            'spurious) assignments', '[re. to  mean cost]'};
-
-        def.opts.tracks.adjustCostDuringCrossing = false; 
-        doc.tracks.adjustCostDuringCrossing = {'Whether to scale non-assignment' ...
-                            ' cost during crossings'};
-
-        def.opts.tracks.crossingCostScale = 0.5; 
-        doc.tracks.crossingCostScale = {'Scaling of non-assignment' ...
-                            ' cost during crossings'};
-
-        def.opts.tracks.invisibleCostScale = 1;
-        doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};
                 
         %% display opts
         def.opts.displayif = 3;
-        doc.displayif = {'turn on/off all displaying'};
+        doc.displayif = {'Turn on/off all displaying'};
 
         def.opts.display.displayEveryNFrame = 10;
-        doc.display.displayEveryNFrame = {'How often to update the track ' ...
-                            'display window (SLOW)'};
+        doc.display.displayEveryNFrame = {'How often to update the track display window (SLOW)'};
 
         def.opts.display.tracks = true;
-        doc.display.tracks = {'Whether to plot the tracking ' ...
-                            'process'};
+        doc.display.tracks = {'Whether to plot the tracking process'};
 
         def.opts.display.level = 3;
-        doc.display.level = {'Level of details of the ' ...
-                            'track plot'};
+        doc.display.level = {'Level of details of the track plot'};
         
         def.opts.display.fishSearchResults = false;
         doc.display.fishSearchResults = {'Info plot nfish auto-search'};
-
-        def.opts.display.detectedObjects = false;
-        doc.display.detectedObjects = {'Detection info plot', '(for DEBUGGING) '};
-        
-        def.opts.display.crossings = false;
-        doc.display.crossings = {'Crossings info plot', '(for DEBUGGING) '};
-
-        def.opts.display.switchFish = false;
-        doc.display.switchFish = {'Switch fish info plot', '(for DEBUGGING) '};
-
-        def.opts.display.classifier = false;
-        doc.display.classifier = {'Classifier plot', '(for DEBUGGING) '};
-
-        def.opts.display.videoHandler = false;
-        doc.display.videoHandler = {'Raw frames and bwmsk', 'MEX only (for DEBUGGING) '};
-        
-        def.opts.display.leakyAvgFrameTau = 50;
-        doc.display.leakyAvgFrameTau = {'Tau for switch fish plot'};
-        
-        def.opts.display.assignments = false;
-        doc.display.assignments = {'Assignment info plot', '(for DEBUGGING) '};
-
-        def.opts.display.assignmentCost = false;
-        doc.display.assignmentCost = {'Assignment cost info plot', '(for DEBUGGING) '};
 
         
         
@@ -2775,17 +2679,105 @@ classdef FishTracker < handle;
         parseInputs;
         if HELP;  return;end
 
-        opts.classifier.invisibleForTooLong = 5; % regulates the uniqueUpdate
+        
+        %%options not really important
+
+        opts.detector.fixedSize = 0;  
+        doc.detector.fixedSize = 'Set 1 for saving the fixedSize image';
+
+        opts.detector.nskip = 5; 
+        doc.detector.nskip = 'Skip frames for background (useKNN=0)';
+
+
+        opts.display.leakyAvgFrameTau = 50;
+        doc.display.leakyAvgFrameTau = {'Tau for switch fish plot'};
+        
+        
+        opts.display.detectedObjects = false;
+        doc.display.detectedObjects = {'Detection info plot (for DEBUGGING) '};
+        
+        opts.display.crossings = false;
+        doc.display.crossings = {'Crossings info plot (for DEBUGGING) '};
+
+        opts.display.switchFish = false;
+        doc.display.switchFish = {'Switch fish info plot (for DEBUGGING) '};
+
+        opts.display.classifier = false;
+        doc.display.classifier = {'Classifier plot (for DEBUGGING) '};
+
+        opts.display.videoHandler = false;
+        doc.display.videoHandler = {'Raw frames and bwmsk MEX only (for DEBUGGING) '};
+        
+        opts.display.assignments = false;
+        doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
+
+        opts.display.assignmentCost = false;
+        doc.display.assignmentCost = {'Assignment cost info plot (for DEBUGGING) '};
 
         
+        opts.blob.computeMSERthres= 2; % just for init str
+        doc.blob(1).computeMSERthres =  {'When to compute MSER (SLOW; only ' 'for useMex=0)'};
+
+        opts.blob.computeMSER= 0;
+        doc.blob.computeMSER = {'Whether to compute MSER'};
+
+        opts.blob.difffeature = true; 
+        doc.blob.difffeature = {'Use background subtracted gray' 'images for fish feature'};
+
+        opts.blob.interpif = 1;
+        doc.blob.interpif = {'Whether to interpolate while','debending'};
+
+        opts.tracks.tauVelocity = 5; 
+        doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [nFrames]'};
+
+        opts.tracks.keepFullTrackStruc = false;
+        doc.tracks.keepFullTrackStruc = {'Whether to keep full track' ' structure. ONLY FOR DEBUG!'};
+
+        opts.tracks.invisibleCostScale = 1;
+        doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};
+
+        opts.tracks.kalmanFilterPredcition = false; 
+        doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter ' '(DEPRECIATED)'};
+
+        opts.tracks.crossingCostScale = 0.8; 
+        doc.tracks.crossingCostScale = {'Scaling of non-assignment' ' cost during crossings'};
+
+        opts.tracks.crossBoxLengthScalePreInit = max(opts.tracks.crossBoxLengthScale*0.75,0.5); 
+        doc.tracks.crossBoxLengthScalePreInit = {'Before classifier init ' '(reduced somewhat)'};
+
+        opts.classifier.minBatchN = max(ceil(opts.classifier.nFramesAfterCrossing*0.75),4);  
+        doc.classifier.minBatchN = 'minimum sample size for batch update'; 
+
+        opts.classifier.clpMovAvgTau = opts.classifier.nFramesAfterCrossing; 
+        doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
+
+        opts.classifier.crossCostThres = 3;  
+        doc.classifier.crossCostThres = {'candidates for crossings: scales ' ['mean assignment ' 'cost']};
+
+        opts.classifier.nFramesForSingleUpdate = 4*opts.classifier.nFramesForUniqueUpdate; 
+        doc.classifier.nFramesForSingleUpdate = {'single fish update. Should be ' ...
+                            'larger than unique.'};
+
+        opts.classifier.maxFramesPerBatch = opts.classifier.nFramesForSingleUpdate + 50;
+        doc.classifier.maxFramesPerBatch = {'Maximal frames for saving ' ...
+                            'the fish feature'};
+        opts.classifier.discardPotentialReversed = true;
+        doc.classifier.discardPotentialReversed = {'Discard potential reversed during','classification (better ?)'};
+        
+        opts.tracks.probThresForFish = 0.1; 
+        doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
+        
+
+
         %% other developmental parameters
+
+
         %lost tracks
         opts.tracks.invisibleForTooLong = 15; % on track basis. Only for deletion
         opts.tracks.ageThreshold = 10;
         opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
-        
-        
-        
+
+
         if ~exist('chooseNFish') && exist('helper','dir')
           addpath('helper');
         end
@@ -3702,7 +3694,7 @@ classdef FishTracker < handle;
 
         prob = res.tracks.classProb(plotidx,fishIds,fishIds);
         probid = nanmean(prob(:,1:length(fishIds)+1:end),2);
-        if self.nfish<=4
+        if self.nfish<=5
           p = perms(1:self.nfish);
           probmax = probid;
           for i = 1:size(p)

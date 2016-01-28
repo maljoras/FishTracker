@@ -3,7 +3,7 @@ classdef FishStimulusPresenter < handle;
   
   
   properties 
-    screen = 2;
+    screen = 1;
     defaultColor = [1,0.2,1];
     tmax = Inf;
   end
@@ -188,7 +188,7 @@ classdef FishStimulusPresenter < handle;
       boundary = 0.08;
       x = max(min((x - boundary)/(1-2*boundary),1),0);
       y = max(min((y - boundary)/(1-2*boundary),1),0);
-      self.plotDot(x,y,50,col);
+      self.plotDot(1-x,1-y,50,col);
       for i =1:length(tracks)
         tracks(i).stmInfo = [x(i),y(i)];
       end

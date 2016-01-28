@@ -845,10 +845,18 @@ classdef FishTracker < handle;
         
         tt = tstart:tcurrent;
         t1 = tstart;
-        
+
         pdiff = [];
         tspan = tcurrent-tstart + 1;
+
         for ii = 1:length(idxTrackIndices)
+          if tspan>self.tracks(trIdx).classProbHistory.nHistory
+            tminOut = tcurrent; % cannot compute
+            tsearchstart = t1; % dummy
+            tsearchend = tcurrent;
+            return;
+          end
+          
           trIdx = idxTrackIndices(ii);
           [p,w] = self.tracks(trIdx).classProbHistory.getData(tspan);
           if isempty(pdiff)
@@ -2777,15 +2785,26 @@ classdef FishTracker < handle;
         opts.tracks.ageThreshold = 10;
         opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
 
-
+        %% paramter checking
         if ~exist('chooseNFish') && exist('helper','dir')
           addpath('helper');
         end
-        
+
         if isempty(vid)
           vid = getVideoFile();
         end
+        
+        if all(vid(1:2)=='~/') && isunix()
+          [~,home] = unix('eval echo ~$USER');
+          vid = [home(1:end-1) vid(2:end)];
+        elseif vid(1)=='~'
+          error('provide full path name. Cannot start with "~"');        
+        end
 
+        if ~exist(vid)
+          error(sprintf('Video file "%s" not found',vid));
+        end
+        
         if isempty(opts.nfish) 
           chooseNFish(vid,1);
         end

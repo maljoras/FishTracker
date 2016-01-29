@@ -190,7 +190,7 @@ classdef FishVideoReader < handle;
     function loadTFile(self,tfile);
     % reads the txt file with the time information from SaveVideo
       tmp = dlmread(tfile);
-      self.tframe = tmp(:,3)-tmp(1,3);
+      self.tframe = tmp(:,3);%-tmp(1,3);
     end
   
     function startReader(self)

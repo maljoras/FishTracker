@@ -411,7 +411,7 @@ void VideoHandler::readNextFrameThread()
 
 	m_NextTimeStamp = pVideoCapture->get(cv::CAP_PROP_POS_MSEC)*1e-3; 
 	if (!pVideoCapture->read(oframe)) { // should return RGB instead of BGR. But seems not to work.. NOW BGR
-	  cout <<  "ERROR: File read error." << endl;
+		//cout <<  "ERROR: File read error." << endl;
 	  break;
 	}
 	//cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);

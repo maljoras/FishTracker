@@ -12,7 +12,7 @@ classdef FishVideoHandlerMatlab < handle & FishVideoReaderMatlab & FishBlobAnaly
     
     knnMethod = false;% NOT SUPORTED
     fixedSize = 0;  % NOT SUPORTED WITHOUT MEX
-    difffeature = false; % no supported
+    difffeature = false; % not supported
   end
 
   properties (SetAccess = private)

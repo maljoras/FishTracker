@@ -8,10 +8,10 @@ if LOAD
   idres.pos = permute(id.trajectories,[1,3,2]);
 
   vid = '/home/malte/Videos/5Zebrafish_nocover_22min.avi';  
-  ft = FishTracker(vid,'detector.adjustThresScale',1,'nfish',5);
+  ft = FishTracker(vid,'detector.adjustThresScale',1,'nfish',5,'detector.fixedSize',150);
 
   ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
-  ft.setDisplay(0);
+  ft.setDisplay(1);
   ft.setDisplay('switchFish',1,'tracks',1);
   
   tic;

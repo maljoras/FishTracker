@@ -2605,8 +2605,11 @@ classdef FishTracker < handle;
         def.opts.detector.inverted = false;  
         doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
         
-        def.opts.detector.adjustThresScale = 0.95;   
+        def.opts.detector.adjustThresScale = 0.90;   
         doc.detector.adjustThresScale = {'0..1 : reduce when bwmask noisy (useKNN=0)' ,''};
+
+        def.opts.detector.fixedSize = 0;  
+        doc.detector.fixedSize = 'Set 1 for saving the fixedSize image';
 
 
         %% reader
@@ -2659,7 +2662,9 @@ classdef FishTracker < handle;
         def.opts.tracks.adjustCostDuringCrossing = true; 
         doc.tracks.adjustCostDuringCrossing = {'Whether to scale non-assignment cost during crossings',''};
 
-                
+        def.opts.tracks.keepFullTrackStruc = false;
+        doc.tracks.keepFullTrackStruc = {'Whether to keep full track' ' structure. ONLY FOR DEBUG!'};
+  
         %% display opts
         def.opts.displayif = 3;
         doc.displayif = {'Turn on/off all displaying'};
@@ -2675,6 +2680,15 @@ classdef FishTracker < handle;
         
         def.opts.display.fishSearchResults = false;
         doc.display.fishSearchResults = {'Info plot nfish auto-search'};
+
+        def.opts.display.switchFish = false;
+        doc.display.switchFish = {'Switch fish info plot (for DEBUGGING) '};
+
+        def.opts.display.videoHandler = false;
+        doc.display.videoHandler = {'Raw frames and bwmsk MEX only (for DEBUGGING) '};
+        
+        def.opts.display.assignments = false;
+        doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
 
         
         
@@ -2693,9 +2707,6 @@ classdef FishTracker < handle;
         
         %%options not really important
 
-        opts.detector.fixedSize = 0;  
-        doc.detector.fixedSize = 'Set 1 for saving the fixedSize image';
-
         opts.detector.nskip = 5; 
         doc.detector.nskip = 'Skip frames for background (useKNN=0)';
 
@@ -2710,17 +2721,10 @@ classdef FishTracker < handle;
         opts.display.crossings = false;
         doc.display.crossings = {'Crossings info plot (for DEBUGGING) '};
 
-        opts.display.switchFish = false;
-        doc.display.switchFish = {'Switch fish info plot (for DEBUGGING) '};
 
         opts.display.classifier = false;
         doc.display.classifier = {'Classifier plot (for DEBUGGING) '};
 
-        opts.display.videoHandler = false;
-        doc.display.videoHandler = {'Raw frames and bwmsk MEX only (for DEBUGGING) '};
-        
-        opts.display.assignments = false;
-        doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
 
         opts.display.assignmentCost = false;
         doc.display.assignmentCost = {'Assignment cost info plot (for DEBUGGING) '};
@@ -2740,9 +2744,6 @@ classdef FishTracker < handle;
 
         opts.tracks.tauVelocity = 5; 
         doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [nFrames]'};
-
-        opts.tracks.keepFullTrackStruc = false;
-        doc.tracks.keepFullTrackStruc = {'Whether to keep full track' ' structure. ONLY FOR DEBUG!'};
 
         opts.tracks.invisibleCostScale = 1;
         doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};

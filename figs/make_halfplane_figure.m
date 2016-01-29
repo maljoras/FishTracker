@@ -1,6 +1,6 @@
 LOAD = 0;
 PLOT = 1;
-SAVEIF = 0;
+SAVEIF = 1;
 COMPUTE = 0;
 
 NEWTRACK = 0
@@ -117,7 +117,7 @@ if PLOT
     %pos = stmpos;
     %tt = ftstm.ft.res.tracks.t(:,1);
 
-    ftstm2 = ftstmall{1}{3};
+    ftstm2 = ftstmall{5}{1};
     ftstm2.ft.videoFile
     pos = ftstm2.ft.res.pos;
     tt = ftstm2.ft.res.tracks.t(:,1);    
@@ -137,8 +137,16 @@ if PLOT
   a(end+1) = subplot(r1,r2,s,'align');
 
 
-  left = 1;
-  right = 2;
+  if size(pos,3)<=2 % SOMEHOW FOR VIDEO WITH 1 or 2 fish stimulus
+                    % was reversed!!
+    left = 2;
+    right = 1;
+  else
+    left = 1;
+    right = 2;
+  end
+  
+  tt = tt/60;
 
   info = res.stmInfo(:,1,2);
   blackdinfo = [diff(info==right);0];
@@ -161,6 +169,7 @@ if PLOT
   end
 
   hold on;
+  set(a(end),'colororder',jet(size(res.t,2)))
   p = squeeze(pos(:,1,:));
   for i = 1:size(p,2);
     pp = p(:,i);
@@ -173,25 +182,38 @@ if PLOT
   tstmbreakend = tt(find([diff(info==3);0]<0));
   tstmbreakstart = tt(find([diff(info==3);0]>0));
   tspan = tstmbreakend(1) - tstmbreakstart(1);
-  xlim([tstmstart-tspan,tstmbreakend(3)-tspan/2])
+  xlim([tstmstart-tspan,tstmbreakend(2)-tspan/2])
   ylim([1,xend]);
-  ylabel('x-position [px]','fontsize',10);    
-  xlabel('Time [s]','fontsize',10);    
-
+  ylabel('X-Position [px]','fontsize',10);    
+  xlabel('Time [min]','fontsize',10);    
+  title('Example: Group size 5 fish','fontsize',10,'fontweight','normal')
   
   %population
-  s = s+1;
-  a(end+1) = subplot(r1,r2,s,'align');
+  s = s+2;
+  a(end+1) = subplot(r1,r2+1,s,'align');
   
   Nl = [];
   Nr = [];
   nbins = 50;
-  edges = linspace(1,xend,nbins);
+
+  pos = ftstmall{5}{1}.ft.res.pos; % estimate from 5 fish
+  x = pos(:,1,:);
+  edges = linspace(quantile(x(:),0.001),quantile(x(:),0.999),nbins);
+
   for nfish = 1:length(ftstmall)
     for i = 1:length(ftstmall{nfish})
       pos = ftstmall{nfish}{i}.ft.res.pos;
       res = ftstmall{nfish}{i}.ft.res.tracks;
 
+      if size(pos,3)<=2 % SOMEHOW FOR VIDEO WITH 1 or 2 fish stimulus
+                        % was reversed!!
+        left = 2;
+        right = 1;
+      else
+        left = 1;
+        right = 2;
+      end
+  
       c = res.consequtiveInvisibleCount;
       cc = permute(cat(3,c,c),[1,3,2]);
       pos(cc>0) = NaN;
@@ -200,9 +222,11 @@ if PLOT
       idx = res.stmInfo(:,1,2) == left ;
       
       Nl{nfish}(:,:,i) = histc(squeeze(pos(idx,1,:)),edges)/sum(idx);
+      Nl{nfish}(:,:,i) = bsxfun(@rdivide,Nl{nfish}(:,:,i),sum(Nl{nfish}(:,:,i),1));
 
       idx = res.stmInfo(:,1,2) == right ;
       Nr{nfish}(:,:,i) = histc(squeeze(pos(idx,1,:)),edges)/sum(idx);
+      Nr{nfish}(:,:,i) = bsxfun(@rdivide,Nr{nfish}(:,:,i),sum(Nr{nfish}(:,:,i),1));
     end
   end
 
@@ -223,12 +247,55 @@ if PLOT
       sNl(:,i) = stderr(Nl{i}(:,:),2);
     end
   end
+  tstart = 0;
+  tend = 0.5; 
+  xend = 0;
+  xhalf = 1;
+  patch([tstart,tend,tend,tstart,tstart],[xend,xend,xhalf,xhalf,xend],gray,'edgecolor','none');
+  hold on;
+  h = errorbarpatch(linspace(0,1,length(edges)),(mNr + mNl(end:-1:1,:))/2,(sNr + sNl(end:-1:1,:))/2,'linewidth',1);
+  legend(h([1,2,3,5]),{'1 fish','2 fish','3 fish','5 fish'});
+  set(a(end),'fontsize',8);
+  xlabel(sprintf('Relative location\n during stimulation'),'fontsize',10)
+  ylabel('Probability','fontsize',10)
+  box off;
+  ylim([0,0.25])
+
+  s = s+1;
+  a(end+1) = subplot(r1,r2+1,s,'align');
   
-  errorbarpatch(edges,mNr,sNr,'linewidth',1);
-  set(gca,'colororderindex',1);
-  errorbarpatch(edges,mNl,sNl,':','linewidth',1);
+  y = nan(1,length(Nl));
+  sy = nan(1,length(Nl));
+  x = 1:length(Nl);
+  for i = 1:length(Nl)
+   if isempty(Nl{i}) 
+     continue;
+   end
+   m =[sum(Nr{i}(floor(nbins/2):end,:),1),sum(Nl{i}(1:floor(nbins/2),:),1)];
+   y(i) = mean(m);
+   sy(i) = stderr(m);
+  end
   
+  errorbarline(x,y*100,sy*100,'x');
+  set(a(end),'fontsize',8);
+  ylabel(sprintf('Fraction of time on\n dark side [%%]'), 'fontsize',10);
+  xlabel('Group size [# fish]','fontsize',10);
   
-  
+  box off;
+
+
+
+  b = labelsubplot(gcf);
+  shiftaxes(b(1),[0.06])
+  shiftaxes(b(2:3),[-0.01,-0.01])
+
+  if SAVEIF
+    exportfig(gcf,'/home/malte/work/projects/zebra/halfplane.eps',...
+              'color','rgb','FontSizeMin',5,'FontMode','scaled','LineWidthMin',0.75)
+    saveas(gcf,'/home/malte/work/projects/zebra/halfplane.fig');
+  end
+
+
+
 end
 

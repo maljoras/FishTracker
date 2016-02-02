@@ -27,16 +27,25 @@ classdef FishStimulusPresenter < handle;
     function self = FishStimulusPresenter(varargin)
 
       self = self@handle();
-      
-      if mod(length(varargin),2)
-        error('expect even number of arguments');
-      end
 
-      for i = 1:2:length(varargin)
-        if ~ischar(varargin{i}) || ~isprop(self,varargin{i});
-          error('expect valid property name FishStimulusPresenter');
+      if nargin==1 && isstruc(varargin{1});
+        for f = fieldnames(varargin{1})
+          if isprop(self,f{1})
+            self.(f{1}) = varargin{1}.(f{1});
+          end
         end
-        self.(varargin{i}) = varargin{i+1};
+      else
+        
+        if mod(length(varargin),2)
+          error('expect even number of arguments or options structure');
+        end
+        
+        for i = 1:2:length(varargin)
+          if ~ischar(varargin{i}) || ~isprop(self,varargin{i});
+            error('expect valid property name FishStimulusPresenter');
+          end
+          self.(varargin{i}) = varargin{i+1};
+        end
       end
       
     end

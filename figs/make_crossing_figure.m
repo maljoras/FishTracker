@@ -167,7 +167,7 @@ if PLOT
   hold on;
   set(a(s),'colororder',colororder);
   c = reshape(cat(1,T.assignmentCost),size(T));
-  inv = reshape(cat(1,T.consequtiveInvisibleCount),size(T));
+  inv = reshape(cat(1,T.consecutiveInvisibleCount),size(T));
   c(inv>0) = NaN;
   plot(t,c,'linewidth',1)
   h = plot(t(any(inv>0,2)),1,'xk','linewidth',1);

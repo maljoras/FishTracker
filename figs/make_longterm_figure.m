@@ -50,7 +50,7 @@ if PLOT
   
   posx = ft.res.tracks.centroid(:,:,1);
   posy = ft.res.tracks.centroid(:,:,2);
-  inv = ft.res.tracks.consequtiveInvisibleCount>0;
+  inv = ft.res.tracks.consecutiveInvisibleCount>0;
   posx(inv) = NaN;
   posy(inv) = NaN;
   d12 = sqrt((posx(:,1) - posx(:,2)).^2 + (posy(:,1) - posy(:,2)).^2);

@@ -107,90 +107,125 @@ end
 
 if PLOT
   figure;
-
-  if NEWTRACK
-    res = ftres; % take new
-    pos = ftpos;
-    tt = t;
-  else
-    %res = ftstm.ft.res.tracks;
-    %pos = stmpos;
-    %tt = ftstm.ft.res.tracks.t(:,1);
-
-    ftstm2 = ftstmall{5}{1};
-    ftstm2.ft.videoFile
-    pos = ftstm2.ft.res.pos;
-    tt = ftstm2.ft.res.tracks.t(:,1);    
-    res = ftstm2.ft.res.tracks;
-  end
-
-  c = res.consequtiveInvisibleCount;
-  cc = permute(cat(3,c,c),[1,3,2]);
-  pos(cc>0) = NaN;
-  
   r1  = 2;
-  r2 = 1;
-  s = 0;
+  r2 = 2;
+  s = 1;
   a = [];
-  
+  n_plot = 2;
+
   s = s+1;
-  a(end+1) = subplot(r1,r2,s,'align');
+  for i_plot =1:n_plot
+    
+    aa = subsubplot(r1,r2,s,n_plot,1,i_plot);
 
+    if i_plot==2
+      if NEWTRACK
+        res = ftres; % take new
+        pos = ftpos;
+        tt = t;
+      else
+        %res = ftstm.ft.res.tracks;
+        %pos = stmpos;
+        %tt = ftstm.ft.res.tracks.t(:,1);
+        ftstm2 = ftstmall{5}{1};
+        ftstm2.ft.videoFile
+        pos = ftstm2.ft.res.pos;
+        tt = ftstm2.ft.res.tracks.t(:,1);    
+        res = ftstm2.ft.res.tracks;
+        tstr = 'Group size 5 fish';
 
-  if size(pos,3)<=2 % SOMEHOW FOR VIDEO WITH 1 or 2 fish stimulus
-                    % was reversed!!
-    left = 2;
-    right = 1;
-  else
-    left = 1;
-    right = 2;
+      end
+    elseif i_plot==1
+        ftstm2 = ftstmall{2}{1};
+        tstr = 'Group size 2 fish';
+        ftstm2.ft.videoFile
+        pos = ftstm2.ft.res.pos;
+        tt = ftstm2.ft.res.tracks.t(:,1);    
+        res = ftstm2.ft.res.tracks;
+    else
+      error('Do not know what to plot');
+    end
+
+        
+    c = res.consecutiveInvisibleCount;
+    cc = permute(cat(3,c,c),[1,3,2]);
+    pos(cc>0) = NaN;
+    
+
+    if size(pos,3)<=2 % SOMEHOW FOR VIDEO WITH 1 or 2 fish stimulus
+                      % was reversed!!
+      left = 2;
+      right = 1;
+    else
+      left = 1;
+      right = 2;
+    end
+    
+    tt = tt/60;
+
+    info = res.stmInfo(:,1,2);
+    blackdinfo = [diff(info==right);0];
+    whitedinfo = [diff(info==left);0];
+
+    xhalf = ftstm.ft.videoHandler.frameSize(2)/2;
+    xend = ftstm.ft.videoHandler.frameSize(2);
+    gray = [1,1,1]*0.6;
+    for idx = find(blackdinfo>0)'
+      tstart = tt(idx);
+      idx1 = find(blackdinfo<0);
+      tend = tt(idx1(find(idx1>idx,1,'first')));
+      patch([tstart,tend,tend,tstart,tstart],[1,1,xhalf,xhalf,1],gray,'edgecolor','none');
+    end
+    for idx = find(whitedinfo>0)'
+      tstart = tt(idx);
+      idx1 = find(whitedinfo<0);
+      tend = tt(idx1(find(idx1>idx,1,'first')));
+      patch([tstart,tend,tend,tstart,tstart],[xend,xend,xhalf,xhalf,xend],gray,'edgecolor','none');
+    end
+
+    hold on;
+    set(aa,'colororder',jet(size(res.t,2)))
+    p = squeeze(pos(:,1,:));
+    nconv = 24;
+    for i = 1:size(p,2);
+      pp = p(:,i);
+      ipp = interp1(tt(~isnan(pp)),pp(~isnan(pp)),tt(isnan(pp)),'linear','extrap');
+      pp(isnan(pp)) = ipp;
+      cpp = conv(pp,ones(nconv,1)/nconv,'same');
+      plot(tt,cpp,'linewidth',0.5);
+    end
+    
+    set(aa,'fontsize',8);
+    
+    tstmstart = tt(find([diff(info==0);0]<0,1,'first'));
+    tstmbreakend = tt(find([diff(info==3);0]<0));
+    tstmbreakstart = tt(find([diff(info==3);0]>0));
+    tspan = tstmbreakend(1) - tstmbreakstart(1);
+    xlim([tstmstart-tspan,tstmbreakend(2)-tspan/2])
+    ylim([1,xend]);
+
+    if i_plot==n_plot
+      xlabel('Time [min]','fontsize',10);    
+    else
+      set(aa,'xticklabel',[]);
+    end
+    ttl = title(tstr,'fontsize',8,'fontweight','normal','vert','middle');
+    p1 = get(ttl,'position');
+    p1(2) = p1(2)+80;
+    set(ttl,'position',p1);
+    axislabel off;
   end
-  
-  tt = tt/60;
-
-  info = res.stmInfo(:,1,2);
-  blackdinfo = [diff(info==right);0];
-  whitedinfo = [diff(info==left);0];
-
-  xhalf = ftstm.ft.videoHandler.frameSize(2)/2;
-  xend = ftstm.ft.videoHandler.frameSize(2);
-  gray = [1,1,1]*0.6;
-  for idx = find(blackdinfo>0)'
-    tstart = tt(idx);
-    idx1 = find(blackdinfo<0);
-    tend = tt(idx1(find(idx1>idx,1,'first')));
-    patch([tstart,tend,tend,tstart,tstart],[1,1,xhalf,xhalf,1],gray,'edgecolor','none');
-  end
-  for idx = find(whitedinfo>0)'
-    tstart = tt(idx);
-    idx1 = find(whitedinfo<0);
-    tend = tt(idx1(find(idx1>idx,1,'first')));
-    patch([tstart,tend,tend,tstart,tstart],[xend,xend,xhalf,xhalf,xend],gray,'edgecolor','none');
-  end
-
-  hold on;
-  set(a(end),'colororder',jet(size(res.t,2)))
-  p = squeeze(pos(:,1,:));
-  for i = 1:size(p,2);
-    pp = p(:,i);
-    plot(tt(~isnan(pp)),pp(~isnan(pp)),'linewidth',1);
-  end
-  
-  set(a(end),'fontsize',8);
-  
-  tstmstart = tt(find([diff(info==0);0]<0,1,'first'));
-  tstmbreakend = tt(find([diff(info==3);0]<0));
-  tstmbreakstart = tt(find([diff(info==3);0]>0));
-  tspan = tstmbreakend(1) - tstmbreakstart(1);
-  xlim([tstmstart-tspan,tstmbreakend(2)-tspan/2])
+  a(end+1) = subsubplot(r1,r2,s,1,1,1);
   ylim([1,xend]);
-  ylabel('X-Position [px]','fontsize',10);    
-  xlabel('Time [min]','fontsize',10);    
-  title('Example: Group size 5 fish','fontsize',10,'fontweight','normal')
+  xlim([tstmstart-tspan,tstmbreakend(2)-tspan/2])
+  yl = ylabel('X-Position [px]','fontsize',10);    
+  p1 = get(yl,'position');
+  set(a(end),'visible','off');
+  text(p1(1),p1(2),'X-Position [px]','fontsize',10,'rotation',90,'vert','bottom','horiz','center');
   
   %population
-  s = s+2;
-  a(end+1) = subplot(r1,r2+1,s,'align');
+  s = s+1;
+  a(end+1) = subplot(r1,r2,s,'align');
   
   Nl = [];
   Nr = [];
@@ -214,7 +249,7 @@ if PLOT
         right = 2;
       end
   
-      c = res.consequtiveInvisibleCount;
+      c = res.consecutiveInvisibleCount;
       cc = permute(cat(3,c,c),[1,3,2]);
       pos(cc>0) = NaN;
 
@@ -262,7 +297,7 @@ if PLOT
   ylim([0,0.25])
 
   s = s+1;
-  a(end+1) = subplot(r1,r2+1,s,'align');
+  a(end+1) = subplot(r1,r2,s,'align');
   
   y = nan(1,length(Nl));
   sy = nan(1,length(Nl));
@@ -280,7 +315,7 @@ if PLOT
   set(a(end),'fontsize',8);
   ylabel(sprintf('Fraction of time on\n dark side [%%]'), 'fontsize',10);
   xlabel('Group size [# fish]','fontsize',10);
-  
+  xlim([0.5,length(y)+0.5])
   box off;
 
 
@@ -290,9 +325,9 @@ if PLOT
   shiftaxes(b(2:3),[-0.01,-0.01])
 
   if SAVEIF
-    exportfig(gcf,'/home/malte/work/projects/zebra/halfplane.eps',...
-              'color','rgb','FontSizeMin',5,'FontMode','scaled','LineWidthMin',0.75)
-    saveas(gcf,'/home/malte/work/projects/zebra/halfplane.fig');
+    exportfig(gcf,'/home/malte/work/writings/papers/fishtracking/figs/halfplane.eps','color','rgb','FontSizeMin',5,'FontMode','scaled')
+    
+    saveas(gcf,'/home/malte/work/writings/papers/fishtracking/figs/halfplane.fig');
   end
 
 

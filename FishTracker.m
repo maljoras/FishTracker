@@ -8,7 +8,7 @@ classdef FishTracker < handle;
     timerange= [];    
 
     opts = struct([]);
-    stimulusPresenter = [];
+
 
 
   end
@@ -17,18 +17,19 @@ classdef FishTracker < handle;
 
     maxVelocity = [];
     displayif = 3;
-
+    
+    stmif = 0;
+    
     useMex = 1;
     useOpenCV = 1;
     useScaledFormat = 0;
     useKNN = 0;
-    stmif = 0;
     
     costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area','BoundingBox'};
     scalecost = [10,3,3,2,1,2,1];
 
     saveFields = {'centroid','classProb','bbox','assignmentCost', 'velocity', ...
-                  'consequtiveInvisibleCount', ...
+                  'consecutiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
                   'segment.MajorAxisLength','segment.reversed'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
@@ -57,6 +58,7 @@ classdef FishTracker < handle;
     videoHandler = [];
     videoPlayer = [];
     videoWriter = [];
+    stimulusPresenter = [];
     
     fishClassifier = [];
 
@@ -208,6 +210,42 @@ classdef FishTracker < handle;
     end
 
     
+    function doScreenCalibration(self);
+
+      if ~self.stmif || ~iscell(self.videoFile)
+        error('Need to be in stimulation grabbing mode');
+      end
+      
+        
+      verbose('Starting calibration. Make sure no IR filter is installed! Hit Enter!');
+      pause;
+      
+      % save
+      stimPresenter = self.stimulusPresenter;
+      nfish = self.nfish;
+      nFrames = self.opts.classifier.nFramesForInit;
+      inverted = self.videoHandler.inverted;
+      
+      self.stimulusPresenter = FishStimulusPresenterCalibration(self.opts.stimulus);
+      if ~isempty(self.fishlength)
+        self.stimulusPresenter.width = self.fishlength;
+      end
+      self.stimulusPresenter.tmax = 30;
+      self.stimulusPresenter.inset = 10;
+      self.stimulusPresenter.freq = 0.5;
+      self.nfish = 4;
+      self.opts.classifier.nFramesForInit = Inf;
+      self.videoHandler.inverted = 1;
+      self.track(); % track the markings
+
+      keyboard
+    
+      %restore
+      self.stimulusPresenter = stimPresenter;
+      self.nfish = nfish;
+      self.opts.classifier.nFramesForInit = nFrames;
+      self.videoHandler.inverted = inverted;
+    end
     
     
     function self=setupSystemObjects(self,vid)
@@ -222,8 +260,16 @@ classdef FishTracker < handle;
       self.videoFile = vid;
 
       if self.stmif
-        if isempty(self.stimulusPresenter) 
-          self.stimulusPresenter = FishStimulusPresenter();
+        if isempty(self.opts.stimulus.presenter) 
+          self.stimulusPresenter = FishStimulusPresenter(self.opts.stimulus);
+        else
+          if ischar(self.opts.stimulus.presenter)
+            self.stimulusPresenter = eval('%s(self.opts.stimulus)',self.opts.stimulus.presenter);
+          elseif isa(self.opts.stimulus.presenter,'FishStimulusPresenter')
+            self.stimulusPresenter = self.opts.stimulus.presenter;
+          else
+            error('Expect FishStimulusPresenter object');
+          end
         end
         self.stimulusPresenter.init();
         self.addSaveFields('stmInfo');
@@ -1574,7 +1620,7 @@ classdef FishTracker < handle;
           'crossedTrackIds',{},...
           'age', {}, ...
           'totalVisibleCount', {}, ...
-          'consequtiveInvisibleCount', {},...
+          'consecutiveInvisibleCount', {},...
           'assignmentCost', {},...
           'nIdFeaturesLeftOut', {},...
           'stmInfo',{});
@@ -1617,8 +1663,8 @@ classdef FishTracker < handle;
           maxDist = self.maxVelocity/self.videoHandler.frameRate; % dist per frame
       % $$$         minDist = 2;
       % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
-      % $$$         %nvis = max(cat(1,self.tracks.consequtiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
-      % $$$         nvis = cat(1,self.tracks.consequtiveInvisibleCount);
+      % $$$         %nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
+      % $$$         nvis = cat(1,self.tracks.consecutiveInvisibleCount);
       % $$$         thresDist = min(max(meanDist,minDist),maxDist).*(1+nvis);
           thresDist = maxDist;
 
@@ -1784,7 +1830,7 @@ classdef FishTracker < handle;
           sfcost = sum(bsxfun(@times,fcost,shiftdim(scale(:),-2)),3);
 
           % Solve the assignment problem. First for the visible
-          nvis = cat(1,self.tracks.consequtiveInvisibleCount);
+          nvis = cat(1,self.tracks.consecutiveInvisibleCount);
           validIdx = find(~nvis);
 
           [self.assignments, self.unassignedTracks, self.unassignedDetections] = ...
@@ -2059,7 +2105,7 @@ classdef FishTracker < handle;
           
           %% Update visibility.
           self.tracks(trackIdx).totalVisibleCount =  self.tracks(trackIdx).totalVisibleCount + 1;
-          self.tracks(trackIdx).consequtiveInvisibleCount = 0;
+          self.tracks(trackIdx).consecutiveInvisibleCount = 0;
         end
         
 
@@ -2069,7 +2115,7 @@ classdef FishTracker < handle;
         for i = 1:length(self.unassignedTracks)
           ind = self.unassignedTracks(i);
           self.tracks(ind).age = self.tracks(ind).age + 1;
-          self.tracks(ind).consequtiveInvisibleCount =  self.tracks(ind).consequtiveInvisibleCount + 1;
+          self.tracks(ind).consecutiveInvisibleCount =  self.tracks(ind).consecutiveInvisibleCount + 1;
           
           % do not update the tracks with nan (last classprob will remain)
           % only put into history:
@@ -2093,7 +2139,7 @@ classdef FishTracker < handle;
         
         % Find the indices of 'lost' tracks.
         lostInds = (ages < self.opts.tracks.ageThreshold & visibility < 0.6);
-        lostInds =  lostInds | [self.tracks(:).consequtiveInvisibleCount] >= self.opts.tracks.invisibleForTooLong;
+        lostInds =  lostInds | [self.tracks(:).consecutiveInvisibleCount] >= self.opts.tracks.invisibleForTooLong;
 
         if any(lostInds)
 
@@ -2230,7 +2276,7 @@ classdef FishTracker < handle;
             'crossedTrackIds',[],...
             'age',       1,                 ...
             'totalVisibleCount', 1,         ...
-            'consequtiveInvisibleCount', 0, ...
+            'consecutiveInvisibleCount', 0, ...
             'assignmentCost',Inf, ...
             'nIdFeaturesLeftOut',0,...
             'stmInfo',[]);
@@ -2272,7 +2318,7 @@ classdef FishTracker < handle;
         for i = 1:length(self.tracks)
           
           if sum(msk(i,:))>1  || sum(bBoxOverlap(i,:))>1  
-            if self.tracks(i).consequtiveInvisibleCount>0 || self.tracks(i).assignmentCost>costThres 
+            if self.tracks(i).consecutiveInvisibleCount>0 || self.tracks(i).assignmentCost>costThres 
               crossmat(i,:) =  msk(i,:)  | bBoxOverlap(i,:);
             end
           end
@@ -2578,9 +2624,6 @@ classdef FishTracker < handle;
         def.opts.maxVelocity = [];
         doc.maxVelocity = {'Maximal fish velocity in px/sec (estimated if empty)'};
         
-        def.opts.stimulusPresenter = [];
-        doc.stimulusPresenter = {'Stimulus presenter object  (for STMIF=true)'};
-        
         def.opts.stmif = false;
         doc.stmif = 'Use online visual stimulation';
 
@@ -2689,7 +2732,13 @@ classdef FishTracker < handle;
         
         def.opts.display.assignments = false;
         doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
-
+        
+        % stimulus
+        def.opts.stimulus.presenter = [];
+        doc.stimulus.presenter = {'Stimulus presenter object  (for STMIF=true)'};
+        
+        def.opts.stimulus.screen = 1;
+        doc.stimulus.screen = 'Screen number to use.';
         
         
         STRICT = 1; % be not too strict. Some settings of the videoHandler are not
@@ -2846,7 +2895,7 @@ classdef FishTracker < handle;
         end
         
         for f = fieldnames(self.opts)'
-          if ~any(strcmp(f{1},{'tracks','classifier','blob','detector','reader'}))  && isprop(self,f{1})
+          if ~any(strcmp(f{1},{'tracks','classifier','blob','detector','reader','stimulus'}))  && isprop(self,f{1})
             self.(f{1}) = opts.(f{1});
           end
         end
@@ -2860,11 +2909,19 @@ classdef FishTracker < handle;
         end
         
         for f = fieldnames(opts)'
-          if any(strcmp(f{1},{'tracks','classifier','blob','detector','reader'}))
+          if any(strcmp(f{1},{'tracks','classifier','blob','detector','reader','stimulus'}))
             self.opts(1).(f{1}) = opts.(f{1});
           end
         end
         self.videoHandler.setOpts(self.opts);
+        if ~isempty(self.stimulusPresenter) && isfield(opts,'stimulus')
+          for f = fieldnames(opts.stimulus)'
+            if isprop(self.stimulusPresenter,f{1})
+              self.stimulusPresenter.(f{1}) = opts.(f{1});
+            end
+          end
+        end
+        
       end
       
       function addSaveFields(self,varargin);
@@ -2898,7 +2955,7 @@ classdef FishTracker < handle;
       function removeSaveFields(self,varargin);
       %  FT.REMOVESAVEFIELD('FIELDNAME1','FIELDNAME2',...) removed a tracks field from the saved structure
       %  FT.REMOVESAVEFIELD() removes all but the necessary ones.
-        minimalSaveFields = {'centroid','classProb','bbox','assignmentCost', 'velocity', 'consequtiveInvisibleCount', ...
+        minimalSaveFields = {'centroid','classProb','bbox','assignmentCost', 'velocity', 'consecutiveInvisibleCount', ...
                             'segment.Orientation','segment.Size', 'centerLine', 'thickness'};
         
         if nargin==1
@@ -3105,7 +3162,7 @@ classdef FishTracker < handle;
             % which we display the predicted rather than the actual
             % location.
             labels = cellstr(int2str(ids'));
-            predictedTrackInds = [reliableTracks(:).consequtiveInvisibleCount] > 0;
+            predictedTrackInds = [reliableTracks(:).consecutiveInvisibleCount] > 0;
             isPredicted = cell(size(labels));
             isPredicted(predictedTrackInds) = {' predicted'};
 
@@ -3504,7 +3561,7 @@ classdef FishTracker < handle;
 
 
           if delinvif
-            ninv = res.tracks.consequtiveInvisibleCount>0;
+            ninv = res.tracks.consecutiveInvisibleCount>0;
             idx = find(ninv>0);
 
           
@@ -3756,7 +3813,7 @@ classdef FishTracker < handle;
         plot([probid,probmax]);
 
         a(2) = subplot(3,1,2);
-        seq = res.tracks.consequtiveInvisibleCount(plotidx,fishIds);
+        seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
         plot(seq);
 
         a(3) = subplot(3,1,3);
@@ -3806,10 +3863,10 @@ classdef FishTracker < handle;
       % $$$       plot(tt(1:end-1),v2);
       % $$$       title('Difference position')
       % $$$       a(2) = subplot(3,1,2);
-      % $$$       if isfield(res.tracks,'consequtiveInvisibleCount')
-      % $$$         seq = res.tracks.consequtiveInvisibleCount(plotidx,fishIds);
+      % $$$       if isfield(res.tracks,'consecutiveInvisibleCount')
+      % $$$         seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
       % $$$         plot(tt,seq);
-      % $$$         title('Conseq. invisible counts');
+      % $$$         title('Consec. invisible counts');
       % $$$       end
       % $$$       
       % $$$       a(3) = subplot(3,1,3);

@@ -2067,6 +2067,9 @@ classdef FishTracker < handle;
         
         def.opts.display.assignments = false;
         doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
+
+        def.opts.display.calibration = true;
+        doc.display.calibration = {'Stimulus calibration results'};
         
         % stimulus
         def.opts.stimulus.presenter = [];
@@ -2074,7 +2077,11 @@ classdef FishTracker < handle;
         
         def.opts.stimulus.screen = 1;
         doc.stimulus.screen = 'Screen number to use.';
-        
+
+        def.opts.stimulus.screenBoundingBox = [];
+        doc.stimulus.screenBoundingBox = {['Bbox of stimulus screen in frame ' ...
+                            'pixels'],'use calibrateScreen to get estimate.'};
+
         
         STRICT = 1; % be not too strict. Some settings of the videoHandler are not
                     % explicitly given here

@@ -6,6 +6,9 @@ classdef FishStimulusPresenter < handle;
     screen = 1;
     defaultColor = [1,0.2,1];
     tmax = Inf;
+    xreversed = true; % whether screen versus camera are reversed in x
+    yreversed = true; % or y
+    screenBoundingBox = [];
   end
   
   
@@ -14,7 +17,6 @@ classdef FishStimulusPresenter < handle;
   
     windowSize = [];
     ifi = []; % flip interval
-
   end
 
   properties(SetAccess=private,GetAccess=private);
@@ -57,6 +59,11 @@ classdef FishStimulusPresenter < handle;
     
     end     
     
+    function setScreenSize(self,frameBoundingBox)
+      self.screenBoundingBox = frameBoundingBox;
+    end
+    
+    
     function init(self)
     % inits the screen and the initial PsychToolBox stuff (needs to be called! )
       if ~exist('Screen') 
@@ -83,6 +90,7 @@ classdef FishStimulusPresenter < handle;
       Screen('Preference', 'SkipSyncTests', 0);
       self.windowSize = [self.windowRect(3) - self.windowRect(1),...
                         self.windowRect(4) - self.windowRect(2)];
+    
     end
 
     function release(self)
@@ -114,11 +122,11 @@ classdef FishStimulusPresenter < handle;
       if ~exist('inSize','var')
         inSize = 20;
       end
+      assert(length(x)==length(y))
 
-      xx = x*self.windowSize(1);
-      yy = y*self.windowSize(2);
+      xx = self.toScreenX(x);
+      yy = self.toScreenY(y);
 
-      assert(length(xx)==length(yy))
       for i = 1:length(xx)
         s2 = inSize(min(i,end))/2;
         rect = [xx(i)-s2,yy(i)-s2,xx(i)+s2,yy(i)+s2];
@@ -140,10 +148,13 @@ classdef FishStimulusPresenter < handle;
         inWidth = 10;
       end
 
-      inWidth = max(min(inWidth,10),0.5); % max supported
-      xx = x*self.windowSize(1); % normalize
+      xw = inWidth;
+      xw = max(min(xw,10),0.5); % max supported
+      
+      xx = self.toScreenX(x);
 
-      Screen('DrawLine', self.window, inColor*255,xx,0,xx,self.windowSize(2),inWidth);
+      Screen('DrawLine', self.window, inColor*255,xx,self.toScreenY(0),...
+             xx,self.toScreenY(1),inWidth);
       
       if nargout 
         timestamp =self.flip();
@@ -198,42 +209,70 @@ classdef FishStimulusPresenter < handle;
       end
       
       fishId = [tracks.fishId];
-      idx = find(fishId==1);
       
-      track = tracks(idx);
-      sz = framesize;
+      if isempty(self.screenBoundingBox)
+        sbbox = [1,1,framesize([2,1])-1];
+      else
+        sbbox = self.screenBoundingBox;
+      end
+      
       for i =1:length(tracks)
 
-        x(i) = tracks(i).centroid(1)/sz(2);
-        y(i) = tracks(i).centroid(2)/sz(1);
-        col(i,:) = [1-i==1,i==2,1 - (i-1)/length(tracks)];
+        x(i) = (tracks(i).centroid(1)-sbbox(1))/sbbox(3);
+        y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
+        col(i,:) = [1-(fishId(i)==1),(fishId(i)==2),1 - (fishId(i)-1)/length(tracks)];
       end
-      % only on one halfplane
-      %  idx = x>0.5;
-      %x(idx) = [];
-      %y(idx) = [];
-      %col(idx,:)= [];
-      boundary = 0.08;
-      x = max(min((x - boundary)/(1-2*boundary),1),0);
-      y = max(min((y - boundary)/(1-2*boundary),1),0);
-      self.plotDot(1-x,1-y,50,col);
+
+      self.plotDot(x,y,50,col);
       for i =1:length(tracks)
         tracks(i).stmInfo = [x(i),y(i)];
       end
       self.flip();
     end
       
+    function [xx] =toScreenX(self,normx);
+      if self.xreversed
+        xx = (1-normx)*self.windowSize(1); 
+      else
+        xx = (normx)*self.windowSize(1); 
+      end
+    end
+    
+    function [yy] =toScreenY(self,normy);
+      if self.yreversed
+        yy = (1-normy)*self.windowSize(2); 
+      else
+        yy = normy*self.windowSize(2); 
+      end
+    end
+    
+    function [wyy] =toScreenHeight(self,wy);
+      wyy = wy*self.windowSize(2); 
+    end
+    function [wxx] =toScreenWidth(self,wx);
+      wxx = wx*self.windowSize(1); 
+    end
+
+    
     function patch(self,x,y,wx,wy,inColor)
     % plots a patch WITHOUT flipping!
 
       if ~exist('inColor','var')
         inColor = self.defaultColor;
       end
+      xx = self.toScreenX(x);
+      yy = self.toScreenY(y);
+      wxx = self.toScreenWidth(wx);
+      wyy = self.toScreenHeight(wy);
 
-      xx = x*self.windowSize(1); % normalize
-      yy = y*self.windowSize(2); % normalize
-      wxx = wx*self.windowSize(1);
-      wyy = wy*self.windowSize(2);
+      if self.xreversed
+        xx = xx-wxx;
+      end
+      if self.yreversed
+        yy = yy-wyy;
+      end
+      
+      
       Screen('FillPoly', self.window, inColor*255,...
              [xx,yy;xx+wxx-1,yy;xx+wxx-1,yy+wyy-1;xx,yy+wyy-1;xx,yy]);
 

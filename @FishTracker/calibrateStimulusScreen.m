@@ -1,6 +1,4 @@
-
-
-function calibrateStimulusScreen(self);
+function [frameBoundingBox] = calibrateStimulusScreen(self);
 
   if ~self.stmif || ~iscell(self.videoFile)
     error('Need to be in stimulation grabbing mode');
@@ -18,10 +16,10 @@ function calibrateStimulusScreen(self);
   displayif = self.displayif;
   sf = self.saveFields;
 
-  self.displayif = 0;
+  self.displayif = 1;
   self.stimulusPresenter = FishStimulusPresenterCalibration(self.opts.stimulus);
   if ~isempty(self.fishlength)
-    self.stimulusPresenter.width = self.fishlength;
+    self.stimulusPresenter.width = self.fishwidth/2;
   end
   self.stimulusPresenter.applyInit(stimPresenter);
 
@@ -54,29 +52,66 @@ function calibrateStimulusScreen(self);
   % We could add a more general affine tranformation if
   % necessary... 
 
-  % get the left track:        
   idx = [];
-  [~,idx(1)] = nanmin(mpos(1,:));
-  xmin = [bbox(:,idx(1),1)-bbox(:,idx(1),3)/2, bbox(:,idx(1),2)];
-  [~,idx(2)] = nanmax(mpos(1,:));
-  xmax = [bbox(:,idx(2),1)+bbox(:,idx(2),3)/2, bbox(:,idx(2),2)];
+  [~,idx(1)] = nanmin(mpos(1,:)); % left
+  xmin = [bbox(:,idx(1),1), bbox(:,idx(1),2)+bbox(:,idx(1),4)/2];
+  [~,idx(2)] = nanmax(mpos(1,:)); % right
+  xmax = [bbox(:,idx(2),1)+bbox(:,idx(2),3), bbox(:,idx(2),2)+bbox(:,idx(2),4)/2];
 
-  [~,idx(3)] = nanmin(mpos(2,:));
-  ymin = [bbox(:,idx(3),1), bbox(:,idx(3),2)-bbox(:,idx(3),4)/2];
-  [~,idx(4)] = nanmax(mpos(2,:));
-  ymax = [bbox(:,idx(4),1), bbox(:,idx(4),2)+bbox(:,idx(4),4)/2];
+  [~,idx(3)] = nanmin(mpos(2,:)); % bottom
+  ymin = [bbox(:,idx(3),1)+bbox(:,idx(3),3)/2, bbox(:,idx(3),2)];
+  [~,idx(4)] = nanmax(mpos(2,:)); % top
+  ymax = [bbox(:,idx(4),1)+bbox(:,idx(4),3)/2, bbox(:,idx(4),2)+bbox(:,idx(4),4)];
 
   if length(unique(idx))~=length(idx)
     error(['Something went wrong with the calibration. Screen ' ...
            'not aligned to video edges ?'])
   end
 
+  nbins = 20;
+  fsize = self.videoHandler.frameSize;
+  xedges = linspace(1,fsize(2),nbins);
+  yedges = linspace(1,fsize(1),nbins);
 
+  [~,loc] = histc(ymin(:,1),xedges);
+  loc(loc==nbins+1) = 0;
+  mymin = accumarray(loc(~~loc),ymin(~~loc,2),[nbins,1],@median,NaN);
+  
+  [~,loc] = histc(ymax(:,1),xedges);
+  loc(loc==nbins+1) = 0;
+  mymax = accumarray(loc(~~loc),ymax(~~loc,2),[nbins,1],@median,NaN);
 
+  [~,loc] = histc(xmin(:,2),yedges);
+  loc(loc==nbins+1) = 0;
+  mxmin = accumarray(loc(~~loc),xmin(~~loc,1),[nbins,1],@median,NaN);
 
-  keyboard
-  %restore
+  [~,loc] = histc(xmax(:,2),yedges);
+  loc(loc==nbins+1) = 0;
+  mxmax = accumarray(loc(~~loc),xmax(~~loc,1),[nbins,1],@median,NaN);
+
+  ydelta = diff(yedges(1:2))/2;
+  xdelta = diff(xedges(1:2))/2;
+  xyframe = cat(3,[xedges'+xdelta,mymin],[mxmax,yedges'+ydelta],[xedges'+xdelta,mymax],[mxmin,yedges'+ydelta]);
+  xyframe = permute(xyframe,[1,3,2]); % x/y 3rd
+
+  screenBoundingBox = [nanmean(mxmin),nanmean(mymin),...
+                      nanmean(mxmax)-nanmean(mxmin),...
+                      nanmean(mymax)-nanmean(mymin)];
+  
+  if self.opts.display.calibration
+    figure;
+    imagesc(self.videoHandler.getCurrentFrame);
+    hold on;
+    plot(xyframe(:,:,1),xyframe(:,:,2),'linewidth',1);
+    rectangle('position',screenBoundingBox,'linewidth',1,'edgecolor','r','facecolor','none')
+  
+    title('Estimated Screen size');
+  end
+
+  verbose('Found Bounding Box [%d,%d,%d,%d]',round(screenBoundingBox));
+  %restore and set
   self.stimulusPresenter = stimPresenter;
+  self.stimulusPresenter.setScreenSize(screenBoundingBox);
   self.nfish = nfish;
   self.opts.classifier.nFramesForInit = nFrames;
   self.videoHandler.inverted = inverted;

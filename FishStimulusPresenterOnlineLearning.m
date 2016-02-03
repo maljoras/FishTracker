@@ -1,4 +1,4 @@
-classdef FishStimulusPresenterPlane < FishStimulusPresenter;
+classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
   
   properties 
     switchInterval = 30; % switching the stimulus time (in seconds)
@@ -8,59 +8,72 @@ classdef FishStimulusPresenterPlane < FishStimulusPresenter;
     col2 = [1,1,1]; % stimulus color (RGB [1,1,1] for white)
     midline = 0.5;  % position of the line form 0..1
     stmidx = -1;
+    
+    flashCol = [1,1,1];
+    flashSize = 100; % in pix
+    flashBorder = 0.05; % in percent
   end
   
   methods 
 
-    function borderFlash(self,tracks,framesize,t)
+    function borderFlash(self,x,y)
       
-      
-      
+      for i = 1:length(x)
+        if x(i)>1-self.flashBorder
+          self.plotDot(1,y(i),self.flashSize,self.flashCol);
+        elseif x(i)<self.flashBorder
+          self.plotDot(0,y(i),self.flashSize,self.flashCol);
+        elseif y(i)<self.flashBorder
+          self.plotDot(x(i),0,self.flashSize,self.flashCol);
+        elseif y(i)>1-self.flashBorder
+          self.plotDot(x(i),1,self.flashSize,self.flashCol);
+        end
+      end
       
     end
-    
-    
-    
     
     function tracks = step(self,tracks,framesize,t)
     % this function will be called from FishTracker after each round
     
-      oldstmidx = self.stmidx;
+      if isempty(tracks)
+        return;
+      end
+      
+      fishId = [tracks.fishId];
 
-      if t> self.adaptationTime
-        deltat  = t - self.adaptationTime;
-        if ~mod(floor(deltat/self.stmInterval),2)
-          
-          deltat2 = mod(deltat,self.stmInterval);
-          if mod(floor(deltat2/self.switchInterval),2)
-            self.stmidx = 1;
-          else
-            self.stmidx = 2;
-          end
-        else
-          self.stmidx = 3;
-        end
+      
+      if isempty(self.screenBoundingBox)
+        sbbox = [1,1,framesize([2,1])-1];
       else
-        self.stmidx = 0;
+        sbbox = self.screenBoundingBox;
       end
       
-      if oldstmidx~=self.stmidx
-        verbose('Switch Stimulus Plane %d -> %d',oldstmidx,self.stmidx);
-        switch self.stmidx
-          case 1
-            self.plotVPlane(self.midline,self.col1,self.col2);
-          case 2 
-            self.plotVPlane(self.midline,self.col2,self.col1);
-          case {3,0}
-            self.plotVPlane(self.midline,self.col1,self.col1);
+      for i =1:length(tracks)
+
+        x(i) = (tracks(i).centroid(1)-sbbox(1))/sbbox(3);
+        y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
+        col(i,:) = [1-(fishId(i)==1),(fishId(i)==2),1 - (fishId(i)-1)/length(tracks)];
+      end
+      self.borderFlash(x,y);
+
+      idx = x<0.5;
+      if any(idx)
+        self.plotDot(x(idx),y(idx),50,col(idx,:));
+      end
+
+      % also save the flashs ??
+      for i =1:length(tracks)
+        if idx(i)
+          tracks(i).stmInfo = [x(i),y(i)];
+        else
+          tracks(i).stmInfo = [NaN,NaN];          
         end
-        self.flip();      
       end
-      
-      if ~isempty(tracks)
-        [tracks.stmInfo] = deal([t, self.stmidx]);
-      end
+      self.flip();
     end
+    
+    
+    
     
   end
 end

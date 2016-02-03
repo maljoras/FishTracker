@@ -42,7 +42,7 @@ MATLABDIR  ?= /opt/MATLAB/R2014b
 MEX        ?= $(MATLABDIR)/bin/mex
 MATLAB     ?= $(MATLABDIR)/bin/matlab
 DOXYGEN    ?= doxygen
-MEXOPENCVDIR ?= /home/malte/work/progs/toolboxes/mexopencv
+MEXOPENCVDIR ?= /data/videos/toolboxes/mexopencv
 
 
 # mexopencv directories

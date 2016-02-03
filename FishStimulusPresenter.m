@@ -16,6 +16,7 @@ classdef FishStimulusPresenter < handle;
     ifi = []; % flip interval
 
   end
+
   properties(SetAccess=private,GetAccess=private);
     topPriorityLevel = [];
     windowRect = [];
@@ -28,7 +29,13 @@ classdef FishStimulusPresenter < handle;
 
       self = self@handle();
 
-      if nargin==1 && isstruc(varargin{1});
+      self.setOpts(varargin{:});
+      
+    end
+    
+    function setOpts(self,varargin)
+    
+      if length(varargin)==1 && isstruct(varargin{1});
         for f = fieldnames(varargin{1})
           if isprop(self,f{1})
             self.(f{1}) = varargin{1}.(f{1});
@@ -47,9 +54,8 @@ classdef FishStimulusPresenter < handle;
           self.(varargin{i}) = varargin{i+1};
         end
       end
-      
-    end
     
+    end     
     
     function init(self)
     % inits the screen and the initial PsychToolBox stuff (needs to be called! )
@@ -85,7 +91,20 @@ classdef FishStimulusPresenter < handle;
       sca;
     end
     
+    function applyInit(self,stimPresenter)
+    % apply the init values from another stim presenter
+      self.ifi = stimPresenter.ifi;
+      [self.window,self.windowSize,self.windowRect, self.topPriorityLevel] ...
+        = stimPresenter.getWindow();
+    end
     
+    function [window,windowSize,windowRect, topPriorityLevel] = ...
+          getWindow(self);
+      window = self.window;
+      windowSize = self.windowSize;
+      windowRect = self.windowRect;
+      topPriorityLevel  = self.topPriorityLevel;
+    end
     
     function timestamp = plotDot(self,x,y,inSize,inColor)
     % plots a dot in normalized coordinates. Width in pixel

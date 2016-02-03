@@ -101,6 +101,11 @@ classdef FishTracker < handle;
   methods (Access=private)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+    % external methods
+    
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
     % Gereral & init functions   
     %---------------------------------------------------
 
@@ -209,43 +214,6 @@ classdef FishTracker < handle;
       predictor = configureKalmanFilter('ConstantVelocity', centroid, [20, 20], [20, 20], 5);
     end
 
-    
-    function doScreenCalibration(self);
-
-      if ~self.stmif || ~iscell(self.videoFile)
-        error('Need to be in stimulation grabbing mode');
-      end
-      
-        
-      verbose('Starting calibration. Make sure no IR filter is installed! Hit Enter!');
-      pause;
-      
-      % save
-      stimPresenter = self.stimulusPresenter;
-      nfish = self.nfish;
-      nFrames = self.opts.classifier.nFramesForInit;
-      inverted = self.videoHandler.inverted;
-      
-      self.stimulusPresenter = FishStimulusPresenterCalibration(self.opts.stimulus);
-      if ~isempty(self.fishlength)
-        self.stimulusPresenter.width = self.fishlength;
-      end
-      self.stimulusPresenter.tmax = 30;
-      self.stimulusPresenter.inset = 10;
-      self.stimulusPresenter.freq = 0.5;
-      self.nfish = 4;
-      self.opts.classifier.nFramesForInit = Inf;
-      self.videoHandler.inverted = 1;
-      self.track(); % track the markings
-
-      keyboard
-    
-      %restore
-      self.stimulusPresenter = stimPresenter;
-      self.nfish = nfish;
-      self.opts.classifier.nFramesForInit = nFrames;
-      self.videoHandler.inverted = inverted;
-    end
     
     
     function self=setupSystemObjects(self,vid)
@@ -405,104 +373,7 @@ classdef FishTracker < handle;
     end
     
     
-    function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
-
-      if nargin==1
-        minAxisWidth = 4;
-      end
-      
-      verbose('Detect approx fish sizes (minAxisWidth=%g)...',minAxisWidth);
-
-      self.videoHandler.reset();
-      self.videoHandler.originalif = true;
-      n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
-      self.videoHandler.initialize(0);
-      s = 0;
-      for i = 1:n
-
-        [segm] = self.videoHandler.step();
-        fprintf('%1.1f%%\r',i/n*100); % some output
-
-        if isempty(segm)
-          continue;
-        end
-        s = s+1;
-        idx = [segm.MinorAxisLength]>minAxisWidth;
-        count(s) = length(segm(idx));
-        width(s) = median([segm(idx).MinorAxisLength]);
-        height(s) = median([segm(idx).MajorAxisLength]);
-      end
-
-      if ~s
-        error('Something wrong with the bolbAnalyzer ... cannot find objects.');
-      end
-      
-      nObjects = median(count);
-      objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % fish are bending
-      verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
-      
-      if self.displayif && self.opts.display.fishSearchResults
-        figure;
-        bwmsk = self.videoHandler.getCurrentBWImg();
-        imagesc(bwmsk);
-        title(sprintf('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize));
-      end
-
-      if self.useScaledFormat
-        % get good color conversion
-        bwmsks = {};
-        cframes = {};
-        for i =1:10 % based on not just one frame to get better estimates
-          [segm] = self.videoHandler.step();
-          bwmsks{i} =self.videoHandler.getCurrentBWImg();
-          cframes{i} = im2double(self.videoHandler.getCurrentFrame());
-        end
-        
-        [scale,delta] = getColorConversion(bwmsks,cframes);
-        
-        if ~isempty(scale)
-          self.videoHandler.setToScaledFormat(scale,delta);
-          self.videoHandler.resetBkg(); 
-          self.videoHandler.computeSegments = false;
-          % re-generate some background
-          verbose('Set to scaled format. Regenerate background..')
-          for i =1:(n/2)
-            [~,frame] = self.videoHandler.step();    
-            fprintf('%1.1f%%\r',i/n*2*100); % some output
-          end
-          self.videoHandler.computeSegments = true;
-        else
-          self.videoHandler.setToRGBFormat();
-          self.videoHandler.frameFormat = ['GRAY' self.videoHandler.frameFormat(end)];
-        end
-      end
-
-      self.videoHandler.originalif = false;
-      self.videoHandler.reset();
-    end
     
-    
-    function overlap = bBoxOverlap(self,bbtracks,bbsegs,margin)
-      
-      overlap = zeros(size(bbtracks,1),size(bbsegs,1));
-      for i = 1:size(bbtracks,1)
-        
-        % better judge overlap from bounding box 
-        bbtrack = double(bbtracks(i,:));
-        bbtrack(1:2) = bbtrack(1:2) - margin/2;
-        bbtrack(3:4) = bbtrack(3:4) + margin;
-        
-        mnx = min(bbsegs(:,3),bbtrack(3));
-        mny = min(bbsegs(:,4),bbtrack(4));
-        
-        bBoxXOverlap = min(min(max(bbtrack(1) + bbtrack(3) - bbsegs(:,1),0), ...
-                               max(bbsegs(:,1) + bbsegs(:,3) - bbtrack(1),0)),mnx);
-        bBoxYOverlap = min(min(max(bbtrack(2) + bbtrack(4) - bbsegs(:,2),0), ...
-                               max(bbsegs(:,2) + bbsegs(:,4) - bbtrack(2),0)),mny);
-        
-        overlap(i,:) = bBoxXOverlap.*bBoxYOverlap./mnx./mny;
-      end
-    end
     
     
     function detectObjects(self)
@@ -515,10 +386,10 @@ classdef FishTracker < handle;
 
         % check for minimal distance. 
         self.centroids = cat(1,segm.Centroid);
-        self.bboxes = int32(cat(1,segm.BoundingBox));
+        self.bboxes = double(cat(1,segm.BoundingBox));
         
         
-        overlap = self.bBoxOverlap(self.bboxes,self.bboxes,2);
+        overlap = getBBoxOverlap(self.bboxes,self.bboxes,2);
         overlap(1:length(segm)+1:end) = 0;
         [i,j] =  find(overlap);
         
@@ -547,7 +418,7 @@ classdef FishTracker < handle;
           self.bboxes(deli,:)= [];
           
           % recompute
-          overlap = self.bBoxOverlap(self.bboxes,self.bboxes,self.fishwidth);
+          overlap = getBBoxOverlap(self.bboxes,self.bboxes,self.fishwidth);
           overlap(1:length(segm)+1:end) = 0;
           [i,j] =  find(overlap);
         end
@@ -671,403 +542,11 @@ classdef FishTracker < handle;
       
     end
     
-    
-    function switchFish(self,trackIndices,assignedFishIds,crossingflag)
-    % changes the FishIds of the tracks. expects a premutations. updates all relevant fishId
-    % dependet varibeles. Resets the data to avoid the learning of wrong features. Also
-    % resets the uniqueFishFrame counter
-    %
-    % if the crossing flag is set, the switching point is calculated based on the
-    % distance within the last crossing. If not set, the switchingpoint is calculated
-    % based on the classProbHistory. 
-      
-
-      assert(length(trackIndices)==length(assignedFishIds));
-      oldFishIds = [self.tracks(trackIndices).fishId];
-      assert(all(sort(oldFishIds)==sort(assignedFishIds)));
-      
-      if length(trackIndices)==1 || all(oldFishIds==assignedFishIds)
-        return; % no need to do anything
-      end
-      
-      self.uniqueFishFrames = 0;
-      
-      %  it should be guranteed that it is a true permutation !! Do it anyway...
-      [nc ncidx]= self.connectedComponents(trackIndices,assignedFishIds);
-
-
-      %% switch the tracks for each connected component
-      f2t = self.fishId2TrackId;
-      orgpos = self.pos;
-      self.resetBatchIdx(trackIndices); % reset for all
-
-      if self.opts.display.switchFish && self.displayif && self.opts.display.tracks;
-        self.displayCurrentTracks();
-      end
-      
-      for i_ncidx = 1:length(ncidx)  % actually do not need to check again.
-        idx = ncidx{i_ncidx};
-
-        % define common pars for subfunctions
-        idxOldFishIds = [self.tracks(trackIndices(idx)).fishId]; 
-        idxTrackIndices = trackIndices(idx);
-        idxAssignedFishIds = assignedFishIds(idx);
-        tfirst =[self.tracks(idxTrackIndices).firstFrameOfCrossing]; 
-        tlast = [self.tracks(idxTrackIndices).lastFrameOfCrossing]; 
-        tcurrent = self.currentFrame;
-        
-        if crossingflag
-          tstart = max(min(tfirst) - self.opts.classifier.nFramesAfterCrossing,1);
-          tend = min(self.currentFrame,max(tlast) + self.opts.classifier.nFramesAfterCrossing);
-        else
-          tstart = max(max(tlast) - 2*self.opts.classifier.nFramesAfterCrossing,1) ; % put about last crossing in...
-          tend = tcurrent;
-        end
-        
-        % calculate switch points & delmsk
-        [tminfinallost,delmsk] = subCalcLostTrackBasedSwitchPoint();
-        tminfinaldist = subCalcDistanceBasedSwitchPoint();
-
-        %% choose one of the points..
-        if crossingflag
-          if ~isempty(tminfinallost)
-            tminfinal = tminfinallost;
-          else
-            tminfinal = tminfinaldist;
-          end
-        else 
-          % fishClassUpdate
-          tminprob = subCalcClassProbBasedSwitchPoint();
-
-          if tcurrent-tminprob> 2*self.opts.classifier.nFramesAfterCrossing
-            tminfinal = tminprob;
-          else
-            if length(idx)>2
-              tminfinal = subCalcDistanceBasedSwitchPoint();
-            else
-              tminfinal = tminfinallost;
-            end
-          end
-        end
-        
-        
-        if crossingflag 
-          % delete some of the critical points
-          tcross = tstart:tend;
-          p = orgpos(:,oldFishIds(idx),tcross);
-          p(:,delmsk') = NaN;
-          orgpos(:,oldFishIds(idx),tcross) = p;
-        end
-        
-        %% swap
-        for j = idx(:)'
-          
-          t = tminfinal:self.currentFrame;        
-          
-          self.fishId2TrackId(t,assignedFishIds(j)) = f2t(t,oldFishIds(j));
-          self.pos(:,assignedFishIds(j),t) = orgpos(:,oldFishIds(j),t);
-          self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
-
-        end
-        
-        %if length(idx)>2
-          %warning(['Higher order permutation! Tracks might got mixed up during the time ' ...
-          %         'of the crossing.'])
-          %tcross = tstart:tend;
-          %self.pos(:,assignedFishIds(idx),tcross) = NaN; % too conservative
-          %end
-        
-        if self.opts.display.switchFish && self.displayif
-          subPlotCrossings();
-        end
-      
-      end % for ncidx
-
-      
-      function subPlotCrossings();
-
-        [tminfinalclprob,pdifference,tfinalsearchstart,tfinalsearchend] = subCalcClassProbBasedSwitchPoint();
-        tminfinaldist = subCalcDistanceBasedSwitchPoint();
-
-        figure(124);
-        clf;
-        subplot(1,2,1);
-        imagesc(self.leakyAvgFrame);
-        hold on;
-        t1 = tstart;
-        tt = t1:self.currentFrame;
-        plotFishIds =oldFishIds(idx); 
-        pold =orgpos(:,plotFishIds,tt); % old pos
-        plot(squeeze(pold(1,:,:))',squeeze(pold(2,:,:))','o-');
-        title('before')
-        
-        subplot(1,2,2);
-        imagesc(self.leakyAvgFrame);
-        hold on;
-        pnew = self.pos(:,plotFishIds,tt); % new pos
-        plot(squeeze(pnew(1,:,:))',squeeze(pnew(2,:,:))','x-') ;
-        title('after');
-        
-        figure(125);
-        clf;
-        xlim([tt([1,end])]-t1+1)
-        subplot(2,1,1);
-        plot(pdifference,'-x')
-        hold on;
-        plot([tminfinal([1,1])] - t1 + 1,ylim(),'-k');
-        plot([tminfinalclprob([1,1])] - t1 + 1,ylim(),'--r');
-        plot([tminfinaldist([1,1])] - t1 + 1,ylim(),'--m');
-        
-        plot([tfinalsearchstart,tfinalsearchend]-t1 + 1,[0,0],'r-o','linewidth',2);
-        if crossingflag
-          plot([min(tfirst),max(tlast)]-t1 + 1,[0,0],'m-x','linewidth',2);        
-        end
-        
-        subplot(4,1,3);
-        plot(tt-t1+1,squeeze(pnew(1,:,:))')
-        hold on;
-        set(gca,'colororderindex',1)
-        plot(tt-t1+1,squeeze(pold(1,:,:))',':')
-        ylabel('x');
-        
-        subplot(4,1,4,'align');
-        plot(tt-t1+1,squeeze(pnew(2,:,:))')
-        hold on;
-        set(gca,'colororderindex',1)
-        plot(tt-t1+1,squeeze(pold(2,:,:))',':')
-        ylabel('y');
-
-        
-        
-        % TODO: 
-        % - determine multiple switching points within a crossing based on
-        % distance permutation points.
-        % -  problem is: some of the not changed tracks might have multiple
-        % switching !!!! how to account for this ?
-        % - search for multiple switchpoints within crossing
-
-        
-        %function tswitch = subGetSwitchPoints()
-        if crossingflag
-
-        
-          % first frames of crossings are always switch points
-          tswitch =  unique(tfirst);
-          % as well as the last (which should be the same for all because
-          % crossings get extended for all participating tracks);
-          tswitch =  [tswitch,unique(tlast)];
-        else
-          tswitch = [];
-        end
-        
-        % add switch points based on distance
-        oldpos = orgpos;
-        localpos = permute(oldpos(:,idxOldFishIds,tstart:tend),[3,2,1]);
-        
-        xd = bsxfun(@minus,localpos(1:end-1,:,1),permute(localpos(2:end,:,1),[1,3,2]));
-        yd = bsxfun(@minus,localpos(1:end-1,:,2),permute(localpos(2:end,:,2),[1,3,2]));
-        d = sqrt(xd.^2 + yd.^2);
-        [~,crosses] = min(d,[],3);
-        crossesmsk = crosses - ones(size(crosses,1),1)*(1:size(crosses,2));
-        crosses(~crossesmsk) = 0;
-
-        tswitch = [tswitch, find(any(crosses,2))'+tstart-1];
-        
-        tswitch = unique(tswitch);
-
-        ttt = tswitch - t1 + 1;
-
-        subplot(2,1,1);
-        yl = ylim;
-        hold on;
-        plot([ttt(:),ttt(:)]',yl'*ones(1,length(ttt)),':b');
-        
-        
-      end
-
-      
-      function [tminOut,pdiff,tsearchstart,tsearchend] = subCalcClassProbBasedSwitchPoint()
-        % get switch time time from classification accuracy 
-        
-        tt = tstart:tcurrent;
-        t1 = tstart;
-
-        pdiff = [];
-        tspan = tcurrent-tstart + 1;
-
-        for ii = 1:length(idxTrackIndices)
-          trIdx = idxTrackIndices(ii);
-          if tspan>self.tracks(trIdx).classProbHistory.nHistory
-            tminOut = tcurrent; % cannot compute
-            tsearchstart = t1; % dummy
-            tsearchend = tcurrent;
-            return;
-          end
-          [p,w] = self.tracks(trIdx).classProbHistory.getData(tspan);
-          if isempty(pdiff)
-            pdiff = zeros(length(w),length(idxTrackIndices));
-          end
-          pdiff(:,ii) = p(:,idxOldFishIds(ii)) - p(:,idxAssignedFishIds(ii));
-          %rt =self.tracks(trIdx).classProbHistory.reasonableThres;
-          pdiff(w==0,ii) = NaN;
-        end
-
-
-        if crossingflag
-          % currently crossing
-          % if currently crossing restrict on the region between
-          % the crossings + nearby lost points
-          
-          tfirstlocal = min(tfirst);
-          tlastlocal = max(tlast);
-          srel = ones(1,3);
-          crossingMsk = (tt>=(tfirstlocal) & tt<=(tlastlocal))';
-          nanmsk = any(isnan(pdiff),2);
-          crossingMsk = crossingMsk | imerode(imdilate(nanmsk,srel),srel);
-
-          tlast1 = tlastlocal-t1+1;
-          tfirst1 = tfirstlocal -t1 + 1;
-
-          % find continuous region around the last crossings
-          findidx = find(~crossingMsk(tlast1+1:end),1,'first');
-          if ~isempty(findidx)
-            tsearchend1 = findidx+ tlast1-1;
-          else
-            tsearchend1 = tcurrent - t1 + 1;
-          end
-          
-          findidx = find(~crossingMsk(tfirst1-1:-1:1),1,'first');
-          if ~isempty(findidx)
-            tsearchstart1 = tfirst1 - findidx + 1;
-          else
-            tsearchstart1 = tstart - t1 + 1;
-          end
-          
-        else
-          tsearchstart1 = 1;
-          tsearchend1 = tcurrent - t1 + 1;
-        end
-        tsearchstart = tsearchstart1 + t1 -1;
-        tsearchend = tsearchend1 + t1 -1;
-        
-        % determine where last time above zero within region
-        probmsk = nanmean(pdiff,2)>0 | isnan(nanmean(pdiff,2)); % or all nan
-        srel = [1,1,1]; % delete single frames above zero;
-        probmsk = imdilate(imerode(probmsk,srel),srel);
-          
-        lastidx = find(probmsk(tsearchstart1:tsearchend1),1,'last');
-        if isempty(lastidx)
-          tminOut = tsearchstart1 + t1 - 1;
-        else
-          tminOut = lastidx + tsearchstart1 + t1 - 1; %
-        end
-
-        verbose('N[P] = %d',tminOut-tcurrent);
-
-      end % nested function
-        
-        
-      function [tminOut,nanmskOut] = subCalcLostTrackBasedSwitchPoint()
-      % candidate switch points where tracks were lost
-
-        localpos = permute(self.pos(:,idxOldFishIds,tstart:tend),[3,2,1]);;
-        localpos(isnan(localpos)) = 0;
-        sz = size(localpos);
-        sz(1) = 1;
-        localpos1 = cat(1,zeros(sz),localpos,-ones(sz));
-        msk1 = all(~diff(localpos1,[],1),3);
-        msk = diff(msk1==1);
-        tcandidates = find(any(msk,2))' + 1 + tstart -1;
-        
-        tc1 = min(tcandidates-tstart+1,size(localpos,1));
-        [~,change] = ismember(idxOldFishIds,idxAssignedFishIds);
-        d = localpos(tc1,:,:) - localpos(tc1,change,:);
-        [m, tidx1] = nanmin(sum(sqrt(d(:,:,1).^2 + d(:,:,2).^2),2));
-        nanmskOut = msk | msk1(1:end-1,:);
-
-        if ~isnan(m)
-          tswitch1 = tc1(tidx1);
-          %localpos(cat(3,msk,msk)~=0 | cat(3,msk1(1:end-1,:),msk1(1:end-1,:) )) = NaN; 
-          %finalpos = cat(1,localpos(1:tswitch31-1,:,:),localpos(tswitch31:end,change,:));
-          tminOut = tswitch1 +tstart -1;
-        
-          verbose('N[L] = %d',tminOut-tcurrent);
-        else 
-          tminOut = [];
-        end
-
-      end
-      
-        
-      function tminOut = subCalcDistanceBasedSwitchPoint()
-      % to be called from switchFish: calculated the end point based on the distance of
-      % the tracks. It is assumed that the given indices are only ONE permutation
-
-
-        % build Gaussian kernel
-        %sigma = self.opts.classifier.clpMovAvgTau; % same for dist/clprob based
-        %dt = 1; % in frames
-        %l = 0:dt:sigma*8;
-        %l = [l(end:-1:2) l];
-        %G = (exp(-(l.^2/2/sigma^2))/sqrt(2*pi)/sigma*dt)';
-        %g2 = ceil(length(G)/2);
-        
-
-      % check min distance within crossing
-        tt = tstart:tend;
-        localpos = permute(self.pos(:,idxOldFishIds,tt),[3,2,1]);
-        %some positions might be nan. 
-        localpos(cat(3,delmsk,delmsk)) = NaN;
-
-        for i_inter = 1:size(localpos,2)
-          inter_msk = isnan(localpos(:,i_inter,1));
-          if sum(~inter_msk)>2
-            if any(inter_msk) 
-              localpos(inter_msk,i_inter,:) = ...
-                  interp1(tt(~inter_msk),localpos(~inter_msk,i_inter,:),tt(inter_msk),'linear','extrap');
-            end     
-          else
-            % all nan...!?!
-            if all(inter_msk)
-              localpos(inter_msk,i_inter,:) = 0;
-              if length(idxOldFishIds)==2
-                % cannot be distance based for two fish. just take start
-                tminOut =  tstart;
-                return;
-              end
-            else
-              % just one non-nan
-              for i_xy = 1:2
-                localpos(:,i_inter,i_xy) = nanmean(localpos(:,i_inter,i_xy));
-              end
-            end
-          end
-        end
-        
-        [~,change] = ismember(idxOldFishIds,idxAssignedFishIds);
-        dist = sum((localpos - localpos(:,change,:)).^2,3);
-        %dist = squeeze(sum((self.pos(:,idxOldFishIds,tstart:tend) - self.pos(:,idxAssignedFishIds,tstart:tend)).^2,1))';
-        %dist = [repmat(dist(1,:),g2,1);dist;repmat(dist(end,:),g2,1)];
-        %cdist = conv2(dist,G);
-        %cdist = cdist(2*g2:end-2*g2+1,:);
-        mdist = mean(dist,2); %just one component and symmetric distance. (DOES NOT
-                              %ACCOUNT FOR MULTIPLE CROSSINGS)
-        [~,tminsub] = min(mdist);
-        tminOut = tstart + tminsub-1;
-        
-        
-        verbose('N[D] = %d',tminOut-tcurrent);
-        
-      end % nested function
-        
-          
-    end
         
     
     function resetBatchIdx(self,trackidx)
       [self.tracks(trackidx).nextBatchIdx] = deal(1);
     end
-
 
     
     function changed = fishClassifierUpdate(self,trackIndices,updateif)
@@ -1212,7 +691,8 @@ classdef FishTracker < handle;
     end
     
     function  [assignedFishIds, prob, steps, probdiag] = predictFish(self,trackIndices,fishIdSet,maxSteps);
-    % predicts the fish according to the values saved in the classProbHistory up to the lastFrameOfCrossing
+    % predicts the fish according to the values saved in the
+    % classProbHistory up to the lastFrameOfCrossing
       
     %assumedFishIds = [self.tracks(trackIndices).fishId];
     % feat = self.getFeatureDataFromTracks(trackIndices);
@@ -1426,58 +906,6 @@ classdef FishTracker < handle;
       end
     end
     
-    function plotCrossings_(self,section,updateIdx)
-
-
-        figure(2);
-        if section==1
-          clf;
-        end
-        
-        cols = jet(self.nfish);
-        [r1,r2] = getsubplotnumber(length(updateIdx));
-        
-        s = 0;
-        for trackIndex = updateIdx
-          s = s+1;
-          a = subplot(r1,r2,s);
-          set(a,'ColorOrder',cols,'ColorOrderIndex',1);
-          hold on;
-          
-          t1 = self.tracks(trackIndex).firstFrameOfCrossing;
-          t2 = self.tracks(trackIndex).lastFrameOfCrossing;
-          t0 = max(t1-30,1);
-          t = self.currentFrame;
-          
-          if section==1
-            ids = self.tracks(trackIndex).crossedTrackIds;
-            
-            %first plot all traces
-            plot(squeeze(self.pos(1,:,t0:t))',squeeze(self.pos(2,:,t0:t))','--','Linewidth',1);
-            hold on; 
-            
-            % plot those that are in the current crossing
-            fids = find(ismember(self.fishId2TrackId(t2,:),ids));
-            set(a,'ColorOrder',cols(fids,:));set(a,'ColorOrderIndex',1)
-            plot(squeeze(self.pos(1,fids,t1:t2))',squeeze(self.pos(2,fids,t1:t2))','o','Linewidth',2);
-            
-          else
-            %section 2
-            fid = self.tracks(trackIndex).fishId;
-            plot(squeeze(self.pos(1,fid,t0:t))',squeeze(self.pos(2,fid,t0:t))','-','Linewidth',2,'color',cols(fid,:));
-            frameSize = self.videoHandler.frameSize;
-            axis ij;
-            xlim([0,frameSize(2)])
-            ylim([0,frameSize(1)]);
-            
-
-          end
-          
-        end
-        if section==2
-          drawnow;
-        end
-      end
       
       function handled = testHandled(self);
         handled = false(1,length(self.tracks));
@@ -1552,7 +980,6 @@ classdef FishTracker < handle;
             
           end
         end
-        
         
         
         %% unique fish update
@@ -1638,7 +1065,7 @@ classdef FishTracker < handle;
           
           % Shift the bounding box so that its center is at
           % the predicted location.
-          predictedCentroid(1:2) = int32(predictedCentroid(1:2)) - bbox(3:4) / 2;
+          predictedCentroid(1:2) = predictedCentroid(1:2) - bbox(3:4) / 2;
           % no prediction outside of the video:
 
           predictedCentroid(1) = max(min(predictedCentroid(1),szFrame(2)),1);
@@ -1719,31 +1146,10 @@ classdef FishTracker < handle;
                 
               case {'overlap'}
 
-                bbsegs = cat(1,self.segments.BoundingBox);
-                
-                for i = 1:nTracks
-                  %% cost of overlap
-                  %overlap = zeros(1,length(segments));
-                  %for jj = 1:length(segments)
-                  % memb = ismember(tracks(i).segment.PixelIdxList(:)',segments(jj).PixelIdxList(:)');
-                  % overlap(jj) = sum(memb)/length(memb);
-                  %end
-                  
-                  % better judge overlap from bounding box 
-                  bbtrack = double(self.tracks(i).bbox);
-                  
-                  mnx = min(bbsegs(:,3),bbtrack(3));
-                  mny = min(bbsegs(:,4),bbtrack(4));
-                  
-                  bBoxXOverlap = min(min(max(bbtrack(1) + bbtrack(3) - bbsegs(:,1),0), ...
-                                         max(bbsegs(:,1) + bbsegs(:,3) - bbtrack(1),0)),mnx);
-                  bBoxYOverlap = min(min(max(bbtrack(2) + bbtrack(4) - bbsegs(:,2),0), ...
-                                         max(bbsegs(:,2) + bbsegs(:,4) - bbtrack(2),0)),mny);
-                  
-                  overlap = bBoxXOverlap.*bBoxYOverlap./mnx./mny;
-                  
-                  fcost(i,:,k) = 1-overlap ;%+ (overlap==0)*somewhatCostly;
-                end
+                bbsegs = double(cat(1,self.segments.BoundingBox));
+                bbtracks = double(cat(1,self.tracks.bbox));
+                overlap = getBBoxOverlap(bbtracks,bbsegs,0);
+                fcost(:,:,k) = 1-overlap ;%+ (overlap==0)*somewhatCostly;
                 
               case {'classprob','classification','classifier'}
 
@@ -1774,35 +1180,6 @@ classdef FishTracker < handle;
           
         end
       end
-      
-      function plotWrongAssignments(self,idx)
-        clf;
-        imagesc(self.videoHandler.getCurrentFrame());
-        hold on;
-
-        detectionIdx = self.assignments(:, 2);
-        trackIdx = self.assignments(:, 1);
-
-        centroids = self.centroids(detectionIdx, :);
-        latestcentroids = cat(1,self.tracks.centroid);
-        plot(latestcentroids(:,1),latestcentroids(:,2),'<k');
-        plot(centroids(:,1),centroids(:,2),'or');
-        plot(self.centroids(:,1),self.centroids(:,2),'xm');
-
-        plot(latestcentroids(idx,1),latestcentroids(idx,2),'.w');
-
-
-        bboxes = self.bboxes(detectionIdx, :);
-        latestbboxes = cat(1,self.tracks.bbox);
-
-        for i = 1:size(latestbboxes,1)
-          rectangle('position',latestbboxes(i,:),'edgecolor','k');
-        end
-        for i = 1:size(bboxes,1)
-          rectangle('position',bboxes(i,:),'edgecolor','r');
-        end
-      end
-      
       
       function detectionToTrackAssignment(self)
 
@@ -2305,7 +1682,7 @@ classdef FishTracker < handle;
         end
 
         crossmat = false(length(self.tracks),length(self.tracks));
-        bbox = double(cat(1,self.tracks.bbox));
+        bbox = cat(1,self.tracks.bbox);
         centroids = cat(1,self.tracks.centroid);
         msk = pdist2Euclidean(centroids,centroids)<self.currentCrossBoxLengthScale*self.fishlength;
 
@@ -2433,81 +1810,6 @@ classdef FishTracker < handle;
       
       
       
-      function generateResults(self)
-
-        if isempty(self.savedTracks.id) 
-          verbose('WARNING: cannot generate results!')
-          verbose('WARNING: not all fish detected. Maybe adjust "nfish" setting.');
-          return;
-        end
-
-        if ~isempty(self.savedTracksFull) 
-          warning(['Will NOT process the full track structure. Switching of tracks are thus not ' ...
-                   'considered. The full tracks results can be accessed in the field ' ...
-                   '"savedTracksFull"'])
-        end
-        
-        nFrames = self.currentFrame;
-
-        self.res.pos = permute(self.pos(:,:,1:nFrames),[3,1,2]);      
-
-        %apply a slight smoothing to the pos
-        %sz = size(self.res.pos);
-        %nconv = 3;
-        %self.res.pos = reshape(conv2(self.res.pos(:,:),ones(nconv,1)/nconv,'same'),sz);
-
-        f2t = self.fishId2TrackId(1:nFrames,:)';
-        trackIdMat = reshape(self.savedTracks.id,self.nfish,nFrames);
-        
-
-        for j = 1:self.nfish
-          u = unique(trackIdMat(j,:));
-          n = find(~isnan(u));
-          L(j) = length(n);
-          U(1,j) = u(n(1));
-        end
-
-        if all(L==1)
-          % short-cut to avoid the loop
-          [~,Loc] = ismember(f2t,U);
-        else
-          % HOW CAN THIS DONE A BIT MORE EFFICIENTLY?
-          Loc = zeros(size(f2t));
-          for i = 1:nFrames
-            [~,Loc(:,i)] = ismember(f2t(:,i),trackIdMat(:,i));
-          end
-        end
-
-        % fill in the gaps
-        order = (1:self.nfish)';
-        msk = ~Loc;
-        idx = find(any(msk,1));
-        for i = 1:length(idx)
-          loc = Loc(:,idx(i));
-          rest = setdiff(order,loc(~~loc));
-          Loc(~loc,idx(i)) = rest;
-        end
-
-        fridx = ones(1,self.nfish)' * (1:nFrames);
-        idx = s2i(size(Loc),[Loc(:),fridx(:)]);
-        for f = fieldnames(self.savedTracks)'
-          if isempty(self.savedTracks.(f{1}))
-            continue;
-          end
-          sz = size(self.savedTracks.(f{1}));
-          d = length(sz); % at least 3
-          trackdat = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
-          fishdat = reshape(trackdat(idx,:),[self.nfish,nFrames,sz(2),sz(1),sz(3:d-1)]);
-          self.res.tracks.(f{1}) = permute(fishdat,[2,1,3:d+1]);
-        end
-        
-        fishid =  (1:self.nfish)' * ones(1,nFrames);
-        fishid(msk) = NaN;
-        self.res.tracks.fishId = fishid';
-
-      end
-      
-      
       function trackinfo = getCurrentTracks(self)
       % gets the track info 
         
@@ -2575,15 +1877,48 @@ classdef FishTracker < handle;
         end
         
       end
+            
       
+      function checkVideoHandler(self)
+      % checks wether the videoHandler is still OK
+        
+        
+        if ~iscell(self.videoFile) && ~exist(self.videoFile)
+          verbose('Cannot find videofile: %s',self.videoFile);
+          self.videoFile = getVideoFile(self.videoFile);
+          self.videoHandler = [];
+          self.videoHandler = self.newVideoHandler(self.videoFile,self.timerange);
+        end
+        
+
+      end
+      
+      function [savemat,exists] = getDefaultFileName(self)
+        if iscell(self.videoFile) && ~isempty(self.videoFile{2})
+          vid = self.videoFile{2};
+        elseif ischar(self.videoFile)
+          vid =self.videoFile;
+        else
+          vid = '';
+        end
+        
+        [savepath,savename] = fileparts(vid);
+        if isempty(savename)
+          savename = 'FishTrackerSave';
+        end
+        
+        savemat = [savepath filesep savename '.mat'];
+        exists = ~~exist(savemat,'file');
+        
+      end
+
     end
-  
     
 
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %  PUBLIC METHODS
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     methods
       
@@ -2876,9 +2211,6 @@ classdef FishTracker < handle;
           vid{2} = vname;
         end
         
-        
-        
-
         % construct object
         self = self@handle();  
 
@@ -2887,104 +2219,15 @@ classdef FishTracker < handle;
         self.setupSystemObjects(vid); % will call setOpts
         
       end
-
-      function setProps(self,opts)
-
-        if nargin<2
-          opts = self.opts;
-        end
-        
-        for f = fieldnames(self.opts)'
-          if ~any(strcmp(f{1},{'tracks','classifier','blob','detector','reader','stimulus'}))  && isprop(self,f{1})
-            self.(f{1}) = opts.(f{1});
-          end
-        end
-      end
       
       
-      function setOpts(self,opts)
-        
-        if nargin<2
-          opts = self.opts;
-        end
-        
-        for f = fieldnames(opts)'
-          if any(strcmp(f{1},{'tracks','classifier','blob','detector','reader','stimulus'}))
-            self.opts(1).(f{1}) = opts.(f{1});
-          end
-        end
-        self.videoHandler.setOpts(self.opts);
-        if ~isempty(self.stimulusPresenter) && isfield(opts,'stimulus')
-          for f = fieldnames(opts.stimulus)'
-            if isprop(self.stimulusPresenter,f{1})
-              self.stimulusPresenter.(f{1}) = opts.(f{1});
-            end
-          end
-        end
-        
-      end
       
-      function addSaveFields(self,varargin);
-      %  FT.ADDSAVEFIELD('FIELDNAME1','FIELDNAME2',...) adds a tracks field to the saved structure
-        
-        f = fieldnames(self.initializeTracks())'; 
-        forbiddenFields = {'id','fishId','segment','classProbHistory','predictor',...
-                           'crossedTrackIds','batchFeatures','features'};
-        for i = 1:length(forbiddenFields)
-          f(strcmp(f,forbiddenFields{i})) = [];
-        end
-        
-        for i = 1:length(varargin)
-          field = varargin{i};
-          assert(ischar(field));
-          
-          if ~any(strcmp(field,self.saveFields))
-            if ~any(strcmp(field,f)) && isempty(strfind(field,'segment.')) 
-              verbose('Available track fields:\n');
-              disp(f')
-              error(sprintf('Field "%s" no available. Chose one of the above or a "segment." field.',field))
-            else
-              % add
-              self.saveFields{end+1} = field;
-            end
-          end
-        
-        end
-      end
-      
-      function removeSaveFields(self,varargin);
-      %  FT.REMOVESAVEFIELD('FIELDNAME1','FIELDNAME2',...) removed a tracks field from the saved structure
-      %  FT.REMOVESAVEFIELD() removes all but the necessary ones.
-        minimalSaveFields = {'centroid','classProb','bbox','assignmentCost', 'velocity', 'consecutiveInvisibleCount', ...
-                            'segment.Orientation','segment.Size', 'centerLine', 'thickness'};
-        
-        if nargin==1
-          verbose('Reset saveFields to minimal fields.');
-          self.saveFields = minimalSaveFields;
-        else
-          for i = 1:length(varargin)
-            field = varargin{i};
-            assert(ischar(field));
-            
-            if any(strcmp(field,minimalSaveFields))
-              warning(sprintf('Cannot remove field %s since it is required.',field));
-            else
-            
-              idx = find(strcmp(field,self.saveFields));
-              if isempty(idx)
-                warning(sprintf('Field %s not found in saveFields',field));
-              else
-                self.saveFields(idx)=[];
-              end
-            end
-          end
-        end
-      end
       
       function trackStep(self)
-      % Same commands as one step in tracking loop of SELF.TRACK(). However, can be called from outside
-      % (DEPRECIATED) to continue tracking in a stepwise manner for plotting reasons. However, NO
-      % ERROR CHECKING is provided!
+      % Same commands as one step in tracking loop of SELF.TRACK(). However,
+      % can be called from outside (DEPRECIATED) to continue tracking
+      % in a stepwise manner for plotting reasons. However, NO ERROR
+      % CHECKING is provided!
         
         self.currentFrame = self.currentFrame + 1;
         self.segments = self.videoHandler.step();
@@ -2995,11 +2238,12 @@ classdef FishTracker < handle;
 
       
       function track(self,trange,saveif,writefile)
-      % TRACK([TRANGE],[SAVEIF],[WRITEFILE]). Detect objects, and track them across video
-      % frames. TRANGE=[TSTART,TEND] specifies the time range of tracking (in seconds). Set
-      % TRANGE=[] for tracking the while video file.  SAVEIF==1 turns on automatic results
-      % saving. If WRITEFILE is set, the video-output (if DISPLAYIF>0) will be saved to the given
-      % video file.
+      % TRACK([TRANGE],[SAVEIF],[WRITEFILE]). Detect objects, and track them
+      % across video frames. TRANGE=[TSTART,TEND] specifies the time
+      % range of tracking (in seconds). Set TRANGE=[] for tracking the
+      % while video file.  SAVEIF==1 turns on automatic results
+      % saving. If WRITEFILE is set, the video-output (if DISPLAYIF>0)
+      % will be saved to the given video file.
       %  
       % CAUTION:
       % Previous tracking data will be overwritten.
@@ -3052,7 +2296,8 @@ classdef FishTracker < handle;
           
           %% main tracking step
           s = s+1;
-          %self.trackStep(); % avoid calling this..just paste for performance.  unnecessary function call
+          %self.trackStep(); % avoid calling this..just paste for performance.
+          %unnecessary function call
           self.currentFrame = self.currentFrame + 1;
 
           if self.displayif && self.opts.display.switchFish
@@ -3121,913 +2366,7 @@ classdef FishTracker < handle;
 
       end
       
-      
-      function varargout = displayCurrentTracks(self)
-      % UFRAME = DISPLAYCURRENTTRACKS(SELF) generates a uframe from current tracking
-      % results. 
-
-        cjet = jet(self.nextId);
         
-        minVisibleCount = 2;
-        uframe = getCurrentFrame(self.videoHandler);
-        
-        if ~isa(uframe,'uint8')
-          uframe = uint8(uframe*255);
-        end
-        
-        if size(uframe,3)==1
-          uframe = repmat(uframe,[1,1,3]);
-        end
-        
-
-        if ~isempty(self.tracks)
-          
-          % Noisy detections tend to result in short-lived tracks.
-          % Only display tracks that have been visible for more than
-          % a minimum number of frames.
-          reliableTrackInds = ...
-              [self.tracks(:).totalVisibleCount] > minVisibleCount;
-          reliableTracks = self.tracks(reliableTrackInds);
-          
-          % Display the objects. If an object has not been detected
-          % in this frame, display its predicted bounding box.
-          if ~isempty(reliableTracks)
-            % Get bounding boxes.
-            bboxes = cat(1, reliableTracks.bbox);
-            
-            % Get ids.
-            ids = int32([reliableTracks(:).id]);
-
-            % Create labels for objects indicating the ones for
-            % which we display the predicted rather than the actual
-            % location.
-            labels = cellstr(int2str(ids'));
-            predictedTrackInds = [reliableTracks(:).consecutiveInvisibleCount] > 0;
-            isPredicted = cell(size(labels));
-            isPredicted(predictedTrackInds) = {' predicted'};
-
-            for i = 1:length(reliableTracks)
-              if ~predictedTrackInds(i) & reliableTracks(i).assignmentCost>1
-                isPredicted{i} = sprintf('  %1.0d',round(reliableTracks(i).assignmentCost));
-              end
-            end
-            
-
-            labels = strcat(labels, isPredicted);
-            cols = jet(self.nfish);
-            cols_grey = [0.5,0.5,0.5;cols];
-            
-            
-            if length(reliableTracks)==self.nfish && self.isInitClassifier
-
-              ids = [reliableTracks(:).fishId];
-              [~,pids] = max(cat(1,reliableTracks.clpMovAvg),[],2);
-
-              clabels = uint8(cols(ids,:)*255);
-              pclabels = uint8(cols(pids,:)*255);
-              % Draw the objects on the frame.
-              uframe = insertShape(uframe, 'FilledRectangle', bboxes,'Color',pclabels,'Opacity',0.2);
-              uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color',clabels);
-
-            else
-              % Draw the objects on the frame inm grey 
-              uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color', uint8([0.5,0.5,0.5]*255));
-            end
-            
-            center = cat(1, reliableTracks.centroid);
-            center = cat(2,center,max(self.fishlength/2,self.fishwidth)*ones(size(center,1),1));
-            
-            crossedTrackIdStrs = arrayfun(@(x)num2str(sort(x.crossedTrackIds)), reliableTracks,'uni',0);
-            [u,idxct,idxu] = unique(crossedTrackIdStrs);
-            for i =1:length(u)
-              crossId = reliableTracks(idxct(i)).crossedTrackIds;
-              [~,cross] =  ismember(crossId,[reliableTracks.id]);
-              cross(~cross) = [];
-              
-              uframe = insertObjectAnnotation(uframe, 'circle', center(cross,:), 'Crossing!','Color', uint8(cols(i,:)*255));
-            end
-            
-            
-            %% insert some  features
-            if self.opts.display.level>1
-              for i = 1:length(reliableTracks)
-                
-                id = reliableTracks(i).fishId;
-                if isnan(id)
-                  id = 1;
-                end
-                
-                segm = reliableTracks(i).segment;
-                
-                
-                if isfield(segm,'MSERregions') && ~isempty(segm.MSERregions)
-                  for j = 1:length(segm.MSERregions)
-                    pos = segm.MSERregionsOffset + segm.MSERregions(j).Location;
-                    uframe = insertMarker(uframe, pos, '*', 'color', uint8(cols(id,:)*255), 'size', 4);
-                  end
-                end
-                pos = reliableTracks(i).centroid;
-                uframe = insertMarker(uframe, pos, 'o', 'color', uint8(cols(id,:)*255), 'size', 5);
-                
-                if ~isempty(reliableTracks(i).centerLine) && ~any(isnan(reliableTracks(i).centerLine(:)))
-                  uframe = insertMarker(uframe, reliableTracks(i).centerLine, 's', 'color', uint8([1,1,1]*255), 'size', 2);
-                end
-                
-              end
-            end
-            
-            
-            
-            if self.opts.display.level>2
-              %% insert more markers
-              if length(self.tracks)==self.nfish
-                howmany = 25;
-                idx = max(self.currentFrame-howmany,1):self.currentFrame;
-                trackpos = self.pos(:,:,idx);
-                f2t = self.fishId2TrackId(idx,:);
-                delidx = find(any(any(isnan(trackpos),1),2));
-                trackpos(:,:,delidx) = [];
-                f2t(delidx,:) = [];
-                cli = zeros(length(idx),self.nfish);
-                for iii = 1:length(self.tracks)
-                  [classProbs, w]= self.tracks(iii).classProbHistory.getData(length(idx));
-                  [~,classIdx] = max(classProbs,[],2);
-                  msk = any(isnan(classProbs),2) | w < self.tracks(iii).classProbHistory.reasonableThres;
-                  classIdx(msk) = 0;
-                  cli(end-size(classIdx)+1:end,iii) = classIdx;
-                end
-                cli(delidx,:) = [];
-                trackIds = [self.tracks.id];
-                [~,f2i] = ismember(f2t,trackIds);
-                cli = cat(2,ones(size(cli,1),1),cli+1);
-                if ~isempty(trackpos)
-                  for ii = 1:self.nfish
-                    idx1 = f2i(:,ii)+1;
-                    inds = s2i(size(cli),[(1:size(cli,1))',idx1]);
-                    inds2 = cli(inds);
-                    pos1 = squeeze(trackpos(:,ii,~isnan(inds2)))';
-                    cols1 = uint8(cols_grey(inds2(~isnan(inds2)),:)*255);
-                    cols2 = uint8(cols(ii,:)*255);
-                    uframe = insertMarker(uframe, pos1, 'o', 'color', cols2 , 'size', 3);
-                    uframe = insertMarker(uframe, pos1, 'x', 'color', cols1 , 'size', 2);
-                  end
-                end
-              end
-            end
-            
-          end
-        end
-        if ~nargout
-          self.videoPlayer.step(uframe);
-          self.stepVideoWriter(uframe);
-        else
-          varargout{1} = uframe;
-        end
-      end
-
-
-
-      function [combinedFT varargout] = trackParallel(self,inTimeRange,tOverlap,minDurationPerWorker)
-      %  FTNEW = FT.TRACKPARALLEL() will track the results in parallel and creates a
-      %  new FT object with tracks combined
-      % 
-      %  FT.TRACKPARALLEL(..,TOVERLAP,MINDURATIONPERWORKER) sepecifies the overlap
-      %  between workers in seconds and the minmal video time per worker in
-      %  seconds
-      % 
-      % CAUTION: if not calculated in parallel (w.g. for too short data) the
-      % returned handle object will be the IDENTICAL handle (only a reference to
-      % the same data).  Only in case of parallel processing the returned object
-      % will have a NEW handle (and thus reference new data).
-
-        if ~exist('inTimeRange','var')
-          inTimeRange = [];
-        end
-        self.videoHandler.timeRange = inTimeRange;
-        self.timerange = self.videoHandler.timeRange;
-        self.videoHandler.reset();
-        
-        dt = 1/self.videoHandler.frameRate;
-        if ~exist('minDurationPerWorker','var')
-          minDurationPerWorker = 300; % 5 minutes;
-        end
-        
-        if ~exist('tOverlap','var') || isempty(tOverlap)
-          % allow enough time for the classifer to init in the overlapping period
-          tOverlap = 5*dt*max([self.opts.classifier.nFramesForInit,self.opts.classifier.nFramesForUniqueUpdate]); 
-          tOverlap = max(tOverlap,self.opts.tracks.costtau*dt);
-        end
-        
-        assert(minDurationPerWorker>tOverlap);
-        totalDuration = diff(self.timerange);
-
-        if totalDuration<2*tOverlap || totalDuration < 2*(minDurationPerWorker-tOverlap)
-          % just on a single computer;
-          self.track();
-          combinedFT = self; % SHOULD IMPLEMENT COPY OBJECT HERE !!!
-          varargout{1} = [];
-          return
-        end
-        pool = parpool(2);
-        
-        maxDuration = min(diff(self.timerange)/pool.NumWorkers,3600);
-        nparts = floor((diff(self.timerange)/maxDuration));
-        
-        sec = linspace(self.timerange(1),self.timerange(2),nparts+1);
-        secEnd = sec(2:end);
-        secStart = max(sec(1:end-1)-tOverlap,sec(1));
-        timeRanges = [secStart(:),secEnd(:)];
-        
-        nRanges = size(timeRanges,1);
-        
-        % copy objects
-        verbose('Parallel tracking from %1.1f to %1.1fh on %d workers',...
-                self.timerange(1)/3600,self.timerange(2)/3600,pool.NumWorkers);
-        verbose('%d processes with %1.1fm duration and %1.1fsec overlap.',...
-                nRanges,max(diff(timeRanges,[],2))/60,tOverlap);
-
-        % CAUTION THIS YIELDS A REFERENCE COPY ONLY !!! HOWEVER, RUNNING THIS WITH PARFOR LOOP WILL CHANGE
-        % EACH HANDLE TO A VALUE BASED OBJECT ON EACH WORKER SO WE DO NOT NEED A FORMAL COPY METHOD. SEEMS TO
-        % BE A HACK IN MATLAB.
-        FTs = repmat(self,[1,nRanges]);
-        res = {};
-        parfor i = 1:nRanges
-          ft = FTs(i);
-          ft.setupSystemObjects(ft.videoFile); % redo the videoHandler;
-          ft.displayif = 0;
-          ft.track(timeRanges(i,:));
-          res{i} = ft;
-        end
-        combinedFT = combine(res{:});
-        if nargout>1
-          varargout{1} = res;
-        end
-      end
-      
-      
-      
-      
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      % Combination of two (or more) tracking objects with overlap
-      %--------------------
-      function combinedObj = combine(self,varargin)
-
-      % make sure that the objects do not refer to the same data (i.e. have different handle
-      % references)
-        if any(self==cat(1,varargin{:}))
-          error('cannot combine handles with identical data references');
-        end
-        
-        dt = 1/self.videoHandler.frameRate;
-        tbinsize = max(self.fishlength/self.maxVelocity,2*dt);
-
-        objs = {self,varargin{:}};
-        
-        % check for empty results
-        emptymsk = cellfun(@(x)isempty(x.getTrackingResults()),objs);
-        objs(emptymsk) = [];
-        
-        if isempty(objs)
-          error('no results available. First track');
-        end
-        
-        
-        %first sort according to the starting time
-        starttimes = cellfun(@(x)x.timerange(1),objs);
-        [~,sidx] = sort(starttimes,'ascend');
-        objs = objs(sidx);
-
-        % combine results, that is results are appended. 
-        combinedObj = objs{1};
-        combinedRes = getTrackingResults(combinedObj);
-        for i = 2:length(objs)
-          obj = objs{i};
-          
-          % assert that two video files are the same
-          assert(strcmp(combinedObj.videoHandler.videoFile,obj.videoHandler.videoFile));
-          assert(combinedObj.nfish==obj.nfish);
-
-          res = getTrackingResults(obj);
-
-          if obj.timerange(1)> combinedObj.timerange(2)
-            % no overlap
-            warning('no overlap. Fish IDs might get mixed up!!');
-            keyboard
-            % just append
-            combinedRes.tracks = cat(1,combinedRes.tracks,res.tracks);
-            combinedRes.pos = cat(1,combinedRes.pos,res.pos);
-
-          else
-            % some overalp
-            toverlap = [obj.timerange(1),combinedObj.timerange(2)];
-            
-            
-            % CAUTION : DISCARD THE TIMES WHERE THE ID classifier is not yet initialized !!!!!!!!!!!!1
-            
-            track1 = res.tracks(:,1);
-            tObj = cat(1,track1.t);
-            
-            track1 = combinedRes.tracks(:,1);
-            tCombined = cat(1,track1.t);
-            
-            % do not consider positions where assignments costs are high (see getTrackingResults())
-            overlapedIdx = find(tCombined(end)>= tObj &  ~any(isnan(res.pos(:,1,:)),3));
-            overlapedCombinedIdx = find(tCombined>= tObj(1) & ~any(isnan(combinedRes.pos(:,1,:)),3));
-
-            if isempty(overlapedIdx)|| isempty(overlapedCombinedIdx)
-              warning(['no valid indices found for overlap. Fish IDs might get mixed up!!. Take all ' ...
-                       'available. ']);
-
-              % simply take all res
-              res = obj.res;
-              combinedRes = combinedObj.res;
-              
-              overlapedIdx = find(tCombined(end)>= tObj &  ~any(isnan(res.pos(:,1,:)),3));
-              overlapedCombinedIdx = find(tCombined>= tObj(1) & ~any(isnan(combinedRes.pos(:,1,:)),3));
-            end
-            
-            overlappedPos = res.pos(overlapedIdx,:,:);
-            overlappedCombinedPos = combinedRes.pos(overlapedCombinedIdx,:,:);
-            
-            dim = size(overlappedPos,2); % 2-D for now;
-            tstart = tCombined(overlapedCombinedIdx(1));
-            tidxCombined = floor((tCombined(overlapedCombinedIdx) - tstart)/tbinsize)+1;
-            [X,Y] = ndgrid(tidxCombined,1:self.nfish*dim);
-            overlappedCombinedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedCombinedPos(:),[],@mean),[],obj.nfish);
-            
-            tidx = min(max(floor((tObj(overlapedIdx) - tstart)/tbinsize)+1,1),tidxCombined(end));
-            [X,Y] = ndgrid(tidx,1:self.nfish*dim);
-            overlappedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedPos(:),[tidxCombined(end),self.nfish*dim],@mean),[],obj.nfish);
-
-            % now the two position vectors can be compared. 
-            cost = pdist2(overlappedCombinedPosInterp',overlappedPosInterp','correlation');
-
-            % use the hungarian matching assignments from the vision toolbox
-            assignments = assignDetectionsToTracks(cost,1e4);
-            [~,sidx] = sort(assignments(:,1),'ascend');
-            assignments = assignments(sidx,:); % make sure that the (combined) tracks are in squential order
-                                               % append;
-            combinedRes.pos = cat(1,combinedRes.pos,res.pos(overlapedIdx(end)+1:end,:,assignments(:,2)));
-            combinedRes.tracks = cat(1,combinedRes.tracks,res.tracks(overlapedIdx(end)+1:end,assignments(:,2)));
-          end
-
-          combinedObj.res = combinedRes;
-          combinedObj.timerange= [combinedObj.timerange(1),obj.timerange(2)];
-          combinedObj.currentTime = self.timerange(1);
-          combinedObj.pos = []; % not valid 
-          combinedObj.fishId2TrackId = []; % not valid 
-        end
-        
-      end
-      
-      
-      
-
-      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      % Results & plotting 
-      %--------------------
-
-      function setDisplay(self,varargin)
-      % FT.SETDISPLAY(VALUE) sets the amount of plotting during the tracking of the fish. Use 0
-      % for disabling all plotting. Additional, particular plots can be turned on (see
-      % help of FishTracker).
-      % Example:
-      % >> ft.setDisplay(0); % turnoff plotting
-      % >> ft.setDisplay(3); % turn on and set track plotting level to 3
-      % >> ft.setDisplay('tracks',true); % turns on tracks display
-
-        
-        if nargin==2
-          number = varargin{1};
-          assert(isnumeric(number));
-          
-          self.displayif = ~~number;
-          if number >1
-            self.opts.display.level = number;
-          end
-          if number>1
-            self.opts.display.tracks = true;
-          end
-        elseif ~mod(length(varargin),2) && length(varargin)>0
-          for i = 1:2:length(varargin)
-            assert(ischar(varargin{i}))
-            if ~isfield(self.opts.display,varargin{i})
-              fprintf('\n');
-              disp(fieldnames(self.opts.display));
-              error(sprintf('Provide valid display types (see above). "%s" unknown.',varargin{i}));
-            end
-            assert(isnumeric(varargin{i+1}) && length(varargin{i+1})==1)
-            self.opts.display.(varargin{i}) = varargin{i+1};
-          end
-          
-        else
-          fprintf('\n');
-          disp(fieldnames(self.opts.display));
-          error('Choose one of the above field names to set, E.g. ft.setDisplay(''tracks'',1)');
-        end
-        
-        if ~self.displayif && nargin>2
-          warning('Displaying is turned off. Turn on with ft.setDisplay(1)')
-        end
-        
-      end
-      
-      
-      function res = getTrackingResults(self,delinvif,forceif)
-      % RES = FT.GETTRACKINGRESULTS() returns the current results.  RES =
-      % FT.GETTRACKINGRESULTS(DELINVIF) sets times in RES.POS where a track was lost to
-      % NaN.
-        if isempty(self.res) || (exist('forceif','var') && forceif)
-          self.generateResults(); % maybe not done yet
-        end
-        if ~exist('delinvif','var')
-          delinvif = 0;
-        end
-        if isempty(self.res)
-          error('No results available. First track()...');
-        else
-          res = self.res;
-          
-          % delete beyond border pixels
-          posx = squeeze(self.res.pos(:,1,:));
-          posy = squeeze(self.res.pos(:,2,:));
-
-          sz = self.videoHandler.frameSize;
-          posx(posx>sz(2) | posx<1) = NaN;
-          posy(posy>sz(1) | posy<1) = NaN;
-
-          res.pos(:,1,:) = posx;
-          res.pos(:,2,:) = posy;
-
-
-          if delinvif
-            ninv = res.tracks.consecutiveInvisibleCount>0;
-            idx = find(ninv>0);
-
-          
-            for i = 1:size(res.pos,2) % x and y 
-              posi = res.pos(:,i,:);
-              posi(idx) = NaN;
-              res.pos(:,i,:) = posi;
-            end
-          end
-          
-          % could add an interpolation for NaN here
-          % could also add some smoothening of the track pos
-        end
-      end
-      
-      
-      function smoothBlibs(self)
-        
-        if isempty(self.res) || (exist('forceif','var') && forceif)
-          self.generateResults(); % maybe not done yet
-        end
-        
-        if isempty(self.res)
-          error('No results available. First track()...');
-        end
-        
-        res = self.res;
-      end
-      
-      
-      function checkVideoHandler(self)
-      % checks wether the videoHandler is still OK
-        
-        
-        if ~iscell(self.videoFile) && ~exist(self.videoFile)
-          verbose('Cannot find videofile: %s',self.videoFile);
-          self.videoFile = getVideoFile(self.videoFile);
-          self.videoHandler = [];
-          self.videoHandler = self.newVideoHandler(self.videoFile,self.timerange);
-        end
-        
-
-      end
-
-      
-      function playVideo(self,timerange,writefile)
-
-        res = self.getTrackingResults();
-
-        if hasOpenCV() && self.useOpenCV
-          vr = @FishVideoReader;
-        else
-          vr = @FishVideoReaderMatlab;
-        end
-        
-        videoReader = vr(self.videoFile,self.timerange);
-
-        if isinf(videoReader.duration) 
-          verbose('Cannot find videofile: %s',self.videoFile);
-          self.videoFile = getVideoFile(self.videoFile);
-          videoReader = vr(self.videoFile,self.timerange);
-        end
-        
-        if ~exist('timerange','var')
-          t = res.tracks.t(:,1);
-          timerange = t([1,end]);
-        end
-        
-        if ~exist('writefile','var') || isempty(writefile)
-          writefile = '';
-        end
-        if isscalar(writefile) && writefile
-          [a,b,c] = fileparts(self.videoFile);
-          writefile = [a '/' b '_playVideo' c];
-        end
-        videoWriter = [];
-        if ~isempty(writefile) 
-          videoWriter = self.newVideoWriter();
-        end
-
-        if isempty(self.videoPlayer)
-          self.videoPlayer = self.newVideoPlayer();
-        end
-        if  ~isOpen(self.videoPlayer)
-          self.videoPlayer.show();
-        end
-
-        currentTime = videoReader.currentTime;      
-        videoReader.timeRange = timerange;
-        videoReader.reset();
-        videoReader.setCurrentTime(timerange(1)); 
-
-        t_tracks =res.tracks.t(:,1);
-        tidx = find(t_tracks>=timerange(1) & t_tracks<timerange(2)); 
-        t_tracks = t_tracks(tidx);
-        cols = uint8(255*jet(self.nfish));
-        s = 0;
-        while videoReader.hasFrame() && s<length(tidx) && isOpen(self.videoPlayer)
-          uframe = videoReader.readFrameFormat('RGBU');
-          s = s+1;
-          
-          t = videoReader.currentTime;
-          %assert(abs(t_tracks(s)-t)<=1/videoReader.frameRate);
-
-          % Get bounding boxes.
-          bboxes = shiftdim(res.tracks.bbox(tidx(s),:,:),1);
-          
-          % Get ids.
-
-          ids = res.tracks.fishId(tidx(s),:);
-          foundidx = ~isnan(ids);
-          ids = int32(ids(foundidx));
-          labels = cellstr(int2str(ids'));
-          clabels = cols(ids,:);
-
-          highcost = isinf(res.tracks.assignmentCost(tidx(s),:));
-          highcost = highcost(foundidx);
-          clabels(highcost,:) = 127; % grey
-                                     % Draw the objects on the frame.
-          uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes(foundidx,:), labels,'Color',clabels);
-          
-
-          clprob = shiftdim(res.tracks.classProb(tidx(s),:,:),1);
-          clprob(isnan(clprob)) = 0;
-          dia = self.fishlength/self.nfish;
-          for i_cl = 1:self.nfish
-            for j = 1:length(foundidx)
-              if ~foundidx(j)
-                continue;
-              end
-              pos = [bboxes(j,1)+dia*(i_cl-1)+dia/2,bboxes(j,2)+ dia/2 ...
-                     + bboxes(j,4),dia/2];
-              uframe = insertShape(uframe, 'FilledCircle',pos, 'color', cols(i_cl,:), 'opacity',clprob(j,i_cl));
-            end
-          end
-
-          self.videoPlayer.step(uframe);
-          if ~isempty(videoWriter)
-            videoWriter.write(uframe);
-          end
-          
-          d = seconds(t);
-          d.Format = 'hh:mm:ss';
-          verbose('CurrentTime %s\r',char(d))
-        end
-        fprintf('\n')
-        clear videoWriter videoReader
-      end
-      
-      function [savemat,exists] = getDefaultFileName(self)
-        if iscell(self.videoFile) && ~isempty(self.videoFile{2})
-          vid = self.videoFile{2};
-        elseif ischar(self.videoFile)
-          vid =self.videoFile;
-        else
-          vid = '';
-        end
-        
-        [savepath,savename] = fileparts(vid);
-        if isempty(savename)
-          savename = 'FishTrackerSave';
-        end
-        
-        savemat = [savepath filesep savename '.mat'];
-        exists = ~~exist(savemat,'file');
-        
-      end
-      
-      
-      function  save(self,savename,savepath,vname)
-      % SELF.SAVE([SAVENAME,SAVEPATH,VNAME]) saves the object
-
-        [defname,exists] = self.getDefaultFileName();
-        if ~exist('savename','var') || isempty(savename)
-          [~,savename] = fileparts(defname);
-        end
-        if ~exist('savepath','var') || isempty(savepath)
-          [savepath] = fileparts(defname);
-        end
-        
-        if ~exist('vname','var') || isempty(vname)
-          vname = 'ft';
-        end
-        eval([vname '=self;']);
-        fname = [savepath filesep savename '.mat'];
-        save([savepath filesep savename],vname,'-v7.3');
-
-        verbose('saved variable %s to %s',vname,fname);
-      end      
-      
-      
-      function plotTrace(self,varargin)
-        self.plotByType('TRACE',varargin{:});
-      end
-      
-      function plotProbMap(self,varargin)
-        self.plotByType('PROBMAP',varargin{:});
-      end
-      
-      function plotDomains(self,varargin)
-        self.plotByType('DOMAINS',varargin{:});
-      end
-
-      function plotVelocity(self,varargin)
-        self.plotByType('VELOCITY',varargin{:});
-      end
-      
-      function plotClassProb(self,plotTimeRange,fishIds);
-        
-        
-        if ~exist('fishIds','var') || isempty(fishIds)
-          fishIds = 1:self.nfish;
-        end
-
-        if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
-          plotTimeRange = self.timerange;
-        end
-
-        clf;
-        res = self.getTrackingResults();
-        t = res.tracks.t(:,1);
-        plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
-        
-        if ~isfield(res.tracks,'classProb') || isempty(res.tracks.classProb)
-          error('No classprob data');
-        end
-
-        prob = res.tracks.classProb(plotidx,fishIds,fishIds);
-        probid = nanmean(prob(:,1:length(fishIds)+1:end),2);
-        if self.nfish<=5
-          p = perms(1:self.nfish);
-          probmax = probid;
-          for i = 1:size(p)
-            idx = sub2ind([self.nfish,self.nfish],(1:self.nfish)',p(i,:)');
-            probmax = nanmax(probmax,nanmean(prob(:,idx),2));
-          end
-        else
-          probmax = nanmax(prob(:,:,:),[],3);
-        end
-        
-        nconv = 50;
-        probid = conv(probid,ones(nconv,1)/nconv,'same');
-        probmax = conv(probmax,ones(nconv,1)/nconv,'same');
-        
-        tt = t(plotidx);
-
-        
-        a(1) = subplot(3,1,1);
-        plot([probid,probmax]);
-
-        a(2) = subplot(3,1,2);
-        seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
-        plot(seq);
-
-        a(3) = subplot(3,1,3);
-        x = res.pos(plotidx,:,fishIds);
-        v2 = squeeze(sum(abs(diff(x,1,1)),2)); 
-        plot(v2);
-        linkaxes(a,'x');
-        
-        
-      end
-      
-      
-      function plotCenterLine(self,fishIds,plotTimeRange)
-        
-        
-        if ~exist('fishIds','var') || isempty(fishIds)
-          fishIds = 1:self.nfish;
-        end
-
-        if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
-          plotTimeRange = self.timerange;
-        end
-
-
-        res = self.getTrackingResults();
-        t = res.tracks.t(:,1);
-        plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
-        
-        if  ~isfield(res.tracks,'centerLine') || isempty(res.tracks.centerLine)
-          error('No centerLine data');
-        end
-
-        clx = permute(res.tracks.centerLine(plotidx,fishIds,1,:),[4,1,2,3]);
-        cly = permute(res.tracks.centerLine(plotidx,fishIds,2,:),[4,1,2,3]);
-        clx = convn(clx,ones(2,1)/2,'valid');
-        cly = convn(cly,ones(2,1)/2,'valid');
-        lap = abs(nanmean(diff(clx,2,1))) + abs(nanmean(diff(cly,2,1),1));
-        mx = nanmean(clx(:,:,:),1);
-        my = nanmean(cly(:,:,:),1);
-
-      % $$$       % find sudden changes
-      % $$$       clf;
-      % $$$       %tt = t(plotidx); 
-      % $$$       tt = find(plotidx);% t is wrong in the txt file...
-      % $$$       v2 = squeeze(abs(diff(mx,1,2)) + abs(diff(my,1,2))); 
-      % $$$       a(1) = subplot(3,1,1);
-      % $$$       plot(tt(1:end-1),v2);
-      % $$$       title('Difference position')
-      % $$$       a(2) = subplot(3,1,2);
-      % $$$       if isfield(res.tracks,'consecutiveInvisibleCount')
-      % $$$         seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
-      % $$$         plot(tt,seq);
-      % $$$         title('Consec. invisible counts');
-      % $$$       end
-      % $$$       
-      % $$$       a(3) = subplot(3,1,3);
-      % $$$       prob = res.tracks.classProb(plotidx,fishIds,fishIds);
-      % $$$       plot(tt,prob(:,1:length(fishIds)+1:end));
-      % $$$       title('Class prob');
-      % $$$       linkaxes(a,'x');
-        
-        
-        figure;
-        cmap = jet(self.nfish);
-        szFrame = self.videoHandler.frameSize;
-
-        cla;
-
-        for i = 1:length(fishIds)
-          col = cmap(fishIds(i),:);
-          
-          plot(clx(:,:,i),cly(:,:,i),'color',col,'linewidth',2);
-          hold on;        
-          plot(clx(1,:,i),cly(1,:,i),'o','color',col,'linewidth',1);
-
-          idx = lap(1,:,i) > 1.5;
-          %scatter(mx(1,idx,i),my(1,idx,i),50,'r','o','filled'); 
-          plot(clx(:,idx,i),cly(:,idx,i),'color','r','linewidth',1);
-        end
-        colormap(gray)
-        
-      end
-      
-      function plot(self,varargin)
-
-        clf;
-        subplot(2,2,1)
-        self.plotTrace(varargin{:});
-
-        subplot(2,2,2)
-        self.plotVelocity(varargin{:});
-        
-        subplot(2,2,3)
-        self.plotProbMap(varargin{:});
-        
-        subplot(2,2,4)
-        self.plotDomains(varargin{:});
-
-      end
-
-      
-      function plotByType(self,plottype,plotTimeRange,fishIds)
-      % PLOTBYTYPE(SELF,PLOTTYPE,PLOTTIMERANGE,FISHIDS) plots the tracking
-      % results for the given FISHIDS. PLOTTYPE is one of TRACE,
-      % VELOCITY, PROBMAP, and DOMAINS. These plots are equivalent
-      % to the coresponding methods PLOTTRACE, PLOTVELOCITY,
-      % PLOTPROBMAP, ans PLOTDOMAINS. 
-
-        if ~exist('plottype','var') || isempty(plottype)
-          plottype = 'TRACE';
-        end
-        
-        if isempty(self.res)
-          warning('No results available. First track()...');
-          return;
-        end
-        
-        if ~exist('fishIds','var') || isempty(fishIds)
-          fishIds = 1:self.nfish;
-        end
-
-        if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
-          plotTimeRange = self.timerange;
-        end
-
-        cla;
-        res = self.getTrackingResults();
-        t = res.tracks.t(:,1);
-        plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
-        
-        centroid = res.tracks.centroid;
-        centroidx = centroid(plotidx,fishIds,1);
-        centroidy = centroid(plotidx,fishIds,2);
-        
-        posx = squeeze(res.pos(plotidx,1,fishIds));
-        posy = squeeze(res.pos(plotidx,2,fishIds));
-        posx = conv2(posx,ones(5,1)/5,'same');
-        posy = conv2(posy,ones(5,1)/5,'same');
-
-        dt = 1/self.videoHandler.frameRate;
-        
-        switch upper(plottype)
-
-          case 'TRACE'
-            plot(posx,posy);
-            title('Traces');
-            xlabel('x-Position [px]')
-            ylabel('y-Position [px]')
-            
-            msk = isnan(posx);
-            hold on;
-            plot(centroidx(msk),centroidy(msk),'.r','linewidth',1);
-            
-          case 'VELOCITY'
-            
-
-            plot(diff(posx)/dt,diff(posy)/dt,'.');
-            xlabel('x-Velocity [px/sec]')
-            ylabel('y-Velocity [px/sec]')
-            
-            title('Velocity');
-            
-          case {'PROBMAP','DOMAINS'}
-
-
-            dxy = 10;
-            szFrame = self.videoHandler.frameSize;
-            sz = ceil(szFrame/dxy);
-            sz = sz(1:2);
-            
-            dposx = min(max(floor(posx/dxy)+1,1),sz(2));
-            dposy = min(max(floor(posy/dxy)+1,1),sz(1));
-            P = zeros([sz,length(fishIds)]);
-            for i = 1:size(posx,2)
-              msk = ~(isnan(dposy(:,i)) | isnan(dposx(:,i)));
-              P(:,:,i) = accumarray([dposy(msk,i),dposx(msk,i)],1,sz);
-              P(:,:,i) = P(:,:,i)/sum(sum(P(:,:,i)));
-            end
-            P(1,1,:) = 0;
-            
-            if strcmp(upper(plottype),'PROBMAP')
-              if size(P,3)==3
-                Z = P;
-              else
-                Z = sum(P,3);
-              end
-              Z = imfilter(Z,fspecial('disk',3),'same');
-              if size(P,3)==3
-                image(1:szFrame(2),1:szFrame(1),Z/quantile(P(:),0.99));
-              else
-                imagesc(1:szFrame(2),1:szFrame(1),Z,[0,quantile(P(:),0.99)]);
-              end
-              
-              title('Overall probability');
-              xlabel('x-Position [px]')
-              ylabel('y-Position [px]')
-              axis xy;
-            else
-
-              [~,cl] = max(P,[],3);
-              cl = cl + (sum(P,3)~=0);
-              imagesc(1:szFrame(2),1:szFrame(1),cl);
-              colormap(jet(size(P,3)+1));
-              xlabel('x-Position [px]')
-              ylabel('y-Position [px]')
-              title('Domain of fish')
-              axis xy;
-            end
-            
-          otherwise
-            error('do not know plot type');
-        end
-      end
-      
     end
     
   end % class

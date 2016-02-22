@@ -12,6 +12,7 @@ if LOAD || ~exist('ft','var')
   opts.stimulus.presenter = 'FishStimulusPresenterOnlineLearning';
   opts.fishwidth = 30;
   opts.fishlength = 150;
+  
   ft = FishTracker({0,''},opts);
 end
 
@@ -22,14 +23,15 @@ if COMPUTE
     %sbbox = ft.calibrateStimulusScreen();
     sbbox = [150,53,1580,1256];
   end
-  ft.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100);
+  ft.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100,'stimulus.stmSize',100);
   ft.setDisplay(0);  
   
   
   ft.track();
+  ft.save();
 
-  
   
 
 end
+
 

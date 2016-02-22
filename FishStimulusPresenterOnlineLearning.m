@@ -8,7 +8,7 @@ classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
     col2 = [1,1,1]; % stimulus color (RGB [1,1,1] for white)
     midline = 0.5;  % position of the line form 0..1
     stmidx = -1;
-    
+    stmSize = 50;
     flashCol = [1,1,1];
     flashSize = 100; % in pix
     flashBorder = 0.05; % in percent
@@ -41,7 +41,6 @@ classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
       
       fishId = [tracks.fishId];
 
-      
       if isempty(self.screenBoundingBox)
         sbbox = [1,1,framesize([2,1])-1];
       else
@@ -54,11 +53,11 @@ classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
         y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
         col(i,:) = [1-(fishId(i)==1),(fishId(i)==2),1 - (fishId(i)-1)/length(tracks)];
       end
-      self.borderFlash(x,y);
+      %self.borderFlash(x,y);
 
       idx = x<0.5;
       if any(idx)
-        self.plotDot(x(idx),y(idx),50,col(idx,:));
+        self.plotDot(x(idx),y(idx),stimSize,col(idx,:));
       end
 
       % also save the flashs ??

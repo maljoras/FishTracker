@@ -1,4 +1,4 @@
-function [frameBoundingBox] = calibrateStimulusScreen(self);
+function [screenBoundingBox] = calibrateStimulusScreen(self);
 
   if ~self.stmif || ~iscell(self.videoFile)
     error('Need to be in stimulation grabbing mode');
@@ -109,6 +109,7 @@ function [frameBoundingBox] = calibrateStimulusScreen(self);
   end
 
   verbose('Found Bounding Box [%d,%d,%d,%d]',round(screenBoundingBox));
+
   %restore and set
   self.stimulusPresenter = stimPresenter;
   self.stimulusPresenter.setScreenSize(screenBoundingBox);

@@ -1927,7 +1927,7 @@ classdef FishTracker < handle;
       %--------------------
       function self = FishTracker(vid,varargin) 
       % FISHTRACKER(VID,...) starts a FishTracker objects on a given video file
-      % VID. If VID==[] a uidialog is opened to select the video file. Run
+      % VID. If VID==[] a uidialog is opened to select the video file. 
       % 
       % Options can the set with FISHTRACKER(VID,OPTNAME1,OPTVALUE1,...) or
       % FISHTRACKER(VID,OPTS) where OPTS is a structure with fields identical

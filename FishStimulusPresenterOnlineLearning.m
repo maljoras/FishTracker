@@ -1,17 +1,11 @@
 classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
   
   properties 
-    switchInterval = 30; % switching the stimulus time (in seconds)
-    stmInterval = 150; % switch between blank periods and stimulus presentations
-    adaptationTime = 0; % time at the beginning (in seconds)
-    col1 = [0,0,0]; % background color (RGB [0,0,0] for black)
-    col2 = [1,1,1]; % stimulus color (RGB [1,1,1] for white)
-    midline = 0.5;  % position of the line form 0..1
-    stmidx = -1;
     stmSize = 50;
     flashCol = [1,1,1];
     flashSize = 100; % in pix
     flashBorder = 0.05; % in percent
+    midLine = 0.6
   end
   
   methods 
@@ -30,6 +24,10 @@ classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
         end
       end
       
+    end
+    
+    function bool = isFinished(self,t);
+      bool = t>self.tmax;
     end
     
     function tracks = step(self,tracks,framesize,t)
@@ -53,11 +51,12 @@ classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
         y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
         col(i,:) = [1-(fishId(i)==1),(fishId(i)==2),1 - (fishId(i)-1)/length(tracks)];
       end
-      %self.borderFlash(x,y);
 
-      idx = x<0.5;
+      self.borderFlash(x,y);
+
+      idx = x<self.midLine;
       if any(idx)
-        self.plotDot(x(idx),y(idx),stimSize,col(idx,:));
+        self.plotDot(x(idx),y(idx),self.stmSize,col(idx,:));
       end
 
       % also save the flashs ??
@@ -71,8 +70,7 @@ classdef FishStimulusPresenterOnlineLearning < FishStimulusPresenter;
       self.flip();
     end
     
-    
-    
+       
     
   end
 end

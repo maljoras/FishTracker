@@ -9,11 +9,14 @@ if LOAD || ~exist('ft','var')
   opts.nfish = 3;
   opts.stmif = 1;
   opts.stimulus.screen = 1;
+  opts.stimulus.screenBoundingBox = [150,53,1580,1256];
   opts.stimulus.presenter = 'FishStimulusPresenterOnlineLearning';
+
   opts.fishwidth = 30;
   opts.fishlength = 150;
-  
-  ft = FishTracker({0,''},opts);
+
+
+  ft = FishTracker({0,videoFile},opts);
 end
 
 
@@ -25,7 +28,7 @@ if COMPUTE
   end
   ft.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100,'stimulus.stmSize',100);
   ft.setDisplay(0);  
-  
+
   
   ft.track();
   ft.save();

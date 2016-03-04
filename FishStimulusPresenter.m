@@ -116,6 +116,11 @@ classdef FishStimulusPresenter < handle;
     
     function timestamp = plotDot(self,x,y,inSize,inColor)
     % plots a dot in normalized coordinates. Width in pixel
+      if isempty(x) || isempty(y)
+        timestamp = NaN;
+        return
+      end
+      
       if ~exist('inColor','var')
         inColor = self.defaultColor;
       end

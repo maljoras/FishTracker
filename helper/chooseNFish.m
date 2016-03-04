@@ -33,14 +33,15 @@ function nfish = chooseNFish(fname,nfish)
   handles.sld = uicontrol('Style', 'listbox', 'Min',1,'Max',1,'Value',nfish,...
                           'units','normalized','Position', p2,...
                           'String',num2cell([1:50]),'Fontsize',18,...
-                  'Callback', @(s,c) eval(['f=gcbf;f.UserData.txt.String = num2str(floor(s.Value));'])); 
+                  'Callback', @subCallbackList); 
 
   handles.btn = uicontrol('Style', 'pushbutton', 'String', 'OK',...
         'units','normalized','Position',[p2(1),p2(2)-gap-bw,p2(3),bw],...
         'Callback', 'uiresume(gcbf)');       
   handles.btn2 = uicontrol('Style', 'pushbutton', 'String', 'Do Not Track',...
         'units','normalized','Position',[p2(1)-p2(3)-gap,p2(2)-gap-bw,p2(3),bw],...
-        'Callback', @(s,c) eval('f=gcbf;f.UserData.cancel = 1;uiresume(gcbf)'));       
+        'Callback', @subCallbackCancel);       
+
   set(f,'UserData',handles);
 
   uiwait(f); 
@@ -58,3 +59,15 @@ function nfish = chooseNFish(fname,nfish)
   close(f);
   
   
+end
+
+function subCallbackList(s,c)
+  f=gcbf;
+  f.UserData.txt.String = num2str(floor(s.Value));
+end
+
+function subCallbackCancel(s,c)
+  f=gcbf;
+  f.UserData.cancel = 1;
+  uiresume(f);
+end

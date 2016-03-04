@@ -1,5 +1,5 @@
 function out = deleteInvisible(self,field)
-% X = DELETEINVISIBLE(SELF,filed) returns the requested field
+% X = DELETEINVISIBLE(SELF,field) returns the requested field
 % in res.tracks with deleted (NaN) the consecutive invisible
 % frames 
   

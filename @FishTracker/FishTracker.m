@@ -2088,12 +2088,12 @@ classdef FishTracker < handle;
         VERBOSELEVEL = 0;
         ALLFIELDNAMES = 1;
         
-        if ~exist('parseInputs') && exist('helper','dir')
+        if ~exist('getVideoFile') && exist('helper','dir')
           addpath('helper');
         end
 
         parseInputs;
-        if HELP;  return;end
+        if HELP; return;end
 
         
         %%options not really important
@@ -2208,7 +2208,7 @@ classdef FishTracker < handle;
           end
         end
         
-        if isempty(opts.nfish) && ~iscell(vid)
+        if ~isempty(opts.nfish) && opts.nfish<0 && ~iscell(vid)
           chooseNFish(vname,1);
         end
         

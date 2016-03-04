@@ -24,7 +24,8 @@ function res = getTrackingResults(self,delinvif,forceif)
     res.pos(:,1,:) = posx;
     res.pos(:,2,:) = posy;
 
-
+    res.t = res.tracks.t(:,1);
+    
     if delinvif
       p = self.deleteInvisible('pos');
       res.pos(isnan(p)) = NaN;

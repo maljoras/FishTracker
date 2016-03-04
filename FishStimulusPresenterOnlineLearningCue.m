@@ -53,7 +53,7 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
        return;
      end
      
-     fishIds = [tracks.fishId];
+     fishIds = cat(1,tracks.fishId);
      
      if isempty(self.screenBoundingBox)
        sbbox = [1,1,framesize([2,1])-1];

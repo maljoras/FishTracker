@@ -16,8 +16,8 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
 
     colSideMarkerLeft = [122,122,0];
     colSideMarkerRight = [0,122,122];
-    sideMarkerPos = 0.0;
-    sideMarkerWidth = 5; % in pix
+    sideMarkerPos = 0.05;
+    sideMarkerWidth = 25; % in pix
     
     midline = 0.5;  % position of the line form 0..1
     stmIdx = -1;
@@ -26,7 +26,7 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
     stmSize =150;
     nRound= 100;
   
-  
+    stmBkgType = 'gravel';
   end
 
   properties(SetAccess=private)
@@ -40,11 +40,48 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
   
   properties(SetAccess=private,GetAccess=private)
     testingif = 0;
+    gravelLeft = [];
+    gravelRight = [];
   end
     
 
   
   methods
+    
+    function init(self)
+      init@FishStimulusPresenter(self);
+      
+    
+    end
+    
+      
+    function plotStmBkg(self,type);
+
+      switch lower(type)
+        case 'gravel'
+          
+          
+          
+        case 'border'
+          plotVLine(self,self.sideMarkerPos,self.sideMarkerWidth,self.colSideMarkerLeft);
+          plotVLine(self,1-self.sideMarkerPos,self.sideMarkerWidth,self.colSideMarkerRight);
+      
+        otherwise;
+          error('do not know background stimulus type');
+      end
+    end
+    
+    
+    
+    function plotCue(self,id,tsignal)
+      t = tsignal/self.signalTime;
+      if id==ID_BEGINCUE 
+        self.plotVPlane(0,self.colBeginCue*t,self.colBeginCue*t);
+      else
+        self.plotVPlane(0,self.colEndCue*t,self.colEndCue*t);
+      end
+    end
+    
     
    function [x,y] = plotStimulus(self,tracks,framesize,t)
 
@@ -68,6 +105,10 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
      msk = mod(fishIds,2);
      xmsk = x<self.midline;
 
+     b = self.stmSize/self.windowSize(1);
+     x = max(x,b/2);
+     x = min(x,1-b/2);
+
      left = xmsk & msk;
      self.plotDot(x(left),y(left),self.stmSize,self.colStimulus);
 
@@ -78,6 +119,7 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
      x(nostmmsk) = NaN;
      y(nostmmsk) = NaN;
    end
+   
    
    function tracks = step(self,tracks,framesize,t)
    % this function will be called from FishTracker after each
@@ -127,31 +169,30 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
          self.stmIdx = ID_GAP;
        end
      end
-            
+       
+
      % plot the background only if stmidx changed       
      if oldstmIdx~=self.stmIdx
        verbose('Switch Stimulus Plane %d -> %d\r',oldstmIdx,self.stmIdx);
-       switch self.stmIdx
-         case ID_BEGINCUE
-           self.plotVPlane(0,self.colBeginCue,self.colBeginCue);
-         case ID_ENDCUE
-           self.plotVPlane(0,self.colEndCue,self.colEndCue);
-         otherwise
-           self.plotVPlane(0,self.colBackgound,self.colBackgound);
-       end
      end
+     
+     switch self.stmIdx
+       case {ID_BEGINCUE,ID_ENDCUE}
+         self.plotCue(self.stmIdx,min(abs(ttmod-self.stmTime),ttmod));
+       otherwise
+         self.plotVPlane(0,self.colBackgound,self.colBackgound);
+     end
+
           
      if self.stmIdx==ID_STIMULUS
        [x,y] = self.plotStimulus(tracks,framesize,t);
      end       
      if self.stmIdx==ID_STIMULUS || self.stmIdx==ID_TEST
        % markers and end
-       plotVLine(self,self.sideMarkerPos,self.sideMarkerWidth,self.colSideMarkerLeft);
-       plotVLine(self,1-self.sideMarkerPos,self.sideMarkerWidth,self.colSideMarkerRight);
+       self.plotStmBkg();
      end
-       
-     % flip each step !
-     timestamp = self.flip();
+
+     timestamp = self.flip();       
             
      % save stm info
      for i = 1:length(tracks)

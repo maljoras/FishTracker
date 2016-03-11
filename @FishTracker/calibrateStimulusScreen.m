@@ -19,8 +19,11 @@ function [screenBoundingBox] = calibrateStimulusScreen(self);
   self.displayif = 1;
   self.stimulusPresenter = FishStimulusPresenterCalibration(self.opts.stimulus);
   if ~isempty(self.fishlength)
-    self.stimulusPresenter.width = self.fishwidth/2;
+    self.stimulusPresenter.width = self.fishlength/2;
+  else
+    self.stimulusPresenter.width = 50;
   end
+  
   self.stimulusPresenter.applyInit(stimPresenter);
 
   self.stimulusPresenter.tmax = 30;

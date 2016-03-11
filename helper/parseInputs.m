@@ -342,7 +342,11 @@ if ~evalin('caller','nargin') || HELP
     if ALLFIELDNAMES
       WW = allfieldnames(doc);
     else
-      WW = fieldnames(doc);
+      if isempty(doc)
+        WW = {};
+      else
+        WW = fieldnames(doc);
+      end
     end
     
     for i = 1:length(WWW)
@@ -443,7 +447,11 @@ else
       if ALLFIELDNAMES
         WW = allfieldnames(doc);
       else
-        WW = fieldnames(doc);
+        if isempty(doc)
+          WW = {};
+        else
+          WW = fieldnames(doc);
+        end
       end
       for i = 1:length(WWW)
         if any(strcmp(WW,WWW{i}))

@@ -9,6 +9,8 @@ classdef FishStimulusPresenter < handle;
     xreversed = true; % whether screen versus camera are reversed in x
     yreversed = true; % or y
     screenBoundingBox = [];
+  
+    muteAllFlipping = false; % CAUTION: Turns off all flipping (for debugging only)
   end
   
   
@@ -23,6 +25,7 @@ classdef FishStimulusPresenter < handle;
     topPriorityLevel = [];
     windowRect = [];
     window = []; 
+    textureIdx =  [];
   end
   
   methods 
@@ -34,6 +37,7 @@ classdef FishStimulusPresenter < handle;
       self.setOpts(varargin{:});
       
     end
+
     
     function setOpts(self,varargin)
     
@@ -63,8 +67,8 @@ classdef FishStimulusPresenter < handle;
       self.screenBoundingBox = frameBoundingBox;
     end
     
-    
-    function init(self)
+  
+    function init(self,wrect)
     % inits the screen and the initial PsychToolBox stuff (needs to be called! )
       if ~exist('Screen') 
         error(['Seems that PsychoTooolbox is  cannot be accessed.']);
@@ -79,8 +83,12 @@ classdef FishStimulusPresenter < handle;
       end
       
       % open window
+      if ~exist('wrect','var')
+        wrect  = [];
+      end
+      
       black = BlackIndex(self.screen);
-      [self.window, self.windowRect] = Screen('OpenWindow', self.screen, black); 
+      [self.window, self.windowRect] = Screen('OpenWindow', self.screen, black,wrect); 
 
       self.ifi = Screen('GetFlipInterval', self.window);
       self.topPriorityLevel = MaxPriority(self.window);    
@@ -90,7 +98,7 @@ classdef FishStimulusPresenter < handle;
       Screen('Preference', 'SkipSyncTests', 0);
       self.windowSize = [self.windowRect(3) - self.windowRect(1),...
                         self.windowRect(4) - self.windowRect(2)];
-    
+
     end
 
     function release(self)
@@ -113,6 +121,7 @@ classdef FishStimulusPresenter < handle;
       windowRect = self.windowRect;
       topPriorityLevel  = self.topPriorityLevel;
     end
+  
     
     function timestamp = plotDot(self,x,y,inSize,inColor)
     % plots a dot in normalized coordinates. Width in pixel
@@ -205,34 +214,53 @@ classdef FishStimulusPresenter < handle;
       bool = t>self.tmax;
     end
     
+         
+    
+    function stmInfo = stepStimulus(self,x,y,t,fishIds);
+    % plots the stimulus (does NOT need a flip). 
+
+      col = zeros(length(fishIds),3);
+      for i = 1:length(fishIds)
+        col(i,:) = [1-(fishIds(i)==1),(fishIds(i)==2),1 - (fishId(i)-1)/length(fishIds)];
+      end
+      self.plotDot(x,y,50,col);     
+    
+      stmInfo = [x,y];
+    end
+    
     
     function tracks = step(self,tracks,framesize,t)
-    % this function will be called from FishTracker after each round
+    % this function will be called from FishTracker after each
+    % round. Calls the stepStimulus method which should be overloaded!
     
       if isempty(tracks)
         return;
       end
       
-      fishId = [tracks.fishId];
       
       if isempty(self.screenBoundingBox)
         sbbox = [1,1,framesize([2,1])-1];
       else
         sbbox = self.screenBoundingBox;
       end
-      
-      for i =1:length(tracks)
 
+      x = nan(length(tracks),1);
+      y = nan(length(tracks),1);
+      for i =1:length(tracks)
         x(i) = (tracks(i).centroid(1)-sbbox(1))/sbbox(3);
         y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
-        col(i,:) = [1-(fishId(i)==1),(fishId(i)==2),1 - (fishId(i)-1)/length(tracks)];
       end
 
-      self.plotDot(x,y,50,col);
+      
+      fishIds = [tracks.fishId];
+      stmInfo = self.stepStimulus(x,y,t,fishIds);
+
       for i =1:length(tracks)
-        tracks(i).stmInfo = [x(i),y(i)];
+        tracks(i).stmInfo = stmInfo(i,:);
       end
+    
       self.flip();
+    
     end
       
     function [xx] =toScreenX(self,normx);
@@ -258,6 +286,25 @@ classdef FishStimulusPresenter < handle;
       wxx = wx*self.windowSize(1); 
     end
 
+    function wrect = toScreenRect(self,rect);
+    % converted matlav type of rectangle in norm coordinates to the
+    % expected format of PsychToolbox
+
+      x = self.toScreenX(rect(1));
+      y = self.toScreenY(rect(2));
+      wx = self.toScreenWidth(rect(3));
+      wy = self.toScreenHeight(rect(4));
+      
+      wrect = [x,y,x+wx,y+wy];
+
+      if self.xreversed
+        wrect([1,3]) = [x-wx,x];
+      end
+      if self.yreversed
+        wrect([2,4]) = [y-wy,y];
+      end
+      
+    end
     
     function patch(self,x,y,wx,wy,inColor)
     % plots a patch WITHOUT flipping!
@@ -276,17 +323,44 @@ classdef FishStimulusPresenter < handle;
       if self.yreversed
         yy = yy-wyy;
       end
-      
-      
+
       Screen('FillPoly', self.window, inColor*255,...
              [xx,yy;xx+wxx-1,yy;xx+wxx-1,yy+wyy-1;xx,yy+wyy-1;xx,yy]);
 
     end
 
-    function timestamp = flip(self);
+        
+    
+    function relidx = initTexture(self,mat)
+      self.textureIdx(end+1) = Screen('makeTexture',self.window,mat*255);
+      relidx = length(self.textureIdx);
+    end
+    
+    function  varargout = drawTexture(self,relidx,rect)
+      if relidx>length(self.textureIdx) || relidx<1
+        error('Cannot find texture. Forgot to init ?');
+      end
+      if nargin<3
+        rect = [0,0,1,1];
+      end
+
+      wrect = self.toScreenRect(rect);
+
+      
+      Screen('drawTexture',self.window,self.textureIdx(relidx),[],wrect);
+      
+      if nargout
+        varargout{1} = self.flip();
+      end
+    end
+
+    
+    function timestamp = flip(self,force);
     % Flip to the screen
-      Screen('DrawingFinished', self.window);
-      timestamp = Screen('Flip', self.window);
+      if ~self.muteAllFlipping || (nargin>1 && force)
+        Screen('DrawingFinished', self.window);
+        timestamp = Screen('Flip', self.window);
+      end
     end
     
     function timestamp = clear(self);

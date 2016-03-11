@@ -1,16 +1,17 @@
 
-LOAD = 0;
-COMPUTE =1;
+LOAD = 1
+COMPUTE =0
 
 if LOAD || ~exist('ft','var')
-  videoFile = '/data/videos/onlinelearning/test.avi';
+  videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
   opts.nfish = 3;
   opts.stmif = 1;
   opts.stimulus.screen = 1;
   opts.stimulus.screenBoundingBox = [150,53,1580,1256];
-  opts.stimulus.presenter = 'FishStimulusPresenterOnlineLearning';
+  
+  opts.stimulus.presenter = 'FishStimulusPresenterOnlineLearningCue';
 
   opts.fishwidth = 30;
   opts.fishlength = 150;

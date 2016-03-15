@@ -14,7 +14,7 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nfish,npca,whiteif)
 
   if NPCADIM>0
     npcadim = min(N-Nc,NPCADIM);
-    [PC, eVar, Proj, m] = pca1(Z,npcadim);
+    [PC, eVar, Proj, m] = fish.helper.pca1(Z,npcadim);
     X = Proj;
   else
     X = Z;

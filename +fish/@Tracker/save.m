@@ -17,5 +17,5 @@ function  save(self,savename,savepath,vname)
   fname = [savepath filesep savename '.mat'];
   save([savepath filesep savename],vname,'-v7.3');
 
-  verbose('saved variable %s to %s',vname,fname);
+  fish.helper.verbose('saved variable %s to %s',vname,fname);
 end      

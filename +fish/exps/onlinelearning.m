@@ -17,7 +17,7 @@ if LOAD || ~exist('ft','var')
   opts.fishlength = 150;
 
 
-  ft = FishTracker({0,videoFile},opts);
+  ft = fish.Tracker({0,videoFile},opts);
 end
 
 

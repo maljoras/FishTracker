@@ -2,8 +2,8 @@ function generateResults(self)
 % generates the correct  "res" structure 
   
   if isempty(self.savedTracks.id) 
-    verbose('WARNING: cannot generate results!')
-    verbose('WARNING: not all fish detected. Maybe adjust "nfish" setting.');
+    fish.helper.verbose('WARNING: cannot generate results!')
+    fish.helper.verbose('WARNING: not all fish detected. Maybe adjust "nfish" setting.');
     return;
   end
 
@@ -55,7 +55,7 @@ function generateResults(self)
   end
 
   fridx = ones(1,self.nfish)' * (1:nFrames);
-  idx = s2i(size(Loc),[Loc(:),fridx(:)]);
+  idx = fish.helper.s2i(size(Loc),[Loc(:),fridx(:)]);
   for f = fieldnames(self.savedTracks)'
     if isempty(self.savedTracks.(f{1}))
       continue;

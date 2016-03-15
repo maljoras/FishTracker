@@ -5,7 +5,7 @@ function [screenBoundingBox] = calibrateStimulusScreen(self);
   end
 
 
-  verbose('Starting calibration. Make sure no IR filter is installed! Hit Enter!');
+  fish.helper.verbose('Starting calibration. Make sure no IR filter is installed! Hit Enter!');
   pause;
 
   % save
@@ -111,7 +111,7 @@ function [screenBoundingBox] = calibrateStimulusScreen(self);
     title('Estimated Screen size');
   end
 
-  verbose('Found Bounding Box [%d,%d,%d,%d]',round(screenBoundingBox));
+  fish.helper.verbose('Found Bounding Box [%d,%d,%d,%d]',round(screenBoundingBox));
 
   %restore and set
   self.stimulusPresenter = stimPresenter;

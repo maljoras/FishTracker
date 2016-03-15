@@ -14,7 +14,7 @@ function addSaveFields(self,varargin);
     
     if ~any(strcmp(field,self.saveFields))
       if ~any(strcmp(field,f)) && isempty(strfind(field,'segment.')) 
-        verbose('Available track fields:\n');
+        fish.helper.verbose('Available track fields:\n');
         disp(f')
         error(sprintf('Field "%s" no available. Chose one of the above or a "segment." field.',field))
       else

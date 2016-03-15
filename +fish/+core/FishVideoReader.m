@@ -181,7 +181,7 @@ classdef FishVideoReader < handle;
     
     
     function a_startReader(self)
-      if ~hasOpenCV()
+      if ~fish.helper.hasOpenCV()
         error('Cannot find mexopencv toolbox..');
       end
       self.reader = FishVideoCapture(self.videoFile);
@@ -309,11 +309,11 @@ classdef FishVideoReader < handle;
     function verbose(self)
       if ~iscell(self.videoFile)
         [a,b,c] = fileparts(self.videoFile);
-        verbose('%s using "%s" ',upper(class(self)),[b,c]);
-        verbose('FPS: %gHz, NFrames: %d, selected range:  %1.1fs-%1.1fs',self.frameRate,self.nFrames,self.timeRange);
+        fish.helper.verbose('%s using "%s" ',upper(class(self)),[b,c]);
+        fish.helper.verbose('FPS: %gHz, NFrames: %d, selected range:  %1.1fs-%1.1fs',self.frameRate,self.nFrames,self.timeRange);
       else
         [a,b,c] = fileparts(self.videoFile{2});
-        verbose('%s grabbing from camera %d (%gHz) and writing to "%s" ',upper(class(self)),self.videoFile{1},self.frameRate,[b,c]);
+        fish.helper.verbose('%s grabbing from camera %d (%gHz) and writing to "%s" ',upper(class(self)),self.videoFile{1},self.frameRate,[b,c]);
       end
       
     end

@@ -4,7 +4,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
     minAxisWidth = 4;
   end
 
-  verbose('Detect approx fish sizes (minAxisWidth=%g)...',minAxisWidth);
+  fish.helper.verbose('Detect approx fish sizes (minAxisWidth=%g)...',minAxisWidth);
 
   self.videoHandler.reset();
   self.videoHandler.originalif = true;
@@ -32,7 +32,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
 
   nObjects = median(count);
   objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % fish are bending
-  verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
+  fish.helper.verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
 
   if self.displayif && self.opts.display.fishSearchResults
     figure;
@@ -51,14 +51,14 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
       cframes{i} = im2double(self.videoHandler.getCurrentFrame());
     end
     
-    [scale,delta] = getColorConversion(bwmsks,cframes);
+    [scale,delta] = fish.helper.getColorConversion(bwmsks,cframes);
     
     if ~isempty(scale)
       self.videoHandler.setToScaledFormat(scale,delta);
       self.videoHandler.resetBkg(); 
       self.videoHandler.computeSegments = false;
       % re-generate some background
-      verbose('Set to scaled format. Regenerate background..')
+      fish.helper.verbose('Set to scaled format. Regenerate background..')
       for i =1:(n/2)
         [~,frame] = self.videoHandler.step();    
         fprintf('%1.1f%%\r',i/n*2*100); % some output

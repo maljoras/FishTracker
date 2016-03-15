@@ -6,7 +6,7 @@ function plotSegments(seg)
   end
 
   clf; 
-  [r1,r2] = getsubplotnumber(length(seg));
+  [r1,r2] = fish.helper.getsubplotnumber(length(seg));
   t = linspace(0,2*pi);
   for i = 1:length(seg)
     

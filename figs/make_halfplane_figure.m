@@ -37,7 +37,7 @@ end
 
 if COMPUTE && NEWTRACK % for tracking again
   
-  ft = FishTracker(vid,'detector.adjustThresScale',1,'nfish',2,'detector.inverted',1);
+  ft = fish.Tracker(vid,'detector.adjustThresScale',1,'nfish',2,'detector.inverted',1);
 
   ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
   ft.setDisplay(0);

@@ -5,7 +5,7 @@ function removeSaveFields(self,varargin);
                       'segment.Orientation','segment.Size', 'centerLine', 'thickness'};
 
   if nargin==1
-    verbose('Reset saveFields to minimal fields.');
+    fish.helper.verbose('Reset saveFields to minimal fields.');
     self.saveFields = minimalSaveFields;
   else
     for i = 1:length(varargin)

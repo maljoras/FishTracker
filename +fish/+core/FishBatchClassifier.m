@@ -53,23 +53,23 @@ classdef FishBatchClassifier < handle;
       end
       
       
-      verbose('Initialize FishBatchClassifier...');
+      fish.helper.verbose('Initialize FishBatchClassifier...');
       
       if self.npca>0 || self.nlfd>0
         Z = cat(1,batchsample{:});
         % do some weak oulyier detection
-        [pc,a] = emclustering(Z,self.nfish+2);
+        [pc,a] = fish.helper.emclustering(Z,self.nfish+2);
         [~,cl] = max(pc,[],2);
         idx = find(a<self.noveltyThres/self.nfish);
         goodidx = ~ismember(cl,idx);
         
         cl = cellfun(@(x,k)k*ones(size(x,1),1),batchsample,num2cell(1:length(batchsample)),'uni',0);
         cl = cat(1,cl{:});
-        [self.pcapc,~,proj,self.pcamu] = pca1(Z(goodidx,:),max(self.nlfd,self.npca));
+        [self.pcapc,~,proj,self.pcamu] = fish.helper.pca1(Z(goodidx,:),max(self.nlfd,self.npca));
         self.npca = max(self.nlfd,self.npca);
 
         if self.nlfd>0 && self.npca>self.nlfd
-          [self.lfdpc,~,proj] = lfd(proj,cl(goodidx),self.nlfd,0);
+          [self.lfdpc,~,proj] = fish.helper.lfd(proj,cl(goodidx),self.nlfd,0);
         end
           
         self.pcamu = self.pcamu';
@@ -135,7 +135,7 @@ classdef FishBatchClassifier < handle;
     function X = discardOutliers(self,X)
       % to avoid outliers train a few EM-cluster
       if self.outliersif
-        [pc,a] = emclustering(X,3);
+        [pc,a] = fish.helper.emclustering(X,3);
         [~,cl] = max(pc,[],2);
         idx = find(a<self.noveltyThres);
         if ~isempty(idx)
@@ -324,7 +324,7 @@ classdef FishBatchClassifier < handle;
       
       cost = cost(assumedClassIdx(validclasses),assumedClassIdx(validclasses))'; % only within
                                                     
-      assignments =  assignDetectionsToTracks(cost,1e10);
+      assignments =  fish.helper.assignDetectionsToTracks(cost,1e10);
       
       assignedClassIdx = nan(size(assumedClassIdx));
       assignedClassIdx(assignments(:,2)) = assumedClassIdx(assignments(:,1));
@@ -391,7 +391,7 @@ classdef FishBatchClassifier < handle;
       end
       
       clf;
-      [r1,r2] = getsubplotnumber(self.nfish+(self.nfish>1));
+      [r1,r2] = fish.helper.getsubplotnumber(self.nfish+(self.nfish>1));
       mu = self.getMeans();
       
       for i = 1:self.nfish

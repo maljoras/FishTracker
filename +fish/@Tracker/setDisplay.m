@@ -1,7 +1,7 @@
 function setDisplay(self,varargin)
 % FT.SETDISPLAY(VALUE) sets the amount of plotting during the tracking of the fish. Use 0
 % for disabling all plotting. Additional, particular plots can be turned on (see
-% help of FishTracker).
+% help of fish.Tracker).
 % Example:
 % >> ft.setDisplay(0); % turnoff plotting
 % >> ft.setDisplay(3); % turn on and set track plotting level to 3

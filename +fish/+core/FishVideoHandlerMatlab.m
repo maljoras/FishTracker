@@ -1,7 +1,7 @@
-classdef FishVideoHandlerMatlab < handle & FishVideoReaderMatlab & FishBlobAnalysisMatlab
+classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fish.core.FishBlobAnalysisMatlab
 %FISHVIDEOHANDER  wrapper class
 %
-% Class for video reading of the FishTracker
+% Class for video reading of the fish.Tracker
 %
 %
 
@@ -32,12 +32,12 @@ classdef FishVideoHandlerMatlab < handle & FishVideoReaderMatlab & FishBlobAnaly
         error('knn method not supported in Matlab');
       end
       
-      self@FishBlobAnalysisMatlab(); 
-      self@FishVideoReaderMatlab(vidname,timerange);  %%% SOMEHOW
+      self@fish.core.FishBlobAnalysisMatlab(); 
+      self@fish.core.FishVideoReaderMatlab(vidname,timerange);  %%% SOMEHOW
                                                   %%% MATALB READER
                                                   %%% DOES
                                                   %%% NOT WORK ?!?
-      self.detector = FishForegroundDetectorMatlab();  
+      self.detector = fish.core.FishForegroundDetectorMatlab();  
 
       if exist('opts','var')
         self.setOpts(opts);

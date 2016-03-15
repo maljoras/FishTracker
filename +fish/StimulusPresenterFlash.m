@@ -40,7 +40,7 @@ classdef FishStimulusFlash < FishStimulusPresenter;
     
     
     function stmInfo = stepStimulus(self,x,y,t,fishIds)
-    % this function will be called from FishTracker after each round
+    % this function will be called from fish.Tracker after each round
     
       self.borderFlash(x,y);
 

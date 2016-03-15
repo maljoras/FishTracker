@@ -13,7 +13,7 @@ function outstr = allfieldnames(p)
 
     for i = 1:length(f)
 
-      daughternodes = allfieldnames(p.(f{i}));
+      daughternodes = fish.helper.allfieldnames(p.(f{i}));
       
       if ~isempty(daughternodes)
         for j = 1:length(daughternodes)
@@ -39,7 +39,7 @@ function outstr = allfieldnames(p)
         continue
       end
 
-      daughternodes = allfieldnames(p{i});
+      daughternodes = fish.helper.allfieldnames(p{i});
         
       if ~isempty(daughternodes)
         for j = 1:length(daughternodes)
@@ -61,7 +61,7 @@ function outstr = allfieldnames(p)
         continue
       end
 
-      daughternodes = allfieldnames(p(i));
+      daughternodes = fish.helper.allfieldnames(p(i));
         
       if ~isempty(daughternodes)
         for j = 1:length(daughternodes)

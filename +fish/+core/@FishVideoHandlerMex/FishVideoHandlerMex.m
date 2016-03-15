@@ -1,7 +1,7 @@
-classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
+classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.FishVideoReader
 %FISHVIDEOHANDLER  wrapper class
 %
-% Class for video handling of the FishTracker. Inherits from
+% Class for video handling of the fish.Tracker. Inherits from
 % FishBlobAnalisys and FishVideoReader, since both video
 % capturing/reading and blob analysis is done in a multi-threading
 % C++ code. 
@@ -44,7 +44,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     %for online capture from point grey devices;
     %
       
-      if nargin < 1, vidname = getVideoFile(); end
+      if nargin < 1, vidname = fish.helper.getVideoFile(); end
 
       % make sure the image library of matlab is loaded (seems not
       % necessary anymore, was a bug in FlyCapture SDK)
@@ -59,9 +59,11 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       else
         global_knnMethod = true;
       end
-
-      self@FishVideoReader(vidname);       
-      self@FishBlobAnalysis();       
+      if ~exist('FishVideoHandler_')
+        error('Cannot find mex file. Forgot to run make ?');
+      end
+      self@fish.core.FishVideoReader(vidname);       
+      self@fish.core.FishBlobAnalysis();       
       
       self.frameFormat = 'RGBU'; % default
       self.knnMethod = global_knnMethod;
@@ -86,7 +88,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
           for f2 = fieldnames(opts.(f1{1}))'
             if isprop(self,f2{1})
               if any(self.(f2{1}) ~= opts.(f1{1}).(f2{1})) 
-                verbose('Set "%s.%s" to "%s"',f1{1},f2{1},num2str(opts.(f1{1}).(f2{1})));
+                fish.helper.verbose('Set "%s.%s" to "%s"',f1{1},f2{1},num2str(opts.(f1{1}).(f2{1})));
                 self.(f2{1}) = opts.(f1{1}).(f2{1});
               end
             else
@@ -177,7 +179,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
       if nargin<3
         delta = self.delta;
       end
-      setToScaledFormat@FishVideoReader(self,scale,delta);
+      setToScaledFormat@fish.core.FishVideoReader(self,scale,delta);
       
       FishVideoHandler_(self.id, 'setScale', self.scale(1),self.scale(2),self.scale(3));
       FishVideoHandler_(self.id, 'set','delta', sum(self.delta));
@@ -186,7 +188,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     end
     
     function setToRGBFormat(self)
-      setToRGBFormat@FishVideoReader(self);
+      setToRGBFormat@fish.core.FishVideoReader(self);
       self.useScaled = false;
       FishVideoHandler_(self.id, 'set', 'scaled',false);
     end
@@ -293,11 +295,11 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     end
 
     function verbose(self);
-      verbose@FishVideoReader(self);
+      verbose@fish.core.FishVideoReader(self);
       if self.knnMethod 
-        verbose('Using KNN for foreground subtraction...');
+        fish.helper.verbose('Using KNN for foreground subtraction...');
       else
-        verbose('Using Thresholder for foreground subtraction...');
+        fish.helper.verbose('Using Thresholder for foreground subtraction...');
       end
     end
     
@@ -457,7 +459,7 @@ classdef FishVideoHandlerMex < handle & FishBlobAnalysis & FishVideoReader
     function a_init(self);
     % pass all  the properties to the C-core
           
-      %a_init@FishBlobAnalysis(self);
+      %a_init@fish.core.FishBlobAnalysis(self);
       
       FishVideoHandler_(self.id, 'set','minArea',self.minArea);
       FishVideoHandler_(self.id, 'set','maxArea',self.maxArea);

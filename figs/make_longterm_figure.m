@@ -3,7 +3,7 @@ PLOT = 1;
 SAVEIF = 1;
 if LOAD
   load ~/data/zebra/videos/longterm/Blongterm11.mat
-  reader = FishVideoReader(ft.videoFile);
+  reader = fish.core.FishVideoReader(ft.videoFile);
   
 end
 
@@ -106,7 +106,7 @@ if PLOT
   set(bb,'visible','off');
   range = 0:3600:4*3600;%ft.videoHandler.duration;
   n = length(range)-1;
-  [rr1,rr2] = getsubplotnumber(n);
+  [rr1,rr2] = fish.helper.getsubplotnumber(n);
   for i = 1:n
     aa(i) = subsubplot(r1,r2,s,rr1,rr2,i);
     ft.plotProbMap([range(i),range(i+1)]);

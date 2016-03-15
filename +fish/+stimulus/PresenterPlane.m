@@ -1,4 +1,4 @@
-classdef FishStimulusPresenterPlane < FishStimulusPresenter;
+classdef PresenterPlane < fish.stimulus.Presenter;
   
   properties 
     switchInterval = 30; % switching the stimulus time (in seconds)

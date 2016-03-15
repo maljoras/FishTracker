@@ -239,10 +239,10 @@ classdef Tracker < handle;
         else
           if ischar(self.opts.stimulus.presenter)
             self.stimulusPresenter = eval('%s(self.opts.stimulus)',self.opts.stimulus.presenter);
-          elseif isa(self.opts.stimulus.presenter,'fish.StimulusPresenter')
+          elseif isa(self.opts.stimulus.presenter,'fish.stimulus.Presenter')
             self.stimulusPresenter = self.opts.stimulus.presenter;
           else
-            error('Expect fish.StimulusPresenter object');
+            error('Expect fish.stimulus.Presenter object');
           end
         end
         self.stimulusPresenter.init();

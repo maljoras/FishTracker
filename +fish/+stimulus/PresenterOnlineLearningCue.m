@@ -1,4 +1,4 @@
-classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
+classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
   
   properties
     signalTime = 0;  %time of begining and ending signal (in seconds)
@@ -63,7 +63,7 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
     
     function init(self,varargin)
       
-      init@FishStimulusPresenter(self,varargin{:});
+      init@fish.stimulus.Presenter(self,varargin{:});
       
       self.initStmBkg();
     end
@@ -170,7 +170,7 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
    
    function stmInfo = stepStimulus(self,x,y,t,fishIds)
    % stmInfo = stepStimulus(self,x,y,t,fishIds) this function will be
-   % called from FishStimulusPresenter/step once for each frame. It
+   % called from fish.stimulus.Presenter/step once for each frame. It
    % plots an stimulus below the fish if fishID odd and on left side
    % and vice versa.
    %  

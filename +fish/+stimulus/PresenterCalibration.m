@@ -1,4 +1,4 @@
-classdef FishStimulusPresenterCalibration < FishStimulusPresenter;
+classdef PresenterCalibration < fish.stimulus.Presenter;
   
   properties 
     freq = 0.1;
@@ -8,9 +8,9 @@ classdef FishStimulusPresenterCalibration < FishStimulusPresenter;
   
   methods 
     
-    function self = FishStimulusPresenterCalibration(varargin)
+    function self = PresenterCalibration(varargin)
     
-      self = self@FishStimulusPresenter(varargin{:});
+      self = self@fish.stimulus.Presenter(varargin{:});
       self.setOpts(varargin{:});
 
     end

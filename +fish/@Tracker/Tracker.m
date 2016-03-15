@@ -858,7 +858,7 @@ classdef Tracker < handle;
               if self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx))
                 % enough evidence switch tracks and delete from others. 
                 fish.helper.verbose('valid permutation [%1.2f,%d]: switch...',min(prob(idx)),min(steps(idx)))
-                self.switchFish(thisTrackIndices(idx),assignedFishIds(idx),true);
+                switchFish(self,thisTrackIndices(idx),assignedFishIds(idx),true);
                 subDeleteCrossedTrackIds(thisTrackIndices(idx)); % always handle
 
               end

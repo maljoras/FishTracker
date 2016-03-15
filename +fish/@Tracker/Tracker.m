@@ -608,7 +608,7 @@ classdef Tracker < handle;
             % only permute if true permutation and enough evidence
             fish.helper.verbose('Switching fish with fishClassifierUpdate [%1.2f,%d]',min(prob(idx)),min(steps(idx)))
 
-            self.switchFish(trackIndices(idx),assignedFishIds(idx),0);
+            switchFish(self,trackIndices(idx),assignedFishIds(idx),0);
             changed = 1;
             self.uniqueFishFrames = 0;
           end
@@ -780,7 +780,7 @@ classdef Tracker < handle;
       end
       
       if self.displayif && self.opts.display.crossings
-        self.plotCrossings_(1,trackIndices);
+        plotCrossings_(self,1,trackIndices);
       end
 
       toTrackIndices = trackIndices;
@@ -881,7 +881,7 @@ classdef Tracker < handle;
       
       
       if self.displayif && self.opts.display.crossings
-        self.plotCrossings_(2,trackIndices);
+        plotCrossings_(self,2,trackIndices);
       end
 
       
@@ -1298,7 +1298,7 @@ classdef Tracker < handle;
             figure(19);
             trackIdx = self.assignments(:, 1);
             detectionIdx = self.assignments(:, 2);
-            self.plotWrongAssignments(1:length(trackIdx));
+            plotWrongAssignments(self,1:length(trackIdx));
             drawnow;
             
           end
@@ -2372,7 +2372,7 @@ classdef Tracker < handle;
         % make correct output structure
         if exist('savedTracks','var')
           self.appendSavedTracks(savedTracks);
-          self.generateResults();
+          generateResults(self);
         end
         self.closeVideoObjects();
         

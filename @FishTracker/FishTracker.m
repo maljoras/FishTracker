@@ -2093,7 +2093,8 @@ classdef FishTracker < handle;
         end
 
         parseInputs;
-        if HELP; return;end
+        self = self@handle();  
+        if HELP;return;end
 
         
         %%options not really important
@@ -2219,7 +2220,7 @@ classdef FishTracker < handle;
         end
         
         % construct object
-        self = self@handle();  
+
 
         self.opts = opts;
         self.setProps();
@@ -2228,6 +2229,13 @@ classdef FishTracker < handle;
       end
       
       
+      function disp(self)
+        if isempty(self.videoHandler)
+          fprintf('Empty FishTracker Object\n\n');
+        else
+          disp@handle(self);
+        end
+      end
       
       
       function trackStep(self)

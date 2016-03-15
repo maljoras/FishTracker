@@ -8,7 +8,7 @@ if LOAD
   idres.pos = permute(id.trajectories,[1,3,2]);
 
   vid = '/home/malte/Videos/5Zebrafish_nocover_22min.avi';  
-  ft = FishTracker(vid,'detector.adjustThresScale',1,'nfish',5,'detector.fixedSize',150);
+  ft = fish.Tracker(vid,'detector.adjustThresScale',1,'nfish',5,'detector.fixedSize',150);
 
   ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
   ft.setDisplay(1);
@@ -85,7 +85,7 @@ if PLOT
 
   ylabel(sprintf('Avg. lost\n tracks [%%]'),'fontsize',10);
   
-  legend({'FishTracker','idTracker'},'location','NorthWest','fontsize',8)
+  legend({'fish.Tracker','idTracker'},'location','NorthWest','fontsize',8)
   box off;
   
 

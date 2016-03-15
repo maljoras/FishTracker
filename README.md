@@ -1,4 +1,4 @@
-# FishTracker
+# fish.Tracker
 Online tracking of fish in real time. 
 
 
@@ -16,14 +16,14 @@ $ make
 ~~~~
 
 ##Usage 
-In MATLAB try (without arguments) to get some documentation about the parameters. 
+In MATLAB your need to add the path where the +fish package folder is located. Then, try (without arguments) to get some documentation about the parameters: 
 ~~~~
->> FishTracker  
+>> fish.Tracker;  
 ~~~~
 
 To track a video file (with uidialog and automatic detection of the number if fish) :
 ~~~~
->> ft = FishTracker([]);  
+>> ft = fish.Tracker([]);  
 >> ft.track();   
 >> ft.plot(); % make some result plots  
 >> ft.save(); % save the ft object and all results  
@@ -31,7 +31,7 @@ To track a video file (with uidialog and automatic detection of the number if fi
 
 To track video file 'myvideo.avi' having 3 fish write (use 'nfish',-1 for GUI selection, default is 'nfish', [] for auto selection of the number of fish)
 ~~~~
->> ft = FishTracker('myvideo.avi','nfish',3);  
+>> ft = fish.Tracker('myvideo.avi','nfish',3);  
 ~~~~
 
 Set higher level of display and track first 20 seconds  
@@ -39,6 +39,8 @@ Set higher level of display and track first 20 seconds
 >> ft.setDisplay(3)  
 >> ft.track([0,20])  
 ~~~~
+
+![Tracking screenshot](http://url/to/img.png)
 
 Or turn off the display for fastest tracking. 
 ~~~~
@@ -93,9 +95,8 @@ Or in 3d (the centroid positions versus time), one can do the following:
 ~~~~
 >> res = ft.getTrackingResults();
 >> pos = ft.interpolateInvisible('pos',5); % interpolate lost detections and smooth Gaussian with std=5 frames
->> p = permute(pos,[1,3,2]);
->> plot3(res.t,p(:,:,1),p(:,:,2));
->> xlabel('Time [s]'); ylabel('x-position [px]';zlabel('y-position [px]');
+>> plot3(res.t,squeeze(p(:,1,:)),squeeze(p(:,2,:)));
+>> xlabel('Time [s]'); ylabel('x-position [px]');zlabel('y-position [px]');
 ~~~
 
 
@@ -106,7 +107,7 @@ Further examples can be found in the 'exps' directory.
 For Video grabbing and online tracking currently only [PointGrey](https://www.ptgrey.com) cameras are supported via the FlyCaptureSDK library. After installation and compilation (edit the Makefile to add the directories) fish can be tracked from a camera if camera index CamIdx and simultanously saved to raw video file 'myfile.avi' 
 
 ~~~~
->> ft = FishTracker({0,'myfile.avi'});   
+>> ft = fish.Tracker({0,'myfile.avi'});   
 >> ft.track(); % tracks indefintely. Close trackiung window for stop or set end time  
 >> ft.save();  
 >> clear ft; % to stop the background video recording  
@@ -116,13 +117,13 @@ Tracking stops when the tracking display window is closed and results are saved.
 
 ## Stimulation
 
-Using the Matlab PsychToolbox it is possible to do online feedback experiments. To peform a new experiment one has to derive a class from FishStimulusPresenter and overload (at least) the "step" function. See FishStimulusPresenterCue for an example
+Using the Matlab PsychToolbox it is possible to do online feedback experiments. To peform a new experiment one has to derive a class from fish.stimulus.Presenter and overload (at least) the "step" function. See FishStimulusPresenterCue for an example
 
 To perform the experiment:  
 
 ~~~~
 >> opts = [];   
->> opts.stimulus.presenter  = 'FishStimulusPresenter';  
+>> opts.stimulus.presenter  = 'fish.stimulus.Presenter';  
 >> opts.stmif = 1;  
 >> opts.nfish = 3;  
 >> opts.detector.inverted = 1; % tracking in IR  
@@ -132,7 +133,7 @@ To perform the experiment:
 >>   
 >> ft = FishTracker({0,'savevideo.avi'},opts);  
 >> ft.setDisplay(0);  % to avoid displaying delays  
->> ft.track(); % tracks until FishStimulusPresenter/isFinished returns true.  
+>> ft.track(); % tracks until fish.stimulus.Presenter/isFinished returns true.  
 >> ft.save();  
 >> clear ft; % stop background avi recording  
 ~~~~

@@ -3,7 +3,7 @@ function res = getTrackingResults(self,delinvif,forceif)
 % FT.GETTRACKINGRESULTS(DELINVIF) sets times in RES.POS where a track was lost to
 % NaN.
   if isempty(self.res) || (exist('forceif','var') && forceif)
-    self.generateResults(); % maybe not done yet
+    generateResults(self); % maybe not done yet
   end
   if ~exist('delinvif','var')
     delinvif = 0;

@@ -10,12 +10,17 @@ is not lost for long tracking experiments.
 
 For the OpenCV version one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 
-One need to add the Matlab directory in the provided Makefile and compile with  
+One need to specify the matlab path and the path to mexpoencv and the path to flycaptureSDK compile with  
 ~~~~
-$ make
+$ make  MATLABDIR=/my/path/to/MATLAB/ FLYCAPINCLUDEDIR=/usr/include/flycapture MEXOPENCVDIR=/mypath/to/mexopencv
 ~~~~
 
-Please adapt the Makefile according to the environment paths to MATLAB, mexopencv, and flycaptureSDK (for online grabbing see below).   
+To avoid library incompatibility with matlab's packaged libraries one needs to preload the opencv and other libraries. With linux, eg., put an alias into the .bashrc file:
+
+~~~~
+export PRELOAD_LIBS=/usr/lib64/libstdc++.so.6:/usr/lib64/libtiff.so.5:/usr/lib/libflycapture.so:/usr/lib64/libglibmm-2.4.so:/usr/lib64/libglib-2.0.so.0:/usr/lib64/libsigc-2.0.so.0:/usr/lib/libflycapture.so.2:`ls /usr/local/lib/libopencv*.so |xargs|tr ' ' ':'`
+alias matlab='LD_PRELOAD=$PRELOAD_LIBS /opt/MATLAB/R2014b/bin/matlab '
+~~~~  
 
 ##Usage 
 In MATLAB your need to add the path where the +fish package folder is located. Then, try (without arguments) to get some documentation about the parameters: 

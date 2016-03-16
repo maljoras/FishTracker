@@ -166,11 +166,17 @@ classdef Tracker < handle;
       if ~exist('opts','var')
         opts = self.opts;
       end
-      if self.useMex
+      if self.useMex && fish.core.FishVideoHandlerMex.installed()
+        self.useMex = 1;
+        self.useOpenCV = 1;
         handler = fish.core.FishVideoHandlerMex(vidname,timerange,self.useKNN,opts);
       elseif fish.helper.hasOpenCV() && self.useOpenCV
+        self.useMex = 0;
+        self.useOpenCV = 1;
         handler = fish.core.FishVideoHandler(vidname,timerange,self.useKNN,opts);
       else
+        self.useMex = 0;
+        self.useOpenCV = 0;
         handler = fish.core.FishVideoHandlerMatlab(vidname,timerange,self.useKNN,opts);
       end
       timerange = handler.timeRange;

@@ -184,7 +184,7 @@ classdef FishVideoReader < handle;
       if ~fish.helper.hasOpenCV()
         error('Cannot find mexopencv toolbox..');
       end
-      self.reader = FishVideoCapture(self.videoFile);
+      self.reader = fish.core.FishVideoCapture(self.videoFile);
     end
   
     function loadTFile(self,tfile);

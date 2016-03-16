@@ -16,8 +16,9 @@
 #include <glibmm/timer.h>
 #include <glibmm/init.h>
 
+#ifdef FLYCAPTURE
 #include "SaveVideoClass.h"
-#include "FlyCapture2.h"
+#endif
 
 using namespace std;
 using namespace cv;
@@ -179,9 +180,16 @@ private:
     void initPars();
     
     cv::Size m_featureSize; 
-    bool m_camera;
-    bool m_stopped;
+
+
+    bool m_camera; /* this property will be always false if flycapture
+		    * is not present. However, one might still use
+		    * capturing using the onecv capture feature. */
+#ifdef FLYCAPTURE
     int m_camIdx;
+#endif
+    
+    bool m_stopped;
     
     cv::Mat m_NextFrame;
     cv::Mat m_NextOFrame;
@@ -226,7 +234,9 @@ private:
 
 protected:
     cv::Ptr<cv::VideoCapture>  pVideoCapture;
+#ifdef FLYCAPTURE
     cv::Ptr<VideoSaver> pVideoSaver;
+#endif
     cv::Ptr<cv::BackgroundSubtractorKNN> pBackgroundSubtractor;
     cv::Ptr<BackgroundThresholder> pBackgroundThresholder;
 

@@ -1,4 +1,3 @@
-
 #include <math.h>
 #include "munkres.h"
 #include <vector>

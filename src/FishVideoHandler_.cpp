@@ -40,21 +40,26 @@ void mexFunction( int nlhs, mxArray *plhs[],
     vector<MxArray> rhs(prhs,prhs+nrhs);
     int id = 0;
     string method;
-
-   
-    if ((nrhs==4) && (rhs[0].isChar() && (rhs[0].toString()=="camera"))){
-        // CApture Constructor is called. Create a new object from argument
-	if (!obj_.empty())
-	    mexErrMsgIdAndTxt("mexopencv:error","Only one camera instance supported");
-	obj_[++last_id] =  new VideoHandler(rhs[1].toInt(),rhs[2].toString(),rhs[3].toBool());
-        plhs[0] = MxArray(last_id);
-        return;
-
+    
+    if ((nrhs==2) && rhs[0].isChar()) {
+      // Constructor is called. Create a new object from argument
+      obj_[++last_id] =  new VideoHandler(rhs[0].toString(),rhs[1].toBool());
+      plhs[0] = MxArray(last_id);
+      return;
+#ifdef FLYCAPTURE
+    } else if  ((nrhs==4) && (rhs[0].isChar() && (rhs[0].toString()=="camera"))){
+      // CApture Constructor is called. Create a new object from argument
+      if (!obj_.empty())
+	mexErrMsgIdAndTxt("mexopencv:error","Only one camera instance supported");
+      obj_[++last_id] =  new VideoHandler(rhs[1].toInt(),rhs[2].toString(),rhs[3].toBool());
+      plhs[0] = MxArray(last_id);
+      return;
+#endif 
     } else if ((nrhs==2) && rhs[0].isChar()) {
-        // Constructor is called. Create a new object from argument
-	obj_[++last_id] =  new VideoHandler(rhs[0].toString(),rhs[1].toBool());
-        plhs[0] = MxArray(last_id);
-        return;
+      // Constructor is called. Create a new object from argument
+      obj_[++last_id] =  new VideoHandler(rhs[0].toString(),rhs[1].toBool());
+      plhs[0] = MxArray(last_id);
+      return;
     }
     else if (rhs[0].isNumeric() && rhs[0].numel()==1 && nrhs>1) {
 

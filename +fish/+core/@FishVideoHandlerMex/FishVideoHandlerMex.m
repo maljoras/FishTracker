@@ -34,7 +34,12 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
     adjustThresScale
   end
 
-  
+  methods(Static)
+    function bool = installed();
+      bool = ~~exist('FishVideoHandler_');
+    end
+  end
+    
   
   methods 
     

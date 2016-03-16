@@ -38,7 +38,7 @@ SRCDIR = src
 TARGETDIR = .
 
 #flycapture paths
-FLYCAPINCLUDEDIR ?= /src/include/flycapture 
+FLYCAPINCLUDEDIR ?= /usr/include/flycapture 
 
 # search whether .h can be found
 ifeq ($(wildcard $(FLYCAPINCLUDEDIR)/FlyCapture2.h),)

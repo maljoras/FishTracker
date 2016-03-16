@@ -2,10 +2,10 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
   
   properties
     signalTime = 0;  %time of begining and ending signal (in seconds)
-    stmTime = 10; %time of stimulus (in seconds)
-    gapTime =10; % time of testing (in seconds)
+    stmTime = 5; %time of stimulus (in seconds)
+    gapTime =10; % time of gap after stim
     adaptationTime =1;%600; % time at the beginning (in seconds
-    nRound= 100;
+    
     
     colBackgound = [0,0,0]; % background color (RGB [0,0,0] for black)
     colBeginCue = [1,0,0];% begining signal (RGB[255,0,0]for red)
@@ -17,13 +17,14 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     
     midline = 0.5;  % position of the line form 0..1
 
-    testingProb = 1;
-    lrSwitchProb =  0.5;
+    testingProb = 0;
+    lrSwitchProb =  1; % 0: no change, 1:switching each stmround
     
-    % this function is applied to stimulate fishIds either on the left (0)
-    % or on the right (1) side
-    funLRStm = @(fishIds) fishIds<0;
+    % this function is applied to stimulate fishIds either on the left (<0)
+    % or on the right (>0) side or not stm (0)
+    funLRStm = @(fishIds) -(fishIds>0);
     funCueBlending  = @(t,signalTime) t/signalTime;
+    funRoundStmPause  = @(iround) 1; % always stimulus
 
     % the two background texture
     textureCutoff = [0.01,0.0001]; % right left
@@ -31,11 +32,13 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     textureCol = [1,1,1;1,1,1]; % RGB
     
     stmLambda = 0.5; % this eq to dt*PosissonRate  !
-    stmBkgType = 'texture';
+    stmBkgType = 'texture'; % one of 'none','plane','texture','border'
     stmBkgBrightness = 0.8; % from 0..1  
     stmSize =100;
     stmCol = [1,1,1]; % stimulus color (RGB [1,1,1] for white)    
-  
+
+    lrif = 1; % start first stim LR (1) or RL(0)
+    
   end
 
   properties(SetAccess=private)
@@ -47,11 +50,15 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     ID_GAP = 4;
     ID_TEST_LR = 5;
     ID_TEST_RL = 5 + 8;
+    ID_PAUSE = 6;
+    
+    roundTime = 0;
+    iround = 0;
   end
   
   properties(SetAccess=private,GetAccess=private)
     testingif = 0;
-    lrif = 0;
+
     stmIdx = -1;
     stmState = [];
     textures = [];
@@ -66,6 +73,7 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
       init@fish.stimulus.Presenter(self,varargin{:});
       
       self.initStmBkg();
+      updateRoundTime(self);
     end
 
     
@@ -93,6 +101,9 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     function plotStmBkg(self,type,lrswitch);
 
       switch lower(type)
+        
+        case 'none'
+          plotVPlane(self,self.midline,self.colBackgound,self.colBackgound);
         case 'texture'
           
           textures = self.textures;
@@ -102,15 +113,19 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
           self.drawTexture(textures(1),[self.midline,0,1-self.midline,1]);
           self.drawTexture(textures(2),[0,0,self.midline,1]);
           
-        case 'border'
+        case {'border','plane'}
           col = {self.sideMarkerCol(1,:)*self.stmBkgBrightness,...
                  self.sideMarkerCol(2,:)*self.stmBkgBrightness};
           if lrswitch
             col = col([2,1]);
           end
+          if  strcmp(lower(type),'border')
+            plotVLine(self,self.sideMarkerPos,self.sideMarkerWidth,col{1});
+            plotVLine(self,1-self.sideMarkerPos,self.sideMarkerWidth,col{2});
+          else
+            plotVPlane(self,self.midline,col{1},col{2});
+          end
           
-          plotVLine(self,self.sideMarkerPos,self.sideMarkerWidth,col{1});
-          plotVLine(self,1-self.sideMarkerPos,self.sideMarkerWidth,col{2});
           
         otherwise;
           error('do not know background stimulus type');
@@ -128,7 +143,21 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
       end
     end
     
-    
+    function plotVarDot(self,x,y,inSize,inColor)
+    % plots a dot in normalized coordinates.  
+      
+      xx = self.toScreenX(x);
+      yy = self.toScreenY(y);
+      w = self.toScreenWidth(self.midline);
+
+      for i = 1:length(xx)
+        s2 = inSize(min(i,end))/2;
+        s2 = min(abs(xx(i)-w),s2);
+        rect = [xx(i)-s2,yy(i)-s2,xx(i)+s2,yy(i)+s2];
+        Screen('FillOval', self.window, inColor(min(i,end),:)*255, rect);
+      end
+    end
+
    function [x,y] = plotStimulus(self,x,y,t,fishIds,lrswitch)
 
      if length(x) ~= length(self.stmState)
@@ -144,11 +173,14 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
      xleft = x<self.midline; % definition of left
      
      %% fetch stimulate whether left or right stm
-     stmleft = ~self.funLRStm(fishIds(:));
-
      if lrswitch
-       stmleft = ~stmleft;
+       stmleft = self.funLRStm(fishIds(:))>0;
+       stmright = self.funLRStm(fishIds(:))<0;
+     else
+       stmleft = self.funLRStm(fishIds(:))<0;
+       stmright = self.funLRStm(fishIds(:))>0;
      end
+
      
      %% change stimulus state with poisson characeteristics
      if self.stmLambda>0
@@ -157,16 +189,20 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
      end
 
      left = xleft & stmleft & self.stmState(fishIds);
-     self.plotDot(x(left),y(left),self.stmSize,self.stmCol);
+     self.plotVarDot(x(left),y(left),self.stmSize,self.stmCol);
 
-     right = ~xleft & ~stmleft & self.stmState(fishIds);
-     self.plotDot(x(right),y(right),self.stmSize,self.stmCol);
+     right = ~xleft & stmright & self.stmState(fishIds);
+     self.plotVarDot(x(right),y(right),self.stmSize,self.stmCol);
 
      nostmmsk = ~(right | left);
      x(nostmmsk) = NaN;
      y(nostmmsk) = NaN;
    end
    
+   function updateRoundTime(self);
+     trainingTime = 2*self.signalTime + self.stmTime;
+     self.roundTime = trainingTime + self.gapTime;
+   end
    
    function stmInfo = stepStimulus(self,x,y,t,fishIds)
    % stmInfo = stepStimulus(self,x,y,t,fishIds) this function will be
@@ -185,57 +221,67 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
    %       3 :  Stimulation period (+ 8 LR switch)
    %       4 :  Gap period
    %       5 :  Testing period (+ 8 LR switch)
-     
+   %       6 :  Pause (if funRoundStmPause(iround)==0)  
             
      %% set the stmidx
      oldstmIdx = self.stmIdx;
-     trainingTime = 2*self.signalTime + self.stmTime;
-     roundTime = trainingTime + self.gapTime;
+     lastRound = self.iround;
      
      if t < self.adaptationTime
        self.stmIdx = self.ID_ADAPTATION;
      else
+
        % within round
        tt = t - self.adaptationTime;
-       ttmod = mod(tt,roundTime);
-                
-       if ttmod<self.signalTime
-         self.stmIdx = self.ID_BEGINCUE;    
-       elseif  ttmod<self.signalTime + self.stmTime
-         % stimulus time
-         if all(oldstmIdx~= ...
-                [self.ID_STIMULUS_LR,self.ID_STIMULUS_RL,self.ID_TEST_LR,self.ID_TEST_RL]);
-           % new round
-           self.testingif = rand<self.testingProb;
-           self.lrif = rand<self.lrSwitchProb;
-         end
-         
-         if self.lrif
-           if ~self.testingif
-             self.stmIdx = self.ID_STIMULUS_LR;
-           else
-             self.stmIdx = self.ID_TEST_LR;
-           end
-         else
-           if ~self.testingif
-             self.stmIdx = self.ID_STIMULUS_RL;
-           else
-             self.stmIdx = self.ID_TEST_RL;
-           end
-         end
+       ttmod = mod(tt,self.roundTime);
        
-       elseif ttmod<2*self.signalTime + self.stmTime
-         self.stmIdx = self.ID_ENDCUE;
+       self.iround = floor(tt/self.roundTime)+1;
+       
+       if self.funRoundStmPause(self.iround)
+       
+         if ttmod<self.signalTime
+           self.stmIdx = self.ID_BEGINCUE;    
+         elseif  ttmod<self.signalTime + self.stmTime
+           % stimulus time
+           if self.iround~=lastRound
+             % new stim round
+             self.testingif = rand<self.testingProb;
+             if rand<self.lrSwitchProb
+               self.lrif = ~self.lrif;
+             end
+           end
+           
+           if self.lrif
+             if ~self.testingif
+               self.stmIdx = self.ID_STIMULUS_LR;
+             else
+               self.stmIdx = self.ID_TEST_LR;
+             end
+           else
+             if ~self.testingif
+               self.stmIdx = self.ID_STIMULUS_RL;
+             else
+               self.stmIdx = self.ID_TEST_RL;
+             end
+           end
+       
+         elseif ttmod<2*self.signalTime + self.stmTime
+           self.stmIdx = self.ID_ENDCUE;
+         else
+           self.stmIdx = self.ID_GAP;
+         end
        else
-         self.stmIdx = self.ID_GAP;
+         self.stmIdx = self.ID_PAUSE;    
        end
+       
+     
      end
        
      %% plotting
      switch self.stmIdx
        case {self.ID_BEGINCUE,self.ID_ENDCUE}
          self.plotCue(self.stmIdx,min(abs(ttmod-self.stmTime-self.signalTime),ttmod));
-       case {self.ID_GAP,self.ID_ADAPTATION}
+       case {self.ID_GAP,self.ID_ADAPTATION,self.ID_PAUSE}
          self.plotVPlane(0.5,self.colBackgound,self.colBackgound);
        otherwise
          % during stimulus

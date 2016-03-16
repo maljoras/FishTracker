@@ -13,5 +13,5 @@
       if ~exist(vid)
         error('Please select file');
       end
-      verbose('Selected file %s',vid);
+      fish.helper.verbose('Selected file %s',vid);
     end

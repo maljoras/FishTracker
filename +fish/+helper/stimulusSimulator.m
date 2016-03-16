@@ -14,7 +14,7 @@ function stimulusSimulator(stmObj,varargin)
   def.opts.frameSize = [800,1000]; % Matlab: y,x
   def.opts.timeFactor = 1;
   
-  parseInputs;
+  fish.helper.parseInputs;
   if HELP, return;end;
   
   % generate traces

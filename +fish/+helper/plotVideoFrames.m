@@ -15,7 +15,7 @@ function plotVideoFrames(vidfile)
   border = 200;
   shift = 0.02;  
   
-  [r1,r2] = getsubplotnumber(nframes);
+  [r1,r2] = fish.helper.getsubplotnumber(nframes);
   
   
   for i = 1:nframes;

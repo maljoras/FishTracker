@@ -15,7 +15,7 @@ function [pcl,a,mu,Sigma] = emclustering(X,k,plotif)
  maxd = 10;
  if d>maxd
    % preprocess;
-   [prepc, ~,X, prempc] = pca1(X,maxd); % on
+   [prepc, ~,X, prempc] = fish.helper.pca1(X,maxd); % on
    d = maxd;
  end
 
@@ -60,10 +60,10 @@ function [pcl,a,mu,Sigma] = emclustering(X,k,plotif)
      map = jet(k);
      if lfdif
        [~,cl] = max(pcl,[],2);
-       [pc,~,proj,rstruc] = lfd(X,cl,2,0);
+       [pc,~,proj,rstruc] = fish.helper.lfd(X,cl,2,0);
        mpc = rstruc.mu(:);
      else
-       [pc, ~, proj, mpc] = pca1(X,2); % only for plotting
+       [pc, ~, proj, mpc] = fish.helper.pca1(X,2); % only for plotting
      end
      
      for j = 1:k

@@ -139,7 +139,7 @@ function varargout = displayCurrentTracks(self)
           if ~isempty(trackpos)
             for ii = 1:self.nfish
               idx1 = f2i(:,ii)+1;
-              inds = s2i(size(cli),[(1:size(cli,1))',idx1]);
+              inds = fish.helper.s2i(size(cli),[(1:size(cli,1))',idx1]);
               inds2 = cli(inds);
               pos1 = squeeze(trackpos(:,ii,~isnan(inds2)))';
               cols1 = uint8(cols_grey(inds2(~isnan(inds2)),:)*255);

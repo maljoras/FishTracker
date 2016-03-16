@@ -13,7 +13,7 @@ classdef FishStimulusPresenterPlane < FishStimulusPresenter;
   methods 
 
     function tracks = step(self,tracks,framesize,t)
-    % this function will be called from FishTracker after each round
+    % this function will be called from fish.Tracker after each round
     
       oldstmidx = self.stmidx;
 
@@ -35,7 +35,7 @@ classdef FishStimulusPresenterPlane < FishStimulusPresenter;
       end
       
       if oldstmidx~=self.stmidx
-        verbose('Switch Stimulus Plane %d -> %d',oldstmidx,self.stmidx);
+        fish.helper.verbose('Switch Stimulus Plane %d -> %d',oldstmidx,self.stmidx);
         switch self.stmidx
           case 1
             self.plotVPlane(self.midline,self.col1,self.col2);

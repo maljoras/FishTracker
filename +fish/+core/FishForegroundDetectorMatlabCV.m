@@ -1,4 +1,4 @@
-classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
+classdef FishForegroundDetectorMatlabCV < fish.core.FishForegroundDetector;
   
   
   
@@ -100,7 +100,7 @@ classdef FishForegroundDetectorMatlabCV < FishForegroundDetector;
   methods    
     
     function self = FishForegroundDetectorMatlabCV(varargin)
-      self = self@FishForegroundDetector(varargin{:});
+      self = self@fish.core.FishForegroundDetector(varargin{:});
       % will call a_init
     end
 

@@ -7,7 +7,7 @@ function plotCrossings_(self,section,updateIdx)
   end
 
   cols = jet(self.nfish);
-  [r1,r2] = getsubplotnumber(length(updateIdx));
+  [r1,r2] = fish.helper.getsubplotnumber(length(updateIdx));
 
   s = 0;
   for trackIndex = updateIdx

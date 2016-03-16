@@ -81,7 +81,7 @@ classdef FishStimulusPresenterOnlineLearningCue < FishStimulusPresenter;
         col = shiftdim(self.textureCol(min(i,end),:),-1);
         assert(numel(col)==3);
         
-        texture = makeTexture('f2ori',max(self.windowSize),'ori',ori,...
+        texture = fish.helper.makeTexture('f2ori',max(self.windowSize),'ori',ori,...
                               'cutoff',cut,'contrast',1);
         texture = texture(1:self.windowSize(1)/2,1:self.windowSize(2))';
         coltexture = bsxfun(@times,texture,col*self.stmBkgBrightness);

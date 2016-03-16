@@ -331,7 +331,7 @@ classdef FishBlobAnalysis < handle;
         region.MSERregionsOffset = [];
 
         if self.computeMSER &&  bb(3)*bb(4)>self.computeMSERthres*self.fishwidth*self.fishlength
-          verbose('%d>%f1.0\r',bb(3)*bb(4),self.computeMSERthres*self.fishwidth*self.fishlength)
+          fish.helper.verbose('%d>%f1.0\r',bb(3)*bb(4),self.computeMSERthres*self.fishwidth*self.fishlength)
           region = self.a_computeMSERregions(region,bb2);
         end
         
@@ -378,7 +378,7 @@ classdef FishBlobAnalysis < handle;
           newspots.ImageSize = size(Iframe);
           newspots.PixelIdxList = {};
           for ii = 1:length(points)
-            idx = s2i(size(Iframe),bsxfun(@plus,double(points(ii).PixelList(:,[2,1])),rp(i).MSERregionsOffset([2,1])-1));
+            idx = fish.helper.s2i(size(Iframe),bsxfun(@plus,double(points(ii).PixelList(:,[2,1])),rp(i).MSERregionsOffset([2,1])-1));
             newspots.PixelIdxList{1,ii} = idx;
           end
           newspots.NumObjects = length(newspots.PixelIdxList);
@@ -490,7 +490,7 @@ classdef FishBlobAnalysis < handle;
     % $$$             lst(~any(lst,2),:) =  [];
     % $$$           end
     % $$$           omsk = zeros(size(oimg));
-    % $$$           omsk(s2i(size(oimg),lst(:,[2,1]))) = 1;
+    % $$$           omsk(fish.helper.s2i(size(oimg),lst(:,[2,1]))) = 1;
     % $$$         else
     % $$$           % take normal regions
         
@@ -521,7 +521,7 @@ classdef FishBlobAnalysis < handle;
           if self.colorfeature
             tmp = min(max(oimg_col*255,0),255);
           else
-            tmp = min(max(round(255*((oimg-min(oimg(:)))/diff(minmax(oimg(:)')))),0),255);
+            tmp = min(max(round(255*((oimg-min(oimg(:)))/diff(fish.helper.minmax(oimg(:)')))),0),255);
             tmp = repmat(tmp,[1,1,3]);
           end
           % delete green channel within mask
@@ -622,7 +622,7 @@ classdef FishBlobAnalysis < handle;
           end
 
           indx = mod(bsxfun(@plus,indx,round(com-fixedwidth/2))-1,fixedwidth)+1;
-          idx = s2i(size(foimg),[indy(:),indx(:)]);
+          idx = fish.helper.s2i(size(foimg),[indy(:),indx(:)]);
           doimg = reshape(foimg(idx),size(foimg));
           if self.colorfeature
             for ii = 1:size(doimg_col,3)
@@ -812,8 +812,8 @@ classdef FishBlobAnalysis < handle;
 
       if ~isempty(self.fishlength) && ~isempty(self.fishwidth) 
         if verboseif
-          verbose('Initiated %s with fish features.',upper(class(self)))
-          verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
+          fish.helper.verbose('Initiated %s with fish features.',upper(class(self)))
+          fish.helper.verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
         end
       else
         error('Provide valid fishsizes');

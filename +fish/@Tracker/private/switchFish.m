@@ -288,7 +288,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
       tminOut = lastidx + tsearchstart1 + t1 - 1; %
     end
 
-    verbose('N[P] = %d',tminOut-tcurrent);
+    fish.helper.verbose('N[P] = %d',tminOut-tcurrent);
 
   end % nested function
     
@@ -317,7 +317,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
       %finalpos = cat(1,localpos(1:tswitch31-1,:,:),localpos(tswitch31:end,change,:));
       tminOut = tswitch1 +tstart -1;
       
-      verbose('N[L] = %d',tminOut-tcurrent);
+      fish.helper.verbose('N[L] = %d',tminOut-tcurrent);
     else 
       tminOut = [];
     end
@@ -382,7 +382,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     tminOut = tstart + tminsub-1;
     
     
-    verbose('N[D] = %d',tminOut-tcurrent);
+    fish.helper.verbose('N[D] = %d',tminOut-tcurrent);
     
   end % nested function
     

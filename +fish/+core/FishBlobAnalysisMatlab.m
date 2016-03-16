@@ -1,4 +1,4 @@
-classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
+classdef FishBlobAnalysisMatlab < fish.core.FishBlobAnalysis;
 % $$$   
    properties;
      range = [];
@@ -131,7 +131,7 @@ classdef FishBlobAnalysisMatlab < FishBlobAnalysis;
     
     function self = FishBlobAnalysisMatlab(varargin) % constructor
       
-      self = self@FishBlobAnalysis(varargin{:});
+      self = self@fish.core.FishBlobAnalysis(varargin{:});
       self.setFishSize([], []);
     end
   

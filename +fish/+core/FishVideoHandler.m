@@ -1,7 +1,7 @@
-classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
+classdef FishVideoHandler < handle & fish.core.FishVideoReader & fish.core.FishBlobAnalysis
 %FISHVIDEOHANDER  wrapper class
 %
-% Class for video reading of the FishTracker
+% Class for video reading of the fish.Tracker
 %
 %
   
@@ -35,23 +35,23 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
                               % open cv
       end
 
-      self@FishBlobAnalysis(); 
-      self@FishVideoReader(vidname,timerange); 
+      self@fish.core.FishBlobAnalysis(); 
+      self@fish.core.FishVideoReader(vidname,timerange); 
 
       if exist('knnMethod','var') && ~isempty(knnMethod)
         self.knnMethod = knnMethod;
       end
 
       if self.knnMethod
-        self.detector = FishForegroundDetector();  
+        self.detector = fish.core.FishForegroundDetector();  
       else
-        self.detector = FishForegroundDetectorMatlabCV();  
+        self.detector = fish.core.FishForegroundDetectorMatlabCV();  
       end
 
       if self.knnMethod 
-        verbose('Using KNN for foreground subtraction...');
+        fish.helper.verbose('Using KNN for foreground subtraction...');
       else
-        verbose('Using Thresholder for foreground subtraction...');
+        fish.helper.verbose('Using Thresholder for foreground subtraction...');
       end
 
       if exist('opts','var')
@@ -77,7 +77,7 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
           if isprop(self,f{1})
             self.(f{1}) = opts.blob.(f{1});
             setif = 1;
-            verbose('Set BLOB option "%s" to "%s"',f{1},num2str(opts.blob.(f{1})));
+            fish.helper.verbose('Set BLOB option "%s" to "%s"',f{1},num2str(opts.blob.(f{1})));
           end
         end
       end
@@ -91,7 +91,7 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
           if isprop(self,f{1})
             self.(f{1}) = opts.reader.(f{1});
             setif = 1;
-            verbose('Set READER option "%s" to "%s"',f{1},num2str(opts.reader.(f{1})));
+            fish.helper.verbose('Set READER option "%s" to "%s"',f{1},num2str(opts.reader.(f{1})));
           end
         end
       end
@@ -101,7 +101,7 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
           if isprop(self.detector,f{1})
             self.detector.(f{1}) = opts.detector.(f{1});
             setif = 1;
-            verbose('Set DETECTOR option "%s" to "%s"',f{1},num2str(opts.detector.(f{1})));
+            fish.helper.verbose('Set DETECTOR option "%s" to "%s"',f{1},num2str(opts.detector.(f{1})));
           end
         end
       end
@@ -170,7 +170,7 @@ classdef FishVideoHandler < handle & FishVideoReader & FishBlobAnalysis
   methods(Access=protected)
     
     function frameSize= a_getFrameSize(self);
-      frameSize = a_getFrameSize@FishVideoReader(self);
+      frameSize = a_getFrameSize@fish.core.FishVideoReader(self);
       if self.resizeif
         frameSize = round(self.resizescale*frameSize);
       end

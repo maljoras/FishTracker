@@ -42,8 +42,10 @@ MATLABDIR  ?= /opt/MATLAB/R2014b
 MEX        ?= $(MATLABDIR)/bin/mex
 MATLAB     ?= $(MATLABDIR)/bin/matlab
 DOXYGEN    ?= doxygen
-MEXOPENCVDIR ?= /data/videos/toolboxes/mexopencv
+MEXOPENCVDIR ?= /home/malte/work/progs/toolboxes/mexopencv
 
+#flycapture paths
+FLYCAPINCLUDEDIR ?= /usr/include/flycapture 
 
 # mexopencv directories
 TARGETDIR  = .
@@ -59,40 +61,44 @@ ifeq ($(MEXEXT),)
     $(error "MEX extension not set")
 endif
 
+#aux dirs
+HELPERDIR = +fish/+helper
+CAPTUREDIR = +fish/+core/@FishVideoCapture/private
+HANDLERDIR = +fish/+core/@FishVideoHandlerMex/private
 
 # savevideo
 SAVEVIDEOSRC1 = $(SRCDIR)/FrameRateCounter.cpp
-SAVEVIDEOOBJ1 = $(TARGETDIR)/FrameRateCounter.$(OBJEXT)
+SAVEVIDEOOBJ1 = $(TARGETDIR)/$(HANDLERDIR)/FrameRateCounter.$(OBJEXT)
 SAVEVIDEOSRC = $(SRCDIR)/SaveVideoClass.cpp
-SAVEVIDEOOBJ = $(TARGETDIR)/SaveVideoClass.$(OBJEXT)
-FLYCAPINCLUDES = -I$(SRCDIR) -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include/ -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include/ -I/usr/include/flycapture 
+SAVEVIDEOOBJ = $(TARGETDIR)/$(HANDLERDIR)/SaveVideoClass.$(OBJEXT)
+FLYCAPINCLUDES = -I$(SRCDIR) $(shell pkg-config --cflags glibmm-2.4) -I$(FLYCAPINCLUDEDIR)  
 FLYCAPFLAGS =  -lsigc-2.0 -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
 
 # struc
 SAR = $(SRCDIR)/strucarr2strucmat.c
-SARTARGET = $(TARGETDIR)/strucarr2strucmat.$(MEXEXT)
+SARTARGET = $(TARGETDIR)/$(HELPERDIR)/strucarr2strucmat.$(MEXEXT)
 
 # pdist
 PDIST = $(SRCDIR)/pdist2Euclidean.c
-PDISTTARGET = $(TARGETDIR)/pdist2Euclidean.$(MEXEXT)
+PDISTTARGET = $(TARGETDIR)/$(HELPERDIR)/pdist2Euclidean.$(MEXEXT)
 
 # pcenterlinedist
 PCLDIST = $(SRCDIR)/pdist2CenterLine.c
-PCLDISTTARGET = $(TARGETDIR)/pdist2CenterLine.$(MEXEXT)
+PCLDISTTARGET = $(TARGETDIR)/$(HELPERDIR)/pdist2CenterLine.$(MEXEXT)
 
 # munkres
 MUNKRES = $(SRCDIR)/assignDetectionsToTracks.cpp
-MUNKRESTARGET = $(TARGETDIR)/assignDetectionsToTracks.$(MEXEXT)
+MUNKRESTARGET = $(TARGETDIR)/$(HELPERDIR)/assignDetectionsToTracks.$(MEXEXT)
 
 
 # mexopencv files and targets
 HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
 SRCS1      := $(SRCDIR)/FishVideoCapture_.cpp
-TARGETS1   := $(TARGETDIR)/FishVideoCapture_.$(MEXEXT) 
+TARGETS1   := $(TARGETDIR)/$(CAPTUREDIR)/FishVideoCapture_.$(MEXEXT) 
 SRCS2      := $(SRCDIR)/VideoHandler.cpp
-OBJECTS    := $(TARGETDIR)/VideoHandler.$(OBJEXT) 
+OBJECTS    := $(TARGETDIR)/$(HANDLERDIR)/VideoHandler.$(OBJEXT) 
 SRCS3      := $(SRCDIR)/FishVideoHandler_.cpp 
-TARGETS2   := $(TARGETDIR)/FishVideoHandler_.$(MEXEXT)
+TARGETS2   := $(TARGETDIR)/$(HANDLERDIR)/FishVideoHandler_.$(MEXEXT)
 
 # OpenCV flags
 ifneq ($(shell pkg-config --exists --atleast-version=3 opencv; echo $$?), 0)
@@ -118,35 +124,35 @@ override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPFLAGS)
 all: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
 
 $(SAVEVIDEOOBJ1): $(SAVEVIDEOSRC1)
-	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $<
+	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
 
 $(SAVEVIDEOOBJ): $(SAVEVIDEOSRC)
-	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $(SAVEVIDEOOBJ1) $<
+	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $(SAVEVIDEOOBJ1) -outdir $(TARGETDIR)/$(HANDLERDIR)/  $<
 
 #  objects
 $(OBJECTS): $(SRCS2)
-	$(MEX) -c -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $<
+	$(MEX) -c -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
 
  
 # MEX-files
 $(TARGETS1): $(SRCS1) 
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output $(TARGETS1) $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output $(TARGETS1) -outdir $(TARGETDIR)/$(CAPTUREDIR) $< $(LDFLAGS)
 
 $(TARGETS2): $(SRCS3)
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output $(TARGETS2) $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output $(TARGETS2) -outdir $(TARGETDIR)/$(HANDLERDIR) $< $(LDFLAGS) 
 
 $(SARTARGET): $(SAR)
-	$(MEX) -largeArrayDims -output $(SARTARGET) $< 
+	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(HELPERDIR) -output $(SARTARGET) $< 
 
 $(PDISTTARGET): $(PDIST)
-	$(MEX) -largeArrayDims -output $(PDISTTARGET) $< 
+	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(HELPERDIR)  -output $(PDISTTARGET) $< 
 
 $(PCLDISTTARGET): $(PCLDIST)
-	$(MEX) -largeArrayDims -output $(PCLDISTTARGET) $< 
+	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(HELPERDIR) -output $(PCLDISTTARGET) $< 
 
 $(MUNKRESTARGET): $(MUNKRES)
-	$(MEX) -largeArrayDims -cxx CXXFLAGS='$$CXXFLAGS -std=c++11 -lstdc++' -I$(SRCDIR) -output $(MUNKRESTARGET) $<
+	$(MEX) -largeArrayDims -cxx CXXFLAGS='$$CXXFLAGS -std=c++11 -lstdc++' -I$(SRCDIR) -outdir $(TARGETDIR)/$(HELPERDIR) -output $(MUNKRESTARGET) $<
 
 clean:
-	rm $(TARGETDIR)/$(TARGETS1) $(TARGETDIR)/$(TARGETS2) $(TARGETDIR)/$(OBJECTS) $(TARGETDIR)/$(SAVEVIDEOOBJ) $(TARGETDIR)/$(SAVEVIDEOOBJ1) $(TARGETDIR)/$(SARTARGET) $(TARGETDIR)/$(PDISTTARGET) $(TARGETDIR)/$(PCLDISTTARGET) $(TARGETDIR)/$(MUNKRESTARGET)
+	rm $(TARGETS1) $(TARGETS2) $(OBJECTS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
 

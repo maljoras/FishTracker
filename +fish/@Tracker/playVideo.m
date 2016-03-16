@@ -4,17 +4,17 @@ function playVideo(self,timerange,writefile)
   
   res = self.getTrackingResults();
 
-  if hasOpenCV() && self.useOpenCV
-    vr = @FishVideoReader;
+  if fish.helper.hasOpenCV() && self.useOpenCV
+    vr = @fish.core.FishVideoReader;
   else
-    vr = @FishVideoReaderMatlab;
+    vr = @fish.core.FishVideoReaderMatlab;
   end
 
   videoReader = vr(self.videoFile,self.timerange);
 
   if isinf(videoReader.duration) 
-    verbose('Cannot find videofile: %s',self.videoFile);
-    self.videoFile = getVideoFile(self.videoFile);
+    fish.helper.verbose('Cannot find videofile: %s',self.videoFile);
+    self.videoFile = fish.helper.getVideoFile(self.videoFile);
     videoReader = vr(self.videoFile,self.timerange);
   end
 
@@ -98,7 +98,7 @@ function playVideo(self,timerange,writefile)
     
     d = seconds(t);
     d.Format = 'hh:mm:ss';
-    verbose('CurrentTime %s\r',char(d))
+    fish.helper.verbose('CurrentTime %s\r',char(d))
   end
   fprintf('\n')
   clear videoWriter videoReader

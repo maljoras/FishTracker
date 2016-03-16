@@ -230,7 +230,7 @@ classdef FishStimulusPresenter < handle;
     
     
     function tracks = step(self,tracks,framesize,t)
-    % this function will be called from FishTracker after each
+    % this function will be called from fish.Tracker after each
     % round. Calls the stepStimulus method which should be overloaded!
     
       if isempty(tracks)

@@ -1,9 +1,8 @@
-
 function nfish = chooseNFish(fname,nfish)
-  if hasOpenCV
-    vid = FishVideoReader(fname);
+  if fish.helper.hasOpenCV
+    vid = fish.core.FishVideoReader(fname);
   else
-    vid = FishVideoReaderMATLAB(fname);
+    vid = fish.core.FishVideoReaderMatlab(fname);
   end
   
   frame = readFrame(vid);

@@ -1,4 +1,4 @@
-function varargout = imagespbw(x,y,X,scale);
+function varargout = imagescbw(x,y,X,scale);
 % IMAGESCBW(X,SCALE) as IMAGESC but plots in black&white without using
 % the colormap
   
@@ -11,7 +11,7 @@ function varargout = imagespbw(x,y,X,scale);
   end
   
   if ~exist('scale','var') 
-    scale = minmax(double(X(:)'));
+    scale = fish.helper.minmax(double(X(:)'));
   end
   
   

@@ -93,7 +93,7 @@ function combinedObj = combine(self,varargin)
       cost = pdist2(overlappedCombinedPosInterp',overlappedPosInterp','correlation');
 
       % use the hungarian matching assignments from the vision toolbox
-      assignments = assignDetectionsToTracks(cost,1e4);
+      assignments = fish.helper.assignDetectionsToTracks(cost,1e4);
       [~,sidx] = sort(assignments(:,1),'ascend');
       assignments = assignments(sidx,:); % make sure that the (combined) tracks are in squential order
                                          % append;

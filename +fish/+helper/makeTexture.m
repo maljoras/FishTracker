@@ -56,7 +56,7 @@ function texture = makeTexture(typestr,dim,varargin)
 
   
   MFILENAME = mfilename;
-  parseInputs;
+  fish.helper.parseInputs;
   if HELP;return;end
   
   
@@ -123,7 +123,7 @@ function texture = makeTexture(typestr,dim,varargin)
     dots(any(dots<0,2) | any(dots>=1,2),:) = [];
     
     
-    idots = s2i(dim,floor(bsxfun(@times,dots,dim)) + 1);
+    idots = fish.helper.s2i(dim,floor(bsxfun(@times,dots,dim)) + 1);
     
     texture = zeros(dim);
     texture(idots) = 1;
@@ -184,7 +184,7 @@ function texture = makeTexture(typestr,dim,varargin)
     
 
     
-    idots = s2i(dim,floor(bsxfun(@times,dots,dim)) + 1);
+    idots = fish.helper.s2i(dim,floor(bsxfun(@times,dots,dim)) + 1);
     
     texture = zeros(dim);
     texture(idots) = 1;

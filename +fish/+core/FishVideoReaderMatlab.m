@@ -1,4 +1,4 @@
-classdef FishVideoReaderMatlab < FishVideoReader;
+classdef FishVideoReaderMatlab < fish.core.FishVideoReader;
 % implements the reader using the matlab included video reader
   
   
@@ -119,7 +119,7 @@ classdef FishVideoReaderMatlab < FishVideoReader;
        varargin = {};
      end
        
-     self@FishVideoReader(vid,varargin{:});
+     self@fish.core.FishVideoReader(vid,varargin{:});
 
 
       

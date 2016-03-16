@@ -133,7 +133,7 @@ end
 
 %set non-existent inputs to defaults
 if ALLFIELDNAMES
-  WW = allfieldnames(def);
+  WW = fish.helper.allfieldnames(def);
 else
   WW = fieldnames(def);
 end
@@ -207,9 +207,9 @@ if isfield(def,'opts')
   end
   
   if ALLFIELDNAMES
-    WW = allfieldnames(def.opts);
+    WW = fish.helper.allfieldnames(def.opts);
     if ~isempty(opts)
-      WWW = allfieldnames(opts);
+      WWW = fish.helper.allfieldnames(opts);
     else
       WWW = {};
     end
@@ -324,7 +324,7 @@ if ~evalin('caller','nargin') || HELP
     fprintf('  OPTIONS and default values:\n')
 
     if ALLFIELDNAMES
-      WWW = allfieldnames(opts);
+      WWW = fish.helper.allfieldnames(opts);
     else
       WWW = fieldnames(opts);
     end
@@ -340,7 +340,7 @@ if ~evalin('caller','nargin') || HELP
     EMPTYSTR = char(' '*ones(1,size(SDEF,2)));
     fprintf('\n');
     if ALLFIELDNAMES
-      WW = allfieldnames(doc);
+      WW = fish.helper.allfieldnames(doc);
     else
       if isempty(doc)
         WW = {};
@@ -445,7 +445,7 @@ else
       EMPTYSTR = char(' '*ones(1,size(SDEF,2)));
       %fprintf('\n')
       if ALLFIELDNAMES
-        WW = allfieldnames(doc);
+        WW = fish.helper.allfieldnames(doc);
       else
         if isempty(doc)
           WW = {};

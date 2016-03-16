@@ -8,12 +8,14 @@ is not lost for long tracking experiments.
 
 ##Installation
 
-For the OpenCV version one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Note the FishTracker also uses [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
+For the OpenCV version one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 
 One need to add the Matlab directory in the provided Makefile and compile with  
 ~~~~
 $ make
 ~~~~
+
+Please adapt the Makefile according to the environment paths to MATLAB, mexopencv, and flycaptureSDK (for online grabbing see below).   
 
 ##Usage 
 In MATLAB your need to add the path where the +fish package folder is located. Then, try (without arguments) to get some documentation about the parameters: 

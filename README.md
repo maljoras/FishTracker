@@ -40,7 +40,7 @@ Set higher level of display and track first 20 seconds
 >> ft.track([0,20])  
 ~~~~
 
-![Tracking screenshot](http://url/to/img.png)
+![Tracking screenshot](https://github.com/maljoras/FishTracker/blob/master/pics/track.png)
 
 Or turn off the display for fastest tracking. 
 ~~~~
@@ -91,6 +91,9 @@ To plot the traces
 >> ft.plotTrace()
 ~~~~
 
+![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/trace.jpg)
+
+
 Or in 3d (the centroid positions versus time), one can do the following:
 ~~~~
 >> res = ft.getTrackingResults();
@@ -99,6 +102,7 @@ Or in 3d (the centroid positions versus time), one can do the following:
 >> xlabel('Time [s]'); ylabel('x-position [px]');zlabel('y-position [px]');
 ~~~
 
+![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/trace3d.jpg)
 
 Further examples can be found in the 'exps' directory.
 

@@ -13,7 +13,9 @@ function stimulusSimulator(stmObj,varargin)
   def.opts.velocity = 1;
   def.opts.frameSize = [800,1000]; % Matlab: y,x
   def.opts.timeFactor = 1;
-  
+  def.opts.stimulus = []; % props ;
+  doc.stimulus = 'structure for additional options of the stim obj';
+
   fish.helper.parseInputs;
   if HELP, return;end;
   
@@ -24,6 +26,16 @@ function stimulusSimulator(stmObj,varargin)
   stmObj.screen = opts.screen;
   
   w =[opts.windowOrigin, opts.windowOrigin + opts.windowSize];
+
+  if ~isempty(opts.stimulus)
+    for f = {'screen','screenBoundingBox'}
+      if isfield(opts.stimulus,f{1})
+        opts.stimulus = rmfield(opts.stimulus,f{1});
+      end
+    end
+    stmObj.setOpts(opts.stimulus);
+  end
+  
   stmObj.init(w);
   stmObj.muteAllFlipping = true;
   

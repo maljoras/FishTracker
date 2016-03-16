@@ -19,13 +19,14 @@ classdef Presenter < handle;
   
     windowSize = [];
     ifi = []; % flip interval
+    windowRect = [];
+    window = []; 
+    textureIdx =  [];
+
   end
 
   properties(SetAccess=private,GetAccess=private);
     topPriorityLevel = [];
-    windowRect = [];
-    window = []; 
-    textureIdx =  [];
   end
   
   methods 
@@ -33,7 +34,6 @@ classdef Presenter < handle;
     function self = Presenter(varargin)
 
       self = self@handle();
-
       self.setOpts(varargin{:});
       
     end
@@ -42,7 +42,7 @@ classdef Presenter < handle;
     function setOpts(self,varargin)
     
       if length(varargin)==1 && isstruct(varargin{1});
-        for f = fieldnames(varargin{1})
+        for f = fieldnames(varargin{1})'
           if isprop(self,f{1})
             self.(f{1}) = varargin{1}.(f{1});
           end

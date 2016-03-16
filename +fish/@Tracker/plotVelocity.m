@@ -1,5 +1,5 @@
 function plotVelocity(self,varargin)
 % PLOTVELOCITY(PLOTTIMERANGE,FISHIDS) plots a velocity plot
   
-  self.plotByType('VELOCITY',varargin{:});
+  plotByType(self,'VELOCITY',varargin{:});
 end

@@ -1,4 +1,4 @@
-# FishTracker
+# fish.Tracker
 Online tracking of fish in real time. 
 
 
@@ -39,6 +39,8 @@ Set higher level of display and track first 20 seconds
 >> ft.setDisplay(3)  
 >> ft.track([0,20])  
 ~~~~
+
+![Tracking screenshot](http://url/to/img.png)
 
 Or turn off the display for fastest tracking. 
 ~~~~
@@ -93,9 +95,8 @@ Or in 3d (the centroid positions versus time), one can do the following:
 ~~~~
 >> res = ft.getTrackingResults();
 >> pos = ft.interpolateInvisible('pos',5); % interpolate lost detections and smooth Gaussian with std=5 frames
->> p = permute(pos,[1,3,2]);
->> plot3(res.t,p(:,:,1),p(:,:,2));
->> xlabel('Time [s]'); ylabel('x-position [px]';zlabel('y-position [px]');
+>> plot3(res.t,squeeze(p(:,1,:)),squeeze(p(:,2,:)));
+>> xlabel('Time [s]'); ylabel('x-position [px]');zlabel('y-position [px]');
 ~~~
 
 

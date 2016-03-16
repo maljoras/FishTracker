@@ -12,6 +12,11 @@
 using namespace std;
 using namespace cv;
 
+#ifdef DEBUG
+#define Debug(x) do { x } while(0)
+#else
+#define Debug(x) do { } while(0)
+#endif
 
 Segment::Segment() {}
 Segment::~Segment() {};
@@ -36,6 +41,7 @@ VideoHandler::VideoHandler(const string inFname,bool inKnnMethod)
 };
 
 /****************************************************************************************/
+#ifdef FLYCAPTURE
 VideoHandler::VideoHandler(int camIdx, const string inFname, bool inKnnMethod)
 {
   m_camera = true;
@@ -54,7 +60,7 @@ VideoHandler::VideoHandler(int camIdx, const string inFname, bool inKnnMethod)
   Glib::init();
   initPars();
 }
-
+#endif
 
 /****************************************************************************************/
 VideoHandler::~VideoHandler()
@@ -213,8 +219,6 @@ void VideoHandler::waitThreads() {
     while ((!m_availableNextFrame) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
       m_availableNextFrameCond.wait(m_NextFrameMutex);
   }
-
-  
 }
 
 
@@ -223,6 +227,8 @@ int VideoHandler::start() {
 
   if (m_stopped) {
     if ( m_camera) {
+#ifdef FLYCAPTURE
+
       FlyCapture2::BusManager busMgr;
       FlyCapture2::Error error;
       FlyCapture2::PGRGuid guid;
@@ -255,8 +261,13 @@ int VideoHandler::start() {
 	  return -1;
 	}
       }
+#else
+      cout << "Error: FlyCaptureSDK camera feature not enabled." << endl;
+      return -1;
+#endif      
     }
       else  {
+
       pVideoCapture = new VideoCapture(fname);
       //pVideoCapture->set(cv::CAP_PROP_CONVERT_RGB,true); // output RGB
     }
@@ -284,7 +295,9 @@ void VideoHandler::stop() {
     if (!m_camera)
       pVideoCapture.release();
     else {
+#ifdef FLYCAPTURE
       pVideoSaver.release();
+#endif
     }
 
     if (knnMethod)
@@ -391,24 +404,20 @@ void VideoHandler::readNextFrameThread()
       if (!m_keepNextFrameThreadAlive)
 	continue;
 
-#ifdef DEBUG
-      Glib::Timer timer;
-      timer.start();
-#endif
+      Debug(Glib::Timer timer;timer.start(););
 
       Mat oframe;
+#ifdef FLYCAPTURE
       if (m_camera) {
-
 	int frameNumber;
 	if (pVideoSaver->getFrame(&oframe,&m_NextTimeStamp,&frameNumber)!=0) {
 	  break;
 	} // returns RGB
-#ifdef DEBUG
-	cout << oframe.size() << "  " << frameNumber << " " <<  m_NextTimeStamp << endl;
-#endif
-      
-      } else {
 
+	Debug(cout << oframe.size() << "  " << frameNumber << " " <<  m_NextTimeStamp << endl;);
+
+      } else {
+#endif      
 	m_NextTimeStamp = pVideoCapture->get(cv::CAP_PROP_POS_MSEC)*1e-3; 
 	if (!pVideoCapture->read(oframe)) { // should return RGB instead of BGR. But seems not to work.. NOW BGR
 		//cout <<  "ERROR: File read error." << endl;
@@ -416,16 +425,16 @@ void VideoHandler::readNextFrameThread()
 	}
 	//cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
 
-#ifdef DEBUG
-	cout << oframe.size() << " Time: " <<  m_NextTimeStamp << endl;
-#endif
+	Debug(cout << oframe.size() << " Time: " <<  m_NextTimeStamp << endl;);
 
 	if (oframe.type()!=CV_8UC3) {
 	  cout <<  "ERROR: Expect CV_8UC3 color movie." << endl;
 	  break;
 	}
+#ifdef FLYCAPTURE
       }
-    
+#endif      
+
       if ((resizeif) && (resizescale!=1)) {
 	cv::resize(oframe,oframe,Size(0,0),resizescale,resizescale);
       }
@@ -439,10 +448,13 @@ void VideoHandler::readNextFrameThread()
 	split(oframe, channel);
 	for (int ii=0; ii<3; ii++) {
 	  channel[ii].convertTo(channel[ii], CV_32FC1);
+#ifdef FLYCAPTURE
 	  if (m_camera)
 	    order[ii] = ii; // rgb
 	  else
+#endif      
 	    order[ii] = 2-ii; // bgr
+	  
 	}
 	floatframe =  ((float) Scale[0]/255.)*channel[order[0]] + ((float) Scale[1]/255.)*channel[order[1]] + ((float) Scale[2]/255.)*channel[order[2]] + (Delta); 
       
@@ -453,17 +465,17 @@ void VideoHandler::readNextFrameThread()
 	floatframe.convertTo(frame, CV_8UC1,255.);
       }
       else {
+#ifdef FLYCAPTURE
 	if (m_camera)
 	  cvtColor(oframe,frame,cv::COLOR_RGB2GRAY);
 	else
+#endif      
 	  cvtColor(oframe,frame,cv::COLOR_BGR2GRAY); // seems not to work for video capture...
       }
     
     
-#ifdef DEBUG
-      cout << "reading frame: " <<  timer.elapsed() << endl;  
-      timer.start();
-#endif
+      Debug(cout << "reading frame: " <<  timer.elapsed() << endl; timer.start(););
+      
     
       // background computation (THIS IS THE SLOWEST PART!)
       if (knnMethod) {
@@ -480,10 +492,8 @@ void VideoHandler::readNextFrameThread()
       }
       
     
-#ifdef DEBUG
-      cout << "background sub: " <<  timer.elapsed() << endl;  
-#endif
-
+      Debug(cout << "background sub: " <<  timer.elapsed() << endl;);
+	      
       m_NextFrame = frame;
       if (colorfeature)
 	m_NextOFrame = oframe;
@@ -552,20 +562,19 @@ void VideoHandler::segmentThread()
       
       if (computeSegments) {
 	  
-#ifdef DEBUG
-	Glib::Timer timer;
-	timer.start();
-#endif
+	
+	Debug(Glib::Timer timer;
+	  timer.start(););
+	  
 	
 	// finding contours
 	vector<vector<cv::Point> > contours;
 	findFishContours(m_BWImg,&contours);
 	
 	
-#ifdef DEBUG 
-	cout << "contours: " <<  timer.elapsed() << endl;
-	timer.start();
-#endif
+	Debug(cout << "contours: " <<  timer.elapsed() << endl;
+	  timer.start(););
+
 	
 	Segment segm;
 	vector <Segment> tmp(0);
@@ -591,10 +600,9 @@ void VideoHandler::segmentThread()
 	}
 	
 	
-#ifdef DEBUG 
-	cout << m_NextSegments.size() << endl;
-	cout << "segments: " <<  timer.elapsed() << endl;  
-#endif
+	Debug(cout << m_NextSegments.size() << endl;
+	  cout << "segments: " <<  timer.elapsed() << endl;);
+	
       }
       
       // signal stuff
@@ -1247,15 +1255,10 @@ double VideoHandler::get(const string prop){
   else if (prop=="maxArea") {
     return (double) maxArea;
   }
-  else if (prop=="timePos") {
-    if ((!m_camera) && (!m_stopped))
-      return ((double) pVideoCapture->get(cv::CAP_PROP_POS_MSEC))/1000.;
-    else
-      return (double) -1;
-  }
   else if (prop=="minArea") {
     return (double) minArea;
-  }   else  if ((prop == "DetectShadows") && (!m_stopped) ) {
+  }
+  else  if ((prop == "DetectShadows") && (!m_stopped) ) {
     if (knnMethod)
       return (double) pBackgroundSubtractor->getDetectShadows();
     else
@@ -1309,25 +1312,35 @@ double VideoHandler::get(const string prop){
     else
       return (double) pBackgroundThresholder->getThresScale();
   }
+  else if (prop=="timePos") {
+    if ((!m_camera) && (!m_stopped))
+      return ((double) pVideoCapture->get(cv::CAP_PROP_POS_MSEC))/1000.;
+    else
+      return (double) -1;
+  }
   else if ((prop == "FrameWidth") && (!m_stopped)) {
-    double width;
+    double width=0;
     if (!m_camera) 
       width =  (double) pVideoCapture->get(cv::CAP_PROP_FRAME_WIDTH);
     else  {
+#ifdef FLYCAPTURE
       Size frameSize = pVideoSaver->getFrameSize();
       width = (double) frameSize.width;
+#endif      
     }
     if (resizeif)
       width = round(width*resizescale);
     return width;
   }
   else if ((prop == "FrameHeight") && (!m_stopped)) {
-    double height;
+    double height=0;
     if (!m_camera) 
       height = (double) pVideoCapture->get(cv::CAP_PROP_FRAME_HEIGHT);
     else  {
+#ifdef FLYCAPTURE
       Size frameSize = pVideoSaver->getFrameSize();
       height =(double) frameSize.height;
+#endif      
     }
     if (resizeif)
       height = round(height*resizescale);
@@ -1337,18 +1350,26 @@ double VideoHandler::get(const string prop){
     if (!m_camera) 
       return (double) pVideoCapture->get(cv::CAP_PROP_FPS);
     else 
+#ifdef FLYCAPTURE
       return (double) pVideoSaver->getFPS();
+#else
+      return (double) 0.;
+#endif      
   }
   else if ((prop == "FrameCount")  && (!m_stopped)){
     if (!m_camera) 
       return (double) pVideoCapture->get(cv::CAP_PROP_FRAME_COUNT);
     else
-      return (double) 0;
+      return (double) 0.;
   } else if ((prop == "PosFrames") && (!m_stopped)) {
     if (!m_camera) 
       return (double) pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
     else
+#ifdef FLYCAPTURE
       return (double) pVideoSaver->getCurrentFrameNumber();
+#else
+      return (double) 0.;
+#endif      
   }
   else {
     cout <<  "ERROR: Could not read property " << prop <<". Maybe VideoHandler is not started! \n";

@@ -1,20 +1,13 @@
 #!/usr/bin/make -f
 # ============================================================================
-#                              mexopencv Makefile
+#                              FishTrackerMakefile
 # ============================================================================
 #
 # The following configuration parameters are recognized:
 #
 # MATLABDIR             MATLAB root directory.
-# MATLAB                MATLAB executable.
-# MEX                   MATLAB MEX compiler frontend.
-# MEXEXT                extension of MEX-files.
-# DOXYGEN               Doxygen executable used to generate documentation.
-# NO_CV_PKGCONFIG_HACK  Boolean. If not set, we attempt to fix the output of
-#                       pkg-config for OpenCV.
-# CFLAGS                Extra flags to give to the C/C++ MEX compiler.
-# LDFLAGS               Extra flags to give to compiler when it invokes the
-#                       linker.
+# FLYCAPINCLUDEDIR      Include dir for the FlyCaptureSDK
+# MEXOPENCVDIR          Path to the MEXOPENCV directory  
 #
 # The above settings can be defined as shell environment variables and/or
 # specified on the command line as arguments to make:
@@ -22,41 +15,59 @@
 #    export VAR=value
 #    make VAR=value
 #
-# The following targets are available:
-#
-# all      Builds mexopencv.
-# contrib  Builds the extra modules. Needs opencv_contrib.
-# clean    Deletes temporary and generated files.
-# doc      Generates source documentation using Doxygen.
-# test     Run MATLAB unit-tests.
-#
-# Note that the Makefile uses pkg-config to locate OpenCV, so you need to have
-# the opencv.pc file accessible from the PKG_CONFIG_PATH environment variable.
+# Note that the Makefile uses pkg-config to locate OpenCV and glibmm-2.4, so you need to have
+# the opencv.pc and glibmm-2.4.pc file accessible from the PKG_CONFIG_PATH environment variable.
 #
 # Required OpenCV version: 3.0
+#
+# If no FLyCaptureSDK is available the MEX enhanced version cannot be build. Then use 
+#
+#   make helper
+#
+# to compile only the helper files
+#
 #
 # ============================================================================
 
 # programs
 MATLABDIR  ?= /opt/MATLAB/R2014b
-MEX        ?= $(MATLABDIR)/bin/mex
-MATLAB     ?= $(MATLABDIR)/bin/matlab
-DOXYGEN    ?= doxygen
+MEX        = $(MATLABDIR)/bin/mex
+MATLAB     = $(MATLABDIR)/bin/matlab
 MEXOPENCVDIR ?= /home/malte/work/progs/toolboxes/mexopencv
+SRCDIR = src
+TARGETDIR = .
 
 #flycapture paths
-FLYCAPINCLUDEDIR ?= /usr/include/flycapture 
+FLYCAPINCLUDEDIR ?= /src/include/flycapture 
+
+# search whether .h can be found
+ifeq ($(wildcard $(FLYCAPINCLUDEDIR)/FlyCapture2.h),)
+  FLYCAPFLAG = 
+  $(warning "Cannot find FlyCapture2.h. Compiling without ptGrey grabbing feature.")
+
+  FLYCAPINCLUDES = -I$(SRCDIR) $(shell pkg-config --cflags glibmm-2.4)
+  FLYCAPLIBS = $(shell pkg-config --libs glibmm-2.4) -lstdc++  
+  ALLTARGET = nograb
+else
+  FLYCAPFLAG = -DFLYCAPTURE
+  FLYCAPINCLUDES = -I$(SRCDIR) $(shell pkg-config --cflags glibmm-2.4) -I$(FLYCAPINCLUDEDIR)
+  FLYCAPLIBS =  $(shell pkg-config --libs glibmm-2.4) -lstdc++ -lncurses -lflycapture
+  ALLTARGET = everything
+endif
 
 # mexopencv directories
-TARGETDIR  = .
 INCLUDEDIR = $(MEXOPENCVDIR)/include
 LIBDIR     = $(MEXOPENCVDIR)/lib
-SRCDIR     = src
+
+ifeq ($(wildcard $(INCLUDEDIR)/mexopencv.hpp),)
+  ALLTARGET = helper
+  $(warning "Cannot find mexopencv.hpp. OpenCV/Mex-versions disabled. Compiling only helper function.")
+endif
 
 # file extensions
-OBJEXT     ?= o
-LIBEXT     ?= a
-MEXEXT     ?= $(shell $(MATLABDIR)/bin/mexext)
+OBJEXT     = o
+LIBEXT     = a
+MEXEXT     = $(shell $(MATLABDIR)/bin/mexext)
 ifeq ($(MEXEXT),)
     $(error "MEX extension not set")
 endif
@@ -67,12 +78,12 @@ CAPTUREDIR = +fish/+core/@FishVideoCapture/private
 HANDLERDIR = +fish/+core/@FishVideoHandlerMex/private
 
 # savevideo
-SAVEVIDEOSRC1 = $(SRCDIR)/FrameRateCounter.cpp
-SAVEVIDEOOBJ1 = $(TARGETDIR)/$(HANDLERDIR)/FrameRateCounter.$(OBJEXT)
-SAVEVIDEOSRC = $(SRCDIR)/SaveVideoClass.cpp
-SAVEVIDEOOBJ = $(TARGETDIR)/$(HANDLERDIR)/SaveVideoClass.$(OBJEXT)
-FLYCAPINCLUDES = -I$(SRCDIR) $(shell pkg-config --cflags glibmm-2.4) -I$(FLYCAPINCLUDEDIR)  
-FLYCAPFLAGS =  -lsigc-2.0 -lglibmm-2.4 -lglib-2.0 -lstdc++ -lncurses -lflycapture
+ifneq ($(FLYCAPFLAG),)
+  SAVEVIDEOSRC1 = $(SRCDIR)/FrameRateCounter.cpp
+  SAVEVIDEOOBJ1 = $(TARGETDIR)/$(HANDLERDIR)/FrameRateCounter.$(OBJEXT)
+  SAVEVIDEOSRC = $(SRCDIR)/SaveVideoClass.cpp
+  SAVEVIDEOOBJ = $(TARGETDIR)/$(HANDLERDIR)/SaveVideoClass.$(OBJEXT)
+endif
 
 # struc
 SAR = $(SRCDIR)/strucarr2strucmat.c
@@ -90,38 +101,34 @@ PCLDISTTARGET = $(TARGETDIR)/$(HELPERDIR)/pdist2CenterLine.$(MEXEXT)
 MUNKRES = $(SRCDIR)/assignDetectionsToTracks.cpp
 MUNKRESTARGET = $(TARGETDIR)/$(HELPERDIR)/assignDetectionsToTracks.$(MEXEXT)
 
+ifneq ($(ALLTARGET),"helper")
+  # mexopencv files and targets
+  HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
+  SRCS1      := $(SRCDIR)/FishVideoCapture_.cpp
+  TARGETS1   := $(TARGETDIR)/$(CAPTUREDIR)/FishVideoCapture_.$(MEXEXT) 
+  SRCS2      := $(SRCDIR)/VideoHandler.cpp
+  OBJECTS    := $(TARGETDIR)/$(HANDLERDIR)/VideoHandler.$(OBJEXT) 
+  SRCS3      := $(SRCDIR)/FishVideoHandler_.cpp 
+  TARGETS2   := $(TARGETDIR)/$(HANDLERDIR)/FishVideoHandler_.$(MEXEXT)
 
-# mexopencv files and targets
-HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
-SRCS1      := $(SRCDIR)/FishVideoCapture_.cpp
-TARGETS1   := $(TARGETDIR)/$(CAPTUREDIR)/FishVideoCapture_.$(MEXEXT) 
-SRCS2      := $(SRCDIR)/VideoHandler.cpp
-OBJECTS    := $(TARGETDIR)/$(HANDLERDIR)/VideoHandler.$(OBJEXT) 
-SRCS3      := $(SRCDIR)/FishVideoHandler_.cpp 
-TARGETS2   := $(TARGETDIR)/$(HANDLERDIR)/FishVideoHandler_.$(MEXEXT)
-
-# OpenCV flags
-ifneq ($(shell pkg-config --exists --atleast-version=3 opencv; echo $$?), 0)
+  # OpenCV flags
+  ifneq ($(shell pkg-config --exists --atleast-version=3 opencv; echo $$?), 0)
     $(error "OpenCV 3.0 package was not found in the pkg-config search path")
-endif
-CV_CFLAGS  := $(shell pkg-config --cflags opencv)
-CV_LDFLAGS := $(shell pkg-config --libs opencv)
-ifndef NO_CV_PKGCONFIG_HACK
-LIB_SUFFIX := %.so %.dylib %.a %.la %.dll.a %.dll
-CV_LDFLAGS := $(filter-out $(LIB_SUFFIX),$(CV_LDFLAGS)) \
-              $(addprefix -L, \
-                  $(sort $(dir $(filter $(LIB_SUFFIX),$(CV_LDFLAGS))))) \
-              $(patsubst lib%, -l%, \
-                  $(basename $(notdir $(filter $(LIB_SUFFIX),$(CV_LDFLAGS)))))
+  endif
+  CV_CFLAGS  := $(shell pkg-config --cflags opencv)
+  CV_LDFLAGS := $(shell pkg-config --libs opencv)
 endif
 
 # compiler/linker flags
-override CFLAGS  +=  -I$(INCLUDEDIR)  $(CV_CFLAGS) $(FLYCAPINCLUDES) 
-override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPFLAGS) 
+override CFLAGS  +=  -I$(INCLUDEDIR)  $(CV_CFLAGS) $(FLYCAPINCLUDES) $(FLYCAPFLAG)
+override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPLIBS) 
 
 
 # targets
-all: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
+all: $(ALLTARGET) 
+helper: $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
+everything: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
+nograb: $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
 
 $(SAVEVIDEOOBJ1): $(SAVEVIDEOSRC1)
 	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<

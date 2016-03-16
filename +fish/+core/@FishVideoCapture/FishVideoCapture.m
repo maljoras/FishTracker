@@ -23,6 +23,15 @@ classdef FishVideoCapture < handle
     properties (SetAccess = private)
         id
     end
+
+    methods(Static)
+      function bool = installed();
+        bool = ~~exist('FishVideoCapture_');
+      end
+      
+    end
+    
+    
     
     methods
         function this = FishVideoCapture(filename)

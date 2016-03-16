@@ -78,7 +78,7 @@ For example:
                        fishId: [2101x5 double]  
 ~~~~
 
-Each of the field as the diumensions [nFrames x nFish x nDims] where nDims are additional dimensions dependent on the field. For instance, to plot the x-velocity for each from and fish after tracking:
+Each of the field as the dimensions [nFrames x nFish x nDims] where nDims are additional dimensions dependent on the field. For instance, to plot the x-velocity for each from and fish after tracking:
 
 ~~~~
 >> res = ft.getTrackingResults();  
@@ -135,7 +135,7 @@ To perform the experiment:
 >> opts.fishwidth = 30;  
 >> opts.fishlength = 150;  
 >>   
->> ft = FishTracker({0,'savevideo.avi'},opts);  
+>> ft = fish.Tracker({0,'savevideo.avi'},opts);  
 >> ft.setDisplay(0);  % to avoid displaying delays  
 >> ft.track(); % tracks until fish.stimulus.Presenter/isFinished returns true.  
 >> ft.save();  

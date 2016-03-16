@@ -1,4 +1,4 @@
-classdef FishStimulusFlash < FishStimulusPresenter;
+classdef PresenterFlash < fish.stimulus.Presenter;
   
   properties 
 

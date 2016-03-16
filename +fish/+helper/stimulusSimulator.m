@@ -1,7 +1,7 @@
 function stimulusSimulator(stmObj,varargin)
 % STIMULUSSIMULATOR(STMOBJ,...) simulatas the stimulations objects
 
-  def.stmObj = 'FishStimulusPresenterFlash';
+  def.stmObj = 'fish.stimulus.PresenterFlash';
   
   def.opts.dt =  1/30;
   def.opts.tmax = 100;

@@ -11,7 +11,7 @@ if LOAD || ~exist('ft','var')
   opts.stimulus.screen = 1;
   opts.stimulus.screenBoundingBox = [150,53,1580,1256];
   
-  opts.stimulus.presenter = 'FishStimulusPresenterOnlineLearningCue';
+  opts.stimulus.presenter = 'fish.stimulus.PresenterOnlineLearningCue';
 
   opts.fishwidth = 30;
   opts.fishlength = 150;

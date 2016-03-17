@@ -41,6 +41,8 @@ end
 if COMPUTE
   %fish.helper.stimulusSimulator('fish.stimulus.PresenterPlaneIndiv','nfish',5,'stimulus',opts.stimulus,'timeFactor',3)
 
+  
+  
   if ~exist('sbbox','var')
     %sbbox = ft.calibrateStimulusScreen();
     sbbox = [150,53,1580,1256];

@@ -1,22 +1,11 @@
 /*
- * =============================================================
- * phonebook.c 
- * Example for illustrating how to manipulate structure and cell
- * array
+ * changes array of stuct into a struc of array-fields for vastly improved 
+ * performance for large array sizes. 
  *
- * Takes a (MxN) structure matrix and returns a new structure 
- * (1x1) containing corresponding fields:for string input, it 
- * will be (MxN) cell array; and for numeric (noncomplex, scalar)
- * input, it will be (MxN) vector of numbers with the same 
- * classID as input, such as int, double etc..
- *
- * This is a MEX-file for MATLAB.
- * Copyright (c) 1984-2000 The MathWorks, Inc.
- * =============================================================
+ * malte.rasch@bnu.edu.cn
+ * 
+ * inspried by the phonebook.c example of Matlab. 
  */
-
-/* $Revision: 1.1.6.7.2.2 $ */
-
 #include "mex.h"
 #include "string.h"
 

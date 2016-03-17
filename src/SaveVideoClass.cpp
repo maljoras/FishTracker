@@ -220,11 +220,13 @@ int VideoSaver::getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumbe
   }
 }
 
+#ifdef COMPILE_AS_EXECUTABLE
 /****************************************************************************************/
 double VideoSaver::getWritingFPS() 
 {
   return m_FPSCounter.GetFrameRate();
 }
+#endif
 
 /****************************************************************************************/
 double VideoSaver::getFPS() 
@@ -418,7 +420,9 @@ void VideoSaver::_captureAndWriteThread()
 
   // capture loop
   int frameNumber=0;
+#ifdef COMPILE_AS_EXECUTABLE
   m_FPSCounter.Reset();
+#endif
   m_KeepWritingAlive = true;
 
 
@@ -452,8 +456,9 @@ void VideoSaver::_captureAndWriteThread()
 
       frameNumber++; // this is the writing number 
 
-
+#ifdef COMPILE_AS_EXECUTABLE
       m_FPSCounter.NewFrame();
+#endif
       const double thisTime = m_timer.elapsed();
       const double seconds = thisTime - currentTime;	
       delayFound = static_cast<int> (1000./m_FrameRateToUse - seconds*1000.);

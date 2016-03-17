@@ -1,10 +1,15 @@
 #include "FlyCapture2.h"
 
-#include "FrameRateCounter.h"
+//#define COMPILE_AS_EXECUTABLE
+
+#ifdef COMPILE_AS_EXECUTABLE
+  #include "FrameRateCounter.h"
+#endif
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/opencv.hpp>
+
 #include <iostream>
 #include <string>   // for strings
 #include <sstream>
@@ -15,13 +20,12 @@
 #include <glibmm/timer.h>
 #include <glibmm/init.h>
 
+
 // Include Boost headers for system time and threading
 
 using namespace std;
 using namespace FlyCapture2;
-//using namespace cv;
 
-//#include "Profiler.h"
 
 /**
  * SaveVideo Class.  Saves and displays a video captured from a camaera.
@@ -57,12 +61,12 @@ public:
     int close();
 
     int init(PGRGuid camIdx);
-
+#ifdef COMPILE_AS_EXECUTABLE
     /**
      * returns the current frame rate of the video writing 
      */ 
     double getWritingFPS();
-
+#endif
     /**
      * returns frame size 
      */
@@ -88,7 +92,9 @@ private:
    
 protected:
 
+#ifdef COMPILE_AS_EXECUTABLE
     FrameRateCounter m_FPSCounter;
+#endif
     Glib::Timer m_timer;  
 
     bool m_newFrameAvailable;

@@ -4,7 +4,7 @@ function stimulusSimulator(stmObj,varargin)
   def.stmObj = 'fish.stimulus.PresenterFlash';
   
   def.opts.dt =  1/30;
-  def.opts.tmax = 100;
+  def.opts.tmax = Inf;
   def.opts.screen = 0;
   def.opts.windowSize = [600,400]; % PsychToolb : x,y
   def.opts.windowOrigin = [0,0];

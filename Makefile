@@ -79,8 +79,6 @@ HANDLERDIR = +fish/+core/@FishVideoHandlerMex/private
 
 # savevideo
 ifneq ($(FLYCAPFLAG),)
-  SAVEVIDEOSRC1 = $(SRCDIR)/FrameRateCounter.cpp
-  SAVEVIDEOOBJ1 = $(TARGETDIR)/$(HANDLERDIR)/FrameRateCounter.$(OBJEXT)
   SAVEVIDEOSRC = $(SRCDIR)/SaveVideoClass.cpp
   SAVEVIDEOOBJ = $(TARGETDIR)/$(HANDLERDIR)/SaveVideoClass.$(OBJEXT)
 endif
@@ -127,18 +125,16 @@ override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPLIBS)
 # targets
 all: $(ALLTARGET) 
 helper: $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
-everything: $(SAVEVIDEOOBJ1) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
+everything: $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
 nograb: $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
 
-$(SAVEVIDEOOBJ1): $(SAVEVIDEOSRC1)
-	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
 
 $(SAVEVIDEOOBJ): $(SAVEVIDEOSRC)
-	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  $(SAVEVIDEOOBJ1) -outdir $(TARGETDIR)/$(HANDLERDIR)/  $<
+	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  -outdir $(TARGETDIR)/$(HANDLERDIR)/  $<
 
 #  objects
 $(OBJECTS): $(SRCS2)
-	$(MEX) -c -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
+	$(MEX) -c -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
 
  
 # MEX-files
@@ -146,7 +142,7 @@ $(TARGETS1): $(SRCS1)
 	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output $(TARGETS1) -outdir $(TARGETDIR)/$(CAPTUREDIR) $< $(LDFLAGS)
 
 $(TARGETS2): $(SRCS3)
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(OBJECTS) -output $(TARGETS2) -outdir $(TARGETDIR)/$(HANDLERDIR) $< $(LDFLAGS) 
+	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(OBJECTS) -output $(TARGETS2) -outdir $(TARGETDIR)/$(HANDLERDIR) $< $(LDFLAGS) 
 
 $(SARTARGET): $(SAR)
 	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(HELPERDIR) -output $(SARTARGET) $< 
@@ -161,5 +157,5 @@ $(MUNKRESTARGET): $(MUNKRES)
 	$(MEX) -largeArrayDims -cxx CXXFLAGS='$$CXXFLAGS -std=c++11 -lstdc++' -I$(SRCDIR) -outdir $(TARGETDIR)/$(HELPERDIR) -output $(MUNKRESTARGET) $<
 
 clean:
-	rm $(TARGETS1) $(TARGETS2) $(OBJECTS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJ1) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
+	rm $(TARGETS1) $(TARGETS2) $(OBJECTS) $(SAVEVIDEOOBJ) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
 

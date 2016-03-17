@@ -115,7 +115,16 @@ Or in 3D (the centroid positions versus time), one can do the following:
 
 ![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/trace3d.jpg)
 
-Further examples can be found in the 'exps' directory.
+Or a more fancy plot of the "centerline" the body-axis of the fish for each frame. Moments of large amount of "bending" of the fish's body are plotted in red. The position of the head is marked by a circle. 
+
+~~~~
+>> ft.plotCenterLine([],[10,20]) % 10 to 20 seconds for all fish   
+~~~~
+![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/centerline.jpg)
+
+
+
+Further examples can be found in the 'exps' and 'figs' directories.
 
 ## Video Grabbing
 
@@ -150,19 +159,19 @@ also possible to use the OpenCV VideoCapture method for video grabbing. That is,
 
 ## Stimulation
 
-Using the Matlab PsychToolbox it is possible to do online feedback experiments. To perform a new experiment one has to derive a class from fish.stimulus.Presenter and overload (at least) the "stepStimulus" method. See fish.stimulus.Presenter for an example
+Using the Matlab PsychToolbox it is possible to do online feedback experiments. To perform a new experiment one has to derive a class from fish.stimulus.Presenter and overload (at least) the "stepStimulus" method. See fish.stimulus.PresenterFlash for an example
 
 To perform the experiment:  
 
 ~~~~
 >> opts = [];   
->> opts.stimulus.presenter  = 'fish.stimulus.Presenter';  
+>> opts.stimulus.presenter  = 'fish.stimulus.PresenterFlash';  
 >> opts.stmif = 1;  
 >> opts.nfish = 3;  
 >> opts.detector.inverted = 1; % tracking in IR  
 >> opts.stimulus.screen = 1; % X-window screen number  
 >> opts.fishwidth = 30;  
->> opts.fishlength = 150;  
+>> opts.fishlength = 150;  % set approx. length and width if known to avoid auto-estimation
 >>   
 >> ft = fish.Tracker({0,'savevideo.avi'},opts);  
 >> ft.setDisplay(0);  % to avoid displaying delays  
@@ -171,14 +180,12 @@ To perform the experiment:
 >> clear ft; % stop background avi recording  
 ~~~~
 
-Fro debugging, stimululus presenter objects can be simulated on
+For debugging, stimululus presenter objects can be simulated on
 simulated fish tracks without the need for calling the
 fish.Tracker.track() method:
 
 ~~~~
->> fish.helper.stimulusSimulator % to get some help
->> fish.helper.stimulusSimulator('fish.stimulus.PresenterOnlineFlash')
-
+>> fish.helper.stimulusSimulator('fish.stimulus.PresenterFlash')
 ~~~~
 
 

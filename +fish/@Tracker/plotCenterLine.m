@@ -64,12 +64,14 @@ function plotCenterLine(self,fishIds,plotTimeRange)
     
     plot(clx(:,:,i),cly(:,:,i),'color',col,'linewidth',2);
     hold on;        
-    plot(clx(1,:,i),cly(1,:,i),'o','color',col,'linewidth',1);
+    plot(clx(1,:,i),cly(1,:,i),'o','color',col,'linewidth',1,'markersize',4);
 
     idx = lap(1,:,i) > 1.5;
     %scatter(mx(1,idx,i),my(1,idx,i),50,'r','o','filled'); 
     plot(clx(:,idx,i),cly(:,idx,i),'color','r','linewidth',1);
   end
-  colormap(gray)
-
+  xlabel('X-position [px]')
+  ylabel('Y-position [px]');
+  xlim([1,self.videoHandler.frameSize(2)])
+  ylim([1,self.videoHandler.frameSize(1)])
 end

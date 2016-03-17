@@ -4,7 +4,7 @@ function stimulusSimulator(stmObj,varargin)
   def.stmObj = 'fish.stimulus.PresenterFlash';
   
   def.opts.dt =  1/30;
-  def.opts.tmax = Inf;
+  def.opts.tmax = 1000;
   def.opts.screen = 0;
   def.opts.windowSize = [600,400]; % PsychToolb : x,y
   def.opts.windowOrigin = [0,0];
@@ -35,9 +35,10 @@ function stimulusSimulator(stmObj,varargin)
     end
     stmObj.setOpts(opts.stimulus);
   end
-  
+
   stmObj.init(w);
   stmObj.muteAllFlipping = true;
+  stmObj.stmTime
   
   % make fake tracks
   nt = floor(opts.tmax/opts.dt/opts.timeFactor);

@@ -40,7 +40,7 @@ classdef Presenter < handle;
 
     
     function setOpts(self,varargin)
-    
+
       if length(varargin)==1 && isstruct(varargin{1});
         for f = fieldnames(varargin{1})'
           if isprop(self,f{1})

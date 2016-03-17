@@ -241,7 +241,7 @@ classdef Tracker < handle;
 
       if self.stmif
         if isempty(self.opts.stimulus.presenter) 
-          self.stimulusPresenter = fish.StimulusPresenter(self.opts.stimulus);
+          self.stimulusPresenter = fish.stimulus.Presenter(self.opts.stimulus);
         else
           if ischar(self.opts.stimulus.presenter)
             self.stimulusPresenter = eval('%s(self.opts.stimulus)',self.opts.stimulus.presenter);
@@ -251,6 +251,7 @@ classdef Tracker < handle;
             error('Expect fish.stimulus.Presenter object');
           end
         end
+        self.stimulusPresenter.setOpts(self.opts.stimulus);
         self.stimulusPresenter.init();
         self.addSaveFields('stmInfo');
       end

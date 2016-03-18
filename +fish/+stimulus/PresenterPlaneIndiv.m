@@ -51,7 +51,7 @@ classdef PresenterPlaneIndiv < fish.stimulus.PresenterOnlineLearningCue
 
       iExp = self.getExpIdx(t);
       if iExp>0
-        nFishStm = self.nFishStimPerExps(iExp);
+        nFishStm = self.nFishStimPerExps(min(iExp,end));
       else
         nFishStm = 0;
       end

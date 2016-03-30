@@ -233,7 +233,7 @@ if isfield(def,'opts')
     end
   end
   if (isfield(opts,'STRICT') && opts.STRICT) || ...
-        (exist('STRICT','var') && STRICT)
+        (exist('STRICT','var') && STRICT && ~((isfield(opts,'STRICT') && ~opts.STRICT)))
     
     %check for options with no definitions in def.opts (maybe spelling
     %error!) 

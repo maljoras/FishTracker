@@ -39,8 +39,8 @@ number if fish) :
 
 To track video file 'myvideo.avi' having 3 fish write (use 'nfish',-1
 for GUI selection, default is 'nfish', [] for auto selection of the
-number of fish) and know approximate length (e.g. 100 px) and width
-(e.g. 30 px), so 
+number of fish) and known approximate length (e.g. 100 px) and width
+(e.g. 30 px), do 
 ~~~~
 >> ft = fish.Tracker('myvideo.avi','nfish',3,'fishwidth',30,'fishlength',100);  
 ~~~~
@@ -180,7 +180,7 @@ To perform the experiment:
 >> clear ft; % stop background avi recording  
 ~~~~
 
-For debugging, stimululus presenter objects can be simulated on
+For debugging, stimulus presenter objects can be tested on
 simulated fish tracks without the need for calling the
 fish.Tracker.track() method:
 

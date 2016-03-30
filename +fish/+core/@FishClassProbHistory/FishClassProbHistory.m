@@ -19,6 +19,21 @@ classdef FishClassProbHistory < handle;
   end
   
   
+   methods(Static);
+    function obj = loadobj(S);
+      if isstruct(S)
+        obj = fish.core.FishClassProbHistory(size(S.buffer,2));
+        for f = fieldnames(S)'
+          if isprop(obj,f{1}) 
+            obj.(f{1}) = S.(f{1});
+          end
+        end
+      else
+        obj = S;
+      end
+    end
+  end
+  
   
   
   methods

@@ -90,6 +90,37 @@ classdef Tracker < handle;
     leakyAvgFrame = [];
   end
   
+  
+  methods(Static)
+  
+    function obj = loadobj(S)
+
+      if isstruct(S)
+        % compatibility with old FishTracker files
+        opts = S.opts;
+        for f = fieldnames(S.opts)'
+          if ~isstruct(S.opts.(f{1})) && isfield(S,f{1})
+            opts.(f{1}) = S.(f{1});
+          end
+        end
+
+        obj = fish.Tracker(S.videoFile,'STRICT',0,opts);
+        for f = fieldnames(S)'
+          if isprop(obj,f{1}) 
+            if  ~any(strcmp(f{1},{'videoHandler','videoWriter'}))
+              obj.(f{1}) = S.(f{1});
+            end
+          else
+            verbose('Cannot initialize field %s',f{1});
+          end
+        end
+      else
+        obj = S;
+      end
+    end
+  
+  end
+  
 
   methods (Access=private)
 

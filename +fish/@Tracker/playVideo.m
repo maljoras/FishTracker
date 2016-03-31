@@ -58,26 +58,30 @@ function playVideo(self,timerange,writefile)
     
     t = videoReader.currentTime;
     %assert(abs(t_tracks(s)-t)<=1/videoReader.frameRate);
-
+    ind = find(t_tracks(tidx)<=t,1,'last');
+    if isempty(ind)
+      continue;
+    end
+    
     % Get bounding boxes.
-    bboxes = shiftdim(res.tracks.bbox(tidx(s),:,:),1);
+    bboxes = shiftdim(res.tracks.bbox(tidx(ind),:,:),1);
     
     % Get ids.
 
-    ids = res.tracks.fishId(tidx(s),:);
+    ids = res.tracks.fishId(tidx(ind),:);
     foundidx = ~isnan(ids);
     ids = int32(ids(foundidx));
     labels = cellstr(int2str(ids'));
     clabels = cols(ids,:);
 
-    highcost = isinf(res.tracks.assignmentCost(tidx(s),:));
+    highcost = isinf(res.tracks.assignmentCost(tidx(ind),:));
     highcost = highcost(foundidx);
     clabels(highcost,:) = 127; % grey
                                % Draw the objects on the frame.
     uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes(foundidx,:), labels,'Color',clabels);
     
 
-    clprob = shiftdim(res.tracks.classProb(tidx(s),:,:),1);
+    clprob = shiftdim(res.tracks.classProb(tidx(ind),:,:),1);
     clprob(isnan(clprob)) = 0;
     dia = self.fishlength/self.nfish;
     for i_cl = 1:self.nfish

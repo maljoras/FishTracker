@@ -38,7 +38,7 @@ function stimulusSimulator(stmObj,varargin)
 
   stmObj.init(w);
   stmObj.muteAllFlipping = true;
-  stmObj.stmTime
+  %stmObj.stmTime;
   
   % make fake tracks
   nt = floor(opts.tmax/opts.dt/opts.timeFactor);

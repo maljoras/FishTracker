@@ -104,10 +104,26 @@ classdef Tracker < handle;
           end
         end
 
+        opts.stmif = 0; % set to zero
+        if iscell(S.videoFile)
+          verbose('Realtime-stimulus experiment. Load grabbed video file.')
+          S.videoFile = S.videoFile{2};
+        end
+
+        if ~exist(S.videoFile,'file') 
+          [a,b,c] = fileparts(S.videoFile);
+          if exist([b,c],'file') 
+            S.videoFile = [b c];
+          else
+            verbose(['WARNING: could not find video file "%s". Please ' 'select!!'],[b c]);
+            S.videoFile = '';
+          end
+        end
+
         obj = fish.Tracker(S.videoFile,'STRICT',0,opts);
         for f = fieldnames(S)'
           if isprop(obj,f{1}) 
-            if  ~any(strcmp(f{1},{'videoHandler','videoWriter'}))
+            if ~any(strcmp(f{1},{'videoHandler','videoWriter','videoPlayer','videoFile'}))
               obj.(f{1}) = S.(f{1});
             end
           else

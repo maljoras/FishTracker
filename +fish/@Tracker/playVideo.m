@@ -83,7 +83,7 @@ function playVideo(self,timerange,writefile)
 
     clprob = shiftdim(res.tracks.classProb(tidx(ind),:,:),1);
     clprob(isnan(clprob)) = 0;
-    dia = self.fishlength/self.nfish;
+    dia = self.fishlength/max(self.nfish,2);
     for i_cl = 1:self.nfish
       for j = 1:length(foundidx)
         if ~foundidx(j)

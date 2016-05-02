@@ -48,5 +48,6 @@ function plotCrossings_(self,section,updateIdx)
   end
   if section==2
     drawnow;
+    keyboard
   end
 end

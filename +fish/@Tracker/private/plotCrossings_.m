@@ -48,6 +48,7 @@ function plotCrossings_(self,section,updateIdx)
   end
   if section==2
     drawnow;
-    keyboard
+    
+    self.daGraph.plotTraceAssignments([self.tracks.fishId],self.assignments);
   end
 end

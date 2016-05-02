@@ -179,6 +179,44 @@ classdef FishDAGraph < handle;
       self.plotTraces(1:self.nfish,1:self.nfish);
 
     end
+
+    
+    function varargout = plotTraceAssignments(self,fishIds,assignments);
+    % plots the traces for a current assignemts. Called from fish.Tracker
+      
+      detectionIdx = assignments(:, 2);
+      fishIdx = fishIds(assignments(:, 1));
+      
+      h = self.plotTraces(fishIdx,detectionIdx);
+      if nargout
+        varargout{1} = h;
+      end
+      
+    end
+    
+    
+    function rtrace = backtracePositions(self,ifish,ipos,stepsback)
+    % RTRACE = BACKTRACEASSIGNMENTS(SELF,IFISH,IPOS,[STEPSBACK]) returns
+    % the traces belonging to IFISH(i) with corresponding detection
+    % positions at IPOS(:,i). STEPSBACK limits the traces to a certain number
+    % of frames back  (default all)
+      
+      
+      detections = self.dagPos(:,:,self.frameCounter);
+      
+      dist = pdist2(ipos',self.dagPos(:,:,self.frameCounter)');
+      assignments = fish.helper.assignDetectionsToTracks(dist,2*max(dist(:)));
+      
+      detectionIdx = assignments(:, 2);
+      fishIdx = ifish(assignments(:, 1));
+
+      [rtrace] = self.backtrace(fishIdx,detectionIdx,self.frameCounter);
+      
+      if nargin>3
+        rtrace = rtrace(:,:,max(end-stepsback,1):end);
+      end
+      
+    end
     
       
     function varargout=plotTraces(self,ifish,mobj,mt)
@@ -246,7 +284,7 @@ classdef FishDAGraph < handle;
     %
     % If IFISH is empty all possible combinations are returned.
       
-      if nargin<3 || isempty(mt)
+      if nargin<4 || isempty(mt)
         mt = self.frameCounter;
       end
       mt = min(mt,self.frameCounter);
@@ -320,9 +358,10 @@ classdef FishDAGraph < handle;
         
       dist = pdist2(self.dagPos(:,:,self.frameCounter)',detections');
 
-      if nargin<4
+      if nargin<4 || isempty(costOfNonAssignment)
         costOfNonAssignment = nanmedian(dist(:));
       end
+      
       
       dist(all(isnan(dist),2),:) = costOfNonAssignment*self.seqMissedPenalty; % missed second expensive
       dist(isnan(dist)) = costOfNonAssignment; % missed one cheap
@@ -357,7 +396,7 @@ classdef FishDAGraph < handle;
         pos = nan(2,self.nhyp);
         pos(:,1:ndetect) = detections;
       else % ndetect>nhyp 
-        [~,rank] =  sort(min(dist,[],1),'ascend');
+        [~,rank] =  sort(min(sfcost,[],1),'ascend');
         msk = rank<=nhyp;
         dist = sfcost(:,msk);
         if ~isempty(classProb)

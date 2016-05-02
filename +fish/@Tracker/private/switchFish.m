@@ -85,15 +85,18 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
       orgpos(:,oldFishIds(idx),tcross) = p;
     end
     
+    % PLOT
+    rtrace = self.daGraph.backtracePositions(assignedFishIds(idx),orgpos(:,oldFishIds(idx),self.currentFrame),self.currentFrame-tminfinal);
+
+    keyboard
+    
     %% swap
+    t = tminfinal:self.currentFrame;        
     for j = idx(:)'
-      
-      t = tminfinal:self.currentFrame;        
-      
       self.fishId2TrackId(t,assignedFishIds(j)) = f2t(t,oldFishIds(j));
       self.pos(:,assignedFishIds(j),t) = orgpos(:,oldFishIds(j),t);
       self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
-
+      self.tracks(trackIndices(j)).switchedFrames = tminfinal-self.currentFrame;
     end
     
     %if length(idx)>2

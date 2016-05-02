@@ -25,7 +25,8 @@ classdef Tracker < handle;
                   'consecutiveInvisibleCount', ...
                   'segment.Orientation','centerLine', ...
                   'thickness','segment.MinorAxisLength',...
-                  'segment.MajorAxisLength','segment.reversed'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
+                  'segment.MajorAxisLength','segment.reversed',...
+                  'switchedFrames'};%,...              'segment.FishFeatureC','segment.FishFeature','segment.FishFeatureCRemap'};
 
 
     nfish = [];
@@ -1133,6 +1134,7 @@ classdef Tracker < handle;
         'age', {}, ...
         'totalVisibleCount', {}, ...
         'consecutiveInvisibleCount', {},...
+        'switchedFrames',{},...
         'assignmentCost', {},...
         'nIdFeaturesLeftOut', {},...
         'stmInfo',{});
@@ -1192,7 +1194,7 @@ classdef Tracker < handle;
               %dst = bsxfun(@rdivide,dst,thresDist).^2;
 
               dst = (dst/thresDist);%.^2;
-              dst(dst>highCost) = highCost; % also ^2?
+      %  dst(dst>highCost) = highCost; % also ^2?
 
               fcost(:,:,k) = dst;
 
@@ -1216,7 +1218,7 @@ classdef Tracker < handle;
                 %dst = bsxfun(@rdivide,dst,thresDist).^2; % better square?
 
                 dst = (dst/thresDist);%.^2; % better square?
-                dst(dst>highCost) = highCost;
+    %dst(dst>highCost) = highCost;
                 
                 
                 % makes not sense to compare the distance to others if one is nan
@@ -1747,6 +1749,7 @@ classdef Tracker < handle;
           'age',       1,                 ...
           'totalVisibleCount', 1,         ...
           'consecutiveInvisibleCount', 0, ...
+          'switchedFrames',0,...
           'assignmentCost',Inf, ...
           'nIdFeaturesLeftOut',0,...
           'stmInfo',[]);
@@ -2076,7 +2079,7 @@ classdef Tracker < handle;
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
       
-      def.opts.detector.adjustThresScale = 0.90;   
+      def.opts.detector.adjustThresScale = 0.92;   
       doc.detector.adjustThresScale = {'0..1 : reduce when bwmask noisy (useKNN=0)' ,''};
 
       def.opts.detector.fixedSize = 0;  
@@ -2233,7 +2236,7 @@ classdef Tracker < handle;
       opts.tracks.tauVelocity = 5; 
       doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [nFrames]'};
 
-      opts.tracks.invisibleCostScale = 1;
+      opts.tracks.invisibleCostScale = 0.2; %1
       doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};
 
       opts.tracks.kalmanFilterPredcition = false; 

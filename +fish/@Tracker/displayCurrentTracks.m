@@ -57,8 +57,13 @@ function varargout = displayCurrentTracks(self)
       if length(reliableTracks)==self.nfish && self.isInitClassifier
 
         ids = [reliableTracks(:).fishId];
-        [~,pids] = max(cat(1,reliableTracks.clpMovAvg),[],2);
 
+        if self.opts.classifier.dagSwitchMethod
+          [~,pids] = max(cat(1,reliableTracks.clpMovAvg),[],2);
+        else
+          pids = cat(1,reliableTracks.predFishId);
+        end
+        
         clabels = uint8(cols(ids,:)*255);
         pclabels = uint8(cols(pids,:)*255);
         % Draw the objects on the frame.

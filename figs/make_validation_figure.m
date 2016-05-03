@@ -11,8 +11,8 @@ if LOAD
   ft = fish.Tracker(vid,'detector.adjustThresScale',1,'nfish',5,'detector.fixedSize',150);
 
   ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
-  ft.setDisplay(1);
   ft.setDisplay('switchFish',1,'tracks',1);
+  ft.setDisplay(0);
   
   tic;
   ft.track();

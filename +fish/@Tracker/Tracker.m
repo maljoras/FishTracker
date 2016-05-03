@@ -342,7 +342,7 @@ classdef Tracker < handle;
       self.fishlength = self.fishlength;
 
       % initialize graph
-      self.daGraph = fish.core.FishDAGraph(self.nfish,self.nfish + self.opts.tracks.nExtraHypothesis);
+      self.daGraph = fish.core.FishDAGraph(self.nfish,self.nfish);
       
       % set all options
       self.setOpts();
@@ -352,7 +352,11 @@ classdef Tracker < handle;
     
     function initTracking(self)
     % MAYBE RESET THE CLASSIFIER ? 
-
+      
+      if self.opts.classifier.dagSwitchMethod &&  self.opts.tracks.withTrackDeletion
+        error('Dag is not supported with track deletion')
+      end
+      
       self.videoHandler.timeRange = self.timerange;                       
       self.timerange = self.videoHandler.timeRange; % to get the boundaries right;
       self.videoHandler.setCurrentTime(self.timerange(1));
@@ -655,7 +659,7 @@ classdef Tracker < handle;
       
       %we here also check whether some unaccounted switching occurred (maybe outside of
       %a crossing)
-      if length(same)>1 && ~all(same) 
+      if length(same)>1 && ~all(same) && ~self.opts.classifier.dagSwitchMethod
         % we have some mixed classes 
 
         % might be some NaNs...
@@ -712,7 +716,8 @@ classdef Tracker < handle;
       if isempty(tracks) % no tracks
         return;
       end
-      
+
+
       fishIds = cat(2,tracks.fishId);      
       trackIds = cat(2,tracks.id);      
       self.fishId2TrackId(t,fishIds) = trackIds;
@@ -910,7 +915,7 @@ classdef Tracker < handle;
         assert(all(ismember(assumedFishIds,crossedFishIds)));
         
 
-        % we force the permutation to be in the valiud fish only (otherwise too many errors for many fish)
+        % we force the permutation to be in the valid fish only (otherwise too many errors for many fish)
         [assignedFishIds prob steps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,...
                                                           self.opts.classifier.nFramesForUniqueUpdate); 
 
@@ -989,6 +994,33 @@ classdef Tracker < handle;
     end
     
     
+    function updatePosWithDag(self,assignedFishId)
+      predFishIds = [self.tracks.predFishId];
+      %[assignedFishIds] = self.predictFish(1:self.nfish,1:self.nfish,self.opts.classifier.nFramesForSingleUpdate);
+      %if any(isnan(assignedFishIds))
+      %  assignedFishIds = predFishIds;
+      %end
+      
+      [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nfish,predFishIds);
+      
+      mt = size(postrace,2);
+      %trackIdx  and trackids SHOULD be the same! (no deletion)
+      t = self.currentFrame-mt+1:self.currentFrame;
+
+% $$$       t1 = self.currentFrame-mt-10+1:self.currentFrame;
+% $$$       clf;
+% $$$       plot(squeeze(self.pos(1,:,t1))',squeeze(self.pos(2,:,t1))','-','linewidth',2);
+% $$$       hold on;
+% $$$       set(gca,'colororderindex',1);
+% $$$       plot(squeeze(postrace(1,1:end-1,:)),squeeze(postrace(2,1:end-1,:)),'o:','linewidth',1);
+% $$$       drawnow;
+% $$$       pause;
+      
+      self.fishId2TrackId(t,:) = trackIdxMat;
+      self.pos(:,:,t) = permute(postrace,[1,3,2]);
+    end
+    
+    
     function handled = testHandled(self);
       handled = false(1,length(self.tracks));
       for i = 1:length(self.tracks)
@@ -1039,32 +1071,38 @@ classdef Tracker < handle;
         end
       end
 
-
-      %% handle previous crossings
-      self.handlePreviouslyCrossedTracks();
-
-      handled = self.testHandled();
-      allhandled = all(handled);
-
-      %% reset graph 
-      
-
-      %% update the current crossings
-      self.updateTrackCrossings(); % updates the self.tracks fields
-
-      
-      %% test whether tracks might be misaligned
-      if sum(handled)>1
-        handledIndices = find(handled);
-        [misif,pdiff] = self.testTrackMisalignment(handledIndices);
-        if misif 
-
-          fish.helper.verbose('Probably misaligned (%1.2f): better test again..\r',pdiff);
-          self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
-          
+      if ~self.opts.classifier.dagSwitchMethod
+        
+        %% handle previous crossings
+        self.handlePreviouslyCrossedTracks();
+        
+        handled = self.testHandled();
+        allhandled = all(handled);
+        
+        
+        %% update the current crossings
+        self.updateTrackCrossings(); % updates the self.tracks fields
+        
+        
+        %% test whether tracks might be misaligned
+        if sum(handled)>1
+          handledIndices = find(handled);
+          [misif,pdiff] = self.testTrackMisalignment(handledIndices);
+          if misif 
+            
+            fish.helper.verbose('Probably misaligned (%1.2f): better test again..\r',pdiff);
+            self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
+            
+          end
         end
+
+      else
+        % DAG
+        allhandled = true ; 
+        handled = true;
       end
       
+          
       
       %% unique fish update
       if (self.uniqueFishFrames-1 > self.opts.classifier.nFramesForUniqueUpdate)  && allhandled
@@ -1072,8 +1110,8 @@ classdef Tracker < handle;
           fish.helper.verbose('Performed unique frames update.\r')
         end
         self.uniqueFishFrames = 0; % anyway reset;
-      
-        self.daGraph.reset(self.pos(:,:,self.currentFrame)); % fishID
+
+        %self.daGraph.reset(); % fishID
       end
 
       
@@ -1094,11 +1132,16 @@ classdef Tracker < handle;
     end
 
     
-    function cleanupCrossings(self)
+    function cleanup(self) %DAG !!
     %switch if necessary
-      trackIndices = 1:length(self.tracks);
-      if ~isempty(trackIndices)
-        self.fishClassifierUpdate(trackIndices,0);
+      
+      if self.opts.classifier.dagSwitchMethod
+        self.updatePosWithDag();
+      else
+        trackIndices = 1:length(self.tracks);
+        if ~isempty(trackIndices)
+          self.fishClassifierUpdate(trackIndices,0);
+        end
       end
     end
     
@@ -1115,6 +1158,7 @@ classdef Tracker < handle;
       tracks = struct(...
         'id', {}, ...
         'fishId', {}, ...
+        'predFishId', {}, ...
         'bbox', {}, ...
         'centroid',{},...
         'velocity',{},...
@@ -1360,12 +1404,11 @@ classdef Tracker < handle;
         end
         self.cost = outcost;
 
-        %use the matrix to compute the DAG
-        if ~isempty(self.classProb)
-          self.daGraph.update(self.classProb',self.centroids',self.meanCost(self.locationCostID));
-        end
-        
-
+% $$$         %use the matrix to compute the DAG
+% $$$         if ~isempty(self.classProb)
+% $$$           self.daGraph.update(self.classProb',self.centroids',self.meanCost(self.locationCostID));
+% $$$         end
+% $$$       
         
         % save the individual mean cost
         mt = min(self.opts.tracks.costtau,self.currentFrame);
@@ -1532,7 +1575,7 @@ classdef Tracker < handle;
           probNoise = NaN;
           classprob = nan(1,self.nfish);
         else
-          self.tracks(trackIdx).classProb =  classprob; % only update tracks if not reversed
+          self.tracks(trackIdx).classProb =  classprob; % only update classprob in tracks if not reversed
         end
         % always update history, though (weight will be zero for NaN)
         [reasonable w]  = self.tracks(trackIdx).classProbHistory.update(classprob, probNoise);
@@ -1594,6 +1637,25 @@ classdef Tracker < handle;
         self.tracks(ind).classProbHistory.update(nan(1,self.nfish),NaN);
 
       end
+      
+      %% update DAG
+      if ~isempty(self.classProb) % classifier should be init
+        self.daGraph.updateFromTracks(self.tracks,self.fishlength);
+
+        
+        %% predict fishIDs according to DAG
+        predFishIds = self.daGraph.predictFishIds();
+        for i = 1:length(self.tracks)
+          self.tracks(i).predFishId = predFishIds(i);
+        end
+        if self.opts.classifier.dagSwitchMethod
+          for i = 1:length(self.tracks)
+            self.tracks(i).fishId = predFishIds(i);
+          end
+        end
+
+      end
+        
       
     end
 
@@ -1730,6 +1792,7 @@ classdef Tracker < handle;
         newTrack = struct(...
           'id',        self.nextId,       ...
           'fishId',   newfishid,...
+          'predFishId',   newfishid,...
           'bbox',      self.bboxes(i,:),  ...
           'centroid',  self.centroids(i,:),  ...
           'velocity', [0,0], ...
@@ -1861,9 +1924,7 @@ classdef Tracker < handle;
       self.detectionToTrackAssignment();
       
       self.updateTracks();
-
       self.updatePos();
-      
       self.updateClassifier();
 
       if self.nfish>length(self.tracks)
@@ -2236,7 +2297,7 @@ classdef Tracker < handle;
       opts.tracks.tauVelocity = 5; 
       doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [nFrames]'};
 
-      opts.tracks.invisibleCostScale = 0.2; %1
+      opts.tracks.invisibleCostScale = 0.5; %1
       doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};
 
       opts.tracks.kalmanFilterPredcition = false; 
@@ -2274,16 +2335,16 @@ classdef Tracker < handle;
 
       %% other developmental parameters
 
-      opts.tracks.nExtraHypothesis = 0; % NEED TO BE 0 FOR NOW!!
-      %doc.tracks.nExtraHypothesis =  {'for MHT to save other detections'};
-      
-      
-      
       %lost tracks
       opts.tracks.invisibleForTooLong = 15; % on track basis. Only for deletion
       opts.tracks.ageThreshold = 10;
       opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
 
+      opts.classifier.dagSwitchMethod = 1;
+      if opts.classifier.dagSwitchMethod
+        fish.helper.verbose('Switch method: DAG');
+      end
+      
       %% paramter checking
 
       if isempty(vid)
@@ -2467,7 +2528,7 @@ classdef Tracker < handle;
       end
 
       %% finishing
-      self.cleanupCrossings();
+      self.cleanup();
 
       % make correct output structure
       if exist('savedTracks','var')

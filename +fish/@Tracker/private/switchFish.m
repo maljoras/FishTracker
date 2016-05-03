@@ -85,10 +85,11 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
       orgpos(:,oldFishIds(idx),tcross) = p;
     end
     
-    % PLOT
-    rtrace = self.daGraph.backtracePositions(assignedFishIds(idx),orgpos(:,oldFishIds(idx),self.currentFrame),self.currentFrame-tminfinal);
 
-    keyboard
+    % get the backtrace up to tminfinal (if possible). Same dims as pos
+    % order of oldfishID for plotting
+    rtrace = permute(self.daGraph.backtracePositions(assignedFishIds(idx),orgpos(:,oldFishIds(idx),self.currentFrame)),[1,3,2]);
+    
     
     %% swap
     t = tminfinal:self.currentFrame;        
@@ -123,12 +124,15 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     subplot(1,2,1);
     imagesc(self.leakyAvgFrame);
     hold on;
-    t1 = tstart;
+    t1 = tstart-20;
     tt = t1:self.currentFrame;
-    plotFishIds =oldFishIds(idx); 
+    plotFishIds = assignedFishIds(idx); 
     pold =orgpos(:,plotFishIds,tt); % old pos
-    plot(squeeze(pold(1,:,:))',squeeze(pold(2,:,:))','o-');
-    title('before')
+    plot(squeeze(pold(1,:,:))',squeeze(pold(2,:,:))','x-','linewidth',1.5);
+    title('before + DAG (square)');
+    pdag = rtrace;
+    plot(squeeze(pdag(1,:,:))',squeeze(pdag(2,:,:))','s:','linewidth',1);
+    
 
     subplot(1,2,2);
     imagesc(self.leakyAvgFrame);
@@ -152,19 +156,23 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
       plot([min(tfirst),max(tlast)]-t1 + 1,[0,0],'m-x','linewidth',2);        
     end
 
-    subplot(4,1,3);
-    plot(tt-t1+1,squeeze(pnew(1,:,:))')
-    hold on;
-    set(gca,'colororderindex',1)
-    plot(tt-t1+1,squeeze(pold(1,:,:))',':')
+    subsubplot(2,1,2,3,1,1);
+    plot(tt-t1+1,squeeze(pold(1,:,:))','-','linewidth',2)
+    title('old');
     ylabel('x');
 
-    subplot(4,1,4,'align');
-    plot(tt-t1+1,squeeze(pnew(2,:,:))')
-    hold on;
-    set(gca,'colororderindex',1)
-    plot(tt-t1+1,squeeze(pold(2,:,:))',':')
-    ylabel('y');
+    subsubplot(2,1,2,3,1,2);
+    plot(tt-t1+1,squeeze(pnew(1,:,:))','-','linewidth',2)
+    title('new');
+    ylabel('x');
+    xl = xlim;
+
+    subsubplot(2,1,2,3,1,3);
+    plot((self.currentFrame-size(pdag,3)+1:self.currentFrame)-t1+1,squeeze(pdag(1,:,:))','-','linewidth',2);
+    title('DAG')
+    ylabel('x');
+    xlabel('rel. Frame');
+    xlim(xl);
 
 
 
@@ -210,7 +218,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     yl = ylim;
     hold on;
     plot([ttt(:),ttt(:)]',yl'*ones(1,length(ttt)),':b');
-
+    
 
   end
 

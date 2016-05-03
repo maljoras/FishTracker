@@ -19,7 +19,8 @@ classdef FishDAGraph < handle;
   properties
     nhyp = [];
     dim = 2;
-    probScale = 1;
+    probScale = 0.2; % 1 means 50/50 weighting of classprob with distance
+                   % if points a fishLength apart
   end
 
   properties (GetAccess=private)
@@ -195,7 +196,7 @@ classdef FishDAGraph < handle;
     end
     
     
-    function rtrace = backtracePositions(self,ifish,ipos,stepsback)
+    function [rtrace,varargout] = backtracePositions(self,ifish,ipos,stepsback)
     % RTRACE = BACKTRACEASSIGNMENTS(SELF,IFISH,IPOS,[STEPSBACK]) returns
     % the traces belonging to IFISH(i) with corresponding detection
     % positions at IPOS(:,i). STEPSBACK limits the traces to a certain number
@@ -210,10 +211,11 @@ classdef FishDAGraph < handle;
       detectionIdx = assignments(:, 2);
       fishIdx = ifish(assignments(:, 1));
 
-      [rtrace] = self.backtrace(fishIdx,detectionIdx,self.frameCounter);
+      [rtrace,varargout{1}] = self.backtrace(fishIdx,detectionIdx,self.frameCounter);
+
       
       if nargin>3
-        rtrace = rtrace(:,:,max(end-stepsback,1):end);
+        rtrace = rtrace(:,max(end-stepsback,1):end,:);
       end
       
     end
@@ -325,6 +327,14 @@ classdef FishDAGraph < handle;
     end
     
     
+    function predFishIds = predictFishIds(self);
+
+      assignments = fish.helper.assignDetectionsToTracks(self.dagI,2*max(self.dagI(:)));
+      predFishIds = assignments(assignments(:,1),2);
+    end
+    
+    
+    
     function reset(self,initPos);
       % init pos has to be in fishID order...
       
@@ -347,6 +357,23 @@ classdef FishDAGraph < handle;
       
     end
   
+    
+    function updateFromTracks(self,tracks,fishLength)
+    % UPDATEFROMTRACKS(SELF,TRACKS) as UPDATE but takes position
+    % information directly from tracks strcuture. Length of tracks
+    % should be equal to the number of hypothesis. Expects position
+    % information for all tracks every frame (could be a predicted value)
+
+      pos = cat(1,tracks.centroid)'; 
+      cl = cat(1,tracks.classProb)';
+      cl(isnan(cl)) = 0;
+      dist = pdist2(self.dagPos(:,:,self.frameCounter)',pos')/fishLength;
+
+      self.updateWCost(dist,cl,pos);
+    
+    end
+    
+    
     
     function update(self,classProb,detections,costOfNonAssignment)
     % UPDATE(SELF,CLASSPROB,DETECTIONS,[COSTOFNONASSIGNMENT]) computes the

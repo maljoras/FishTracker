@@ -21,8 +21,10 @@ function stimulusSimulator(stmObj,varargin)
   
   % generate traces
 
+  if ischar(stmObj)
+    stmObj = eval(stmObj);
+  end
   
-  stmObj = eval(stmObj);
   stmObj.screen = opts.screen;
   
   w =[opts.windowOrigin, opts.windowOrigin + opts.windowSize];
@@ -55,6 +57,7 @@ function stimulusSimulator(stmObj,varargin)
     for i = 1:opts.nfish
       tracks(i).centroid = trace(iframe,:,i).*opts.frameSize([2,1]);
       tracks(i).fishId = i;
+      tracks(i).predFishId = i;
     end
     pause(opts.dt-toc(tdelay));
     localTime = toc(localTimeReference);        

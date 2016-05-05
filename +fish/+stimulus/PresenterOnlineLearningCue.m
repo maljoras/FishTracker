@@ -7,7 +7,7 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     adaptationTime =1;%600; % time at the beginning (in seconds
     
     
-    colBackgound = [0,0,0]; % background color (RGB [0,0,0] for black)
+    colBackground = [0,0,0]; % background color (RGB [0,0,0] for black)
     colBeginCue = [1,0,0];% begining signal (RGB[255,0,0]for red)
     colEndCue = [0,1,0]; % ending signal(RGB[0,255,0]for green)
 
@@ -103,7 +103,7 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
       switch lower(type)
         
         case 'none'
-          plotVPlane(self,self.midline,self.colBackgound,self.colBackgound);
+          plotVPlane(self,self.midline,self.colBackground,self.colBackground);
         case 'texture'
           
           textures = self.textures;
@@ -282,7 +282,7 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
        case {self.ID_BEGINCUE,self.ID_ENDCUE}
          self.plotCue(self.stmIdx,min(abs(ttmod-self.stmTime-self.signalTime),ttmod));
        case {self.ID_GAP,self.ID_ADAPTATION,self.ID_PAUSE}
-         self.plotVPlane(0.5,self.colBackgound,self.colBackgound);
+         self.plotVPlane(0.5,self.colBackground,self.colBackground);
        otherwise
          % during stimulus
          lrswitch = self.stmIdx==self.ID_TEST_RL || self.stmIdx==self.ID_STIMULUS_RL;

@@ -88,7 +88,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
 
     % get the backtrace up to tminfinal (if possible). Same dims as pos
     % order of oldfishID for plotting
-    rtrace = permute(self.daGraph.backtracePositions(assignedFishIds(idx),orgpos(:,oldFishIds(idx),self.currentFrame)),[1,3,2]);
+    rtrace = permute(self.daGraph.backtracePositions(assignedFishIds(idx),orgpos(:,oldFishIds(idx),self.currentFrame,self.currentFrame-tfirst+1)),[1,3,2]);
     
     
     %% swap
@@ -187,7 +187,6 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     %function tswitch = subGetSwitchPoints()
     if crossingflag
 
-      
       % first frames of crossings are always switch points
       tswitch =  unique(tfirst);
       % as well as the last (which should be the same for all because

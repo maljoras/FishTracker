@@ -56,11 +56,9 @@ classdef FishDAGraph < handle;
     
   end
   
-    
-  
+
   
   methods    
-
     
     function test(self);
       
@@ -205,23 +203,18 @@ classdef FishDAGraph < handle;
       
       detections = self.dagPos(:,:,self.frameCounter);
       
-      dist = pdist2(ipos',self.dagPos(:,:,self.frameCounter)');
+      dist = fish.helper.pdist2Euclidean(ipos',self.dagPos(:,:,self.frameCounter)');
       assignments = fish.helper.assignDetectionsToTracks(dist,2*max(dist(:)));
       
       detectionIdx = assignments(:, 2);
       fishIdx = ifish(assignments(:, 1));
 
-      [rtrace,varargout{1}] = self.backtrace(fishIdx,detectionIdx,self.frameCounter);
-
-      
-      if nargin>3
-        rtrace = rtrace(:,max(end-stepsback,1):end,:);
-      end
+      [rtrace,varargout{1}] = self.backtrace(fishIdx,detectionIdx,self.frameCounter,stepsback);
       
     end
     
       
-    function varargout=plotTraces(self,ifish,mobj,mt)
+    function varargout=plotTraces(self,ifish,mobj,mt,stepsback)
     % PLOTTRACES(SELF,IFISH,MOBJ,[MT]) plot traces for all
     % combinations of IFISH(i) and MOBJ(i), backtraced starting from time MT. 
     % 
@@ -234,8 +227,11 @@ classdef FishDAGraph < handle;
       if nargin<4
         mt = self.frameCounter;
       end
+      if nargin<5
+        stepsback = mt;
+      end
 
-      [rtrace,objidx] = self.backtrace(ifish,mobj,mt);
+      [rtrace,objidx] = self.backtrace(ifish,mobj,mt,stepsback);
 
       hold on;
       h = [];
@@ -279,7 +275,7 @@ classdef FishDAGraph < handle;
       res = struct(self);
     end
     
-    function [rtrace,objidx] = backtrace(self,ifish,mobj,mt)
+    function [rtrace,objidx] = backtrace(self,ifish,mobj,mt,stepsback)
     % [RTRACE,OBJIDX] = BACKTRACE(SELF,IFISH,MOBJ,MT) backtraces for the
     % fishids IFISH by assuming the corresponding MOBJ(j) at time MT
     % belongs to IFISH(i).
@@ -290,7 +286,14 @@ classdef FishDAGraph < handle;
         mt = self.frameCounter;
       end
       mt = min(mt,self.frameCounter);
-
+      
+      if nargin<5 || isempty(stepsback)
+        stepsback = mt;
+      end
+      if stepsback>mt
+        stepsback = mt;
+      end
+      
       if nargin<2 ||  isempty(ifish) 
         [ifish,mobj] = ndgrid(1:self.nfish,1:self.nhyp);
         ifish = ifish(:)';
@@ -299,7 +302,7 @@ classdef FishDAGraph < handle;
       
       assert(length(mobj)==length(ifish),['IFISH and MOBJ has to be of same length']);
       
-      [rtrace,objidx] = backtrace_(self.dagIdx,self.dagPos,ifish,mobj,mt);
+      [rtrace,objidx] = backtrace_(self.dagIdx,self.dagPos,ifish,mobj,mt,stepsback);
       
       DEBUG = 0;
       if DEBUG
@@ -366,8 +369,10 @@ classdef FishDAGraph < handle;
 
       pos = cat(1,tracks.centroid)'; 
       cl = cat(1,tracks.classProb)';
+      w = cat(1,tracks.classProbW)';
       cl(isnan(cl)) = 0;
-      dist = pdist2(self.dagPos(:,:,self.frameCounter)',pos')/fishLength;
+      cl = bsxfun(@times,cl,w);
+      dist = fish.helper.pdist2Euclidean(self.dagPos(:,:,self.frameCounter)',pos')/fishLength;
 
       self.updateWCost(dist,cl,pos);
     
@@ -383,7 +388,7 @@ classdef FishDAGraph < handle;
     % in format NDIM x NDETECT. CLASSPROB is NFISH x NDETECT
 
         
-      dist = pdist2(self.dagPos(:,:,self.frameCounter)',detections');
+      dist = fish.helper.pdist2Euclidean(self.dagPos(:,:,self.frameCounter)',detections');
 
       if nargin<4 || isempty(costOfNonAssignment)
         costOfNonAssignment = nanmedian(dist(:));
@@ -446,6 +451,10 @@ classdef FishDAGraph < handle;
       self.frameCounter = self.frameCounter + 1;
       if size(self.dagIdx,3)<self.frameCounter
         self.dagIdx = cat(3,self.dagIdx,nan(self.nfish,self.nhyp,self.memoryBlock));
+        
+        % to avoid overflow
+        self.dagI = self.dagI - min(self.dagI(:));
+      
       end
       self.dagIdx(:,:,self.frameCounter) = permute(idx,[1,3,2]);
 
@@ -455,6 +464,7 @@ classdef FishDAGraph < handle;
       self.dagPos(:,:,self.frameCounter) = pos;
 
     end
+
     
     
     function self = FishDAGraph(nfish,nhyp,opts)

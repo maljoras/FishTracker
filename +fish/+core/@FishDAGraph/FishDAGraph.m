@@ -19,8 +19,9 @@ classdef FishDAGraph < handle;
   properties
     nhyp = [];
     dim = 2;
-    probScale = 0.2; % 1 means 50/50 weighting of classprob with distance
+    probScale = 0.5; % 1 means 50/50 weighting of classprob with distance
                    % if points a fishLength apart
+    useClassProbNoise = false; % weights class prob with estimated noise
   end
 
   properties (GetAccess=private)
@@ -180,36 +181,16 @@ classdef FishDAGraph < handle;
     end
 
     
-    function varargout = plotTraceAssignments(self,fishIds,assignments);
+    function varargout = plotTraceAssignments(self,fishIds,assignments,stepsback);
     % plots the traces for a current assignemts. Called from fish.Tracker
       
       detectionIdx = assignments(:, 2);
       fishIdx = fishIds(assignments(:, 1));
       
-      h = self.plotTraces(fishIdx,detectionIdx);
+      h = self.plotTraces(fishIdx,detectionIdx,[],stepsback);
       if nargout
         varargout{1} = h;
       end
-      
-    end
-    
-    
-    function [rtrace,varargout] = backtracePositions(self,ifish,ipos,stepsback)
-    % RTRACE = BACKTRACEASSIGNMENTS(SELF,IFISH,IPOS,[STEPSBACK]) returns
-    % the traces belonging to IFISH(i) with corresponding detection
-    % positions at IPOS(:,i). STEPSBACK limits the traces to a certain number
-    % of frames back  (default all)
-      
-      
-      detections = self.dagPos(:,:,self.frameCounter);
-      
-      dist = fish.helper.pdist2Euclidean(ipos',self.dagPos(:,:,self.frameCounter)');
-      assignments = fish.helper.assignDetectionsToTracks(dist,2*max(dist(:)));
-      
-      detectionIdx = assignments(:, 2);
-      fishIdx = ifish(assignments(:, 1));
-
-      [rtrace,varargout{1}] = self.backtrace(fishIdx,detectionIdx,self.frameCounter,stepsback);
       
     end
     
@@ -333,7 +314,7 @@ classdef FishDAGraph < handle;
     function predFishIds = predictFishIds(self);
 
       assignments = fish.helper.assignDetectionsToTracks(self.dagI,2*max(self.dagI(:)));
-      predFishIds = assignments(assignments(:,1),2);
+      predFishIds = assignments(assignments(:,1),2)';
     end
     
     
@@ -369,9 +350,12 @@ classdef FishDAGraph < handle;
 
       pos = cat(1,tracks.centroid)'; 
       cl = cat(1,tracks.classProb)';
-      w = cat(1,tracks.classProbW)';
       cl(isnan(cl)) = 0;
-      cl = bsxfun(@times,cl,w);
+      if self.useClassProbNoise
+        w = cat(1,tracks.classProbW)';
+        cl = bsxfun(@times,cl,w);
+      end
+      
       dist = fish.helper.pdist2Euclidean(self.dagPos(:,:,self.frameCounter)',pos')/fishLength;
 
       self.updateWCost(dist,cl,pos);

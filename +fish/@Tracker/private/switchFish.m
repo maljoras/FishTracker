@@ -7,6 +7,9 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
 % distance within the last crossing. If not set, the switchingpoint is calculated
 % based on the classProbHistory. 
 
+  
+  minDagFrames =  25;
+  
 
   assert(length(trackIndices)==length(assignedFishIds));
   oldFishIds = [self.tracks(trackIndices).fishId];
@@ -16,106 +19,135 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     return; % no need to do anything
   end
 
-  self.uniqueFishFrames = 0;
-
-  %  it should be guranteed that it is a true permutation !! Do it anyway...
-  [nc ncidx]= self.connectedComponents(trackIndices,assignedFishIds);
-
-
-  %% switch the tracks for each connected component
   f2t = self.fishId2TrackId;
   orgpos = self.pos;
   self.resetBatchIdx(trackIndices); % reset for all
+  self.uniqueFishFrames = 0;
+
 
   if self.opts.display.switchFish && self.displayif && self.opts.display.tracks;
     self.displayCurrentTracks();
   end
+  
+  
+  % start end time definition
+  tfirst =[self.tracks(trackIndices).firstFrameOfCrossing]; 
+  tlast = [self.tracks(trackIndices).lastFrameOfCrossing]; 
+  tcurrent = self.currentFrame;
+      
+  if crossingflag
+    tstart = max(min(tfirst) - 2*self.opts.classifier.nFramesAfterCrossing,1);
+    tend = min(self.currentFrame,max(tlast) + self.opts.classifier.nFramesAfterCrossing);
+  else
+    tstart = max(max(tlast) - 2*self.opts.classifier.nFramesAfterCrossing,1) ; % put about last crossing in...
+    tend = tcurrent;
+  end
 
-  for i_ncidx = 1:length(ncidx)  % actually do not need to check again.
-    idx = ncidx{i_ncidx};
+  
+  idxOldFishIds = [self.tracks(trackIndices).fishId]; 
+  idxTrackIndices = trackIndices;
+  idxAssignedFishIds = assignedFishIds;
+  [tminfinallost,delmskall] = subCalcLostTrackBasedSwitchPoint();
 
-    % define common pars for subfunctions
-    idxOldFishIds = [self.tracks(trackIndices(idx)).fishId]; 
-    idxTrackIndices = trackIndices(idx);
-    idxAssignedFishIds = assignedFishIds(idx);
-    tfirst =[self.tracks(idxTrackIndices).firstFrameOfCrossing]; 
-    tlast = [self.tracks(idxTrackIndices).lastFrameOfCrossing]; 
-    tcurrent = self.currentFrame;
+  %% get the dag pos for the whole crossing
+  [dagpos,dagf2t,errorflag]= subGetDagBasedPos();
     
-    if crossingflag
-      tstart = max(min(tfirst) - self.opts.classifier.nFramesAfterCrossing,1);
-      tend = min(self.currentFrame,max(tlast) + self.opts.classifier.nFramesAfterCrossing);
-    else
-      tstart = max(max(tlast) - 2*self.opts.classifier.nFramesAfterCrossing,1) ; % put about last crossing in...
-      tend = tcurrent;
+  if ~errorflag && (crossingflag  || length(trackIndices)>2|| (self.currentFrame-tstart > minDagFrames))
+    % use dag pos
+    fish.helper.verbose('Use DAG based switching');
+    t = tstart:self.currentFrame;   
+    self.fishId2TrackId(t,assignedFishIds) = dagf2t;
+    self.pos(:,assignedFishIds,t) = dagpos;
+    
+
+    steps = tstart-self.currentFrame;
+    for j = 1:length(trackIndices)
+      self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
+      self.tracks(trackIndices(j)).switchedFrames = steps;
     end
     
-    % calculate switch points & delmsk
-    [tminfinallost,delmsk] = subCalcLostTrackBasedSwitchPoint();
-    tminfinaldist = subCalcDistanceBasedSwitchPoint();
-
-    %% choose one of the points..
-    if crossingflag
-      if ~isempty(tminfinallost)
-        tminfinal = tminfinallost;
-      else
-        tminfinal = tminfinaldist;
+  else
+  
+    %% switch the tracks for each connected component  
+    fish.helper.verbose('Use conventional switching');
+    [nc ncidx]= self.connectedComponents(trackIndices,assignedFishIds);
+    for i_ncidx = 1:length(ncidx)  % actually do not need to check again.
+      idx = ncidx{i_ncidx};
+      
+      if length(idx)==1
+        continue
       end
-    else 
-      % fishClassUpdate
-      tminprob = subCalcClassProbBasedSwitchPoint();
+      
+      % define common pars for subfunctions
+      idxOldFishIds = [self.tracks(trackIndices(idx)).fishId]; 
+      idxTrackIndices = trackIndices(idx);
+      idxAssignedFishIds = assignedFishIds(idx);
 
-      if tcurrent-tminprob> 2*self.opts.classifier.nFramesAfterCrossing
-        tminfinal = tminprob;
-      else
-        if length(idx)>2
-          tminfinal = subCalcDistanceBasedSwitchPoint();
-        else
+      % calculate switch points & delmsk
+      [tminfinallost,delmsk] = subCalcLostTrackBasedSwitchPoint();
+      tminfinaldist = subCalcDistanceBasedSwitchPoint();
+      
+      
+      
+      %% choose one of the points..
+      if crossingflag
+        if ~isempty(tminfinallost)
           tminfinal = tminfinallost;
+        else
+          tminfinal = tminfinaldist;
+        end
+      else 
+        % fishClassUpdate
+        tminprob = subCalcClassProbBasedSwitchPoint();
+        
+        if tcurrent-tminprob> 2*self.opts.classifier.nFramesAfterCrossing
+          tminfinal = tminprob;
+        else
+          if length(idx)>2
+            tminfinal = subCalcDistanceBasedSwitchPoint();
+          else
+            tminfinal = tminfinallost;
+          end
         end
       end
-    end
-    
+      
+      
+      %% rather swap using the tminfinal
+      t = tminfinal:self.currentFrame;    
+      steps = tminfinal-self.currentFrame;
+      for j = idx(:)'
+        self.fishId2TrackId(t,assignedFishIds(j)) = f2t(t,oldFishIds(j));
+        self.pos(:,assignedFishIds(j),t) = orgpos(:,oldFishIds(j),t);
+        self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
+        self.tracks(trackIndices(j)).switchedFrames = steps;
+      end
+
+
+    end % for ncidx
+
     
     if crossingflag 
+      
       % delete some of the critical points
       tcross = tstart:tend;
-      p = orgpos(:,oldFishIds(idx),tcross);
-      p(:,delmsk') = NaN;
-      orgpos(:,oldFishIds(idx),tcross) = p;
+      p = self.pos(:,assignedFishIds,tcross);
+      p(:,delmskall') = NaN;
+      self.pos(:,assignedFishIds,tcross) = p;
     end
-    
 
-    % get the backtrace up to tminfinal (if possible). Same dims as pos
-    % order of oldfishID for plotting
-    rtrace = permute(self.daGraph.backtracePositions(assignedFishIds(idx),orgpos(:,oldFishIds(idx),self.currentFrame,self.currentFrame-tfirst+1)),[1,3,2]);
-    
-    
-    %% swap
-    t = tminfinal:self.currentFrame;        
-    for j = idx(:)'
-      self.fishId2TrackId(t,assignedFishIds(j)) = f2t(t,oldFishIds(j));
-      self.pos(:,assignedFishIds(j),t) = orgpos(:,oldFishIds(j),t);
-      self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
-      self.tracks(trackIndices(j)).switchedFrames = tminfinal-self.currentFrame;
-    end
-    
-    %if length(idx)>2
-    %warning(['Higher order permutation! Tracks might got mixed up during the time ' ...
-    %         'of the crossing.'])
-    %tcross = tstart:tend;
-    %self.pos(:,assignedFishIds(idx),tcross) = NaN; % too conservative
-    %end
-    
     if self.opts.display.switchFish && self.displayif
       subPlotCrossings();
     end
-    
-  end % for ncidx
 
+  end
+  
+    
+    
 
   function subPlotCrossings();
 
+    %define just for the plotting  (might be confused by the loop
+    %above. Just ignore)
     [tminfinalclprob,pdifference,tfinalsearchstart,tfinalsearchend] = subCalcClassProbBasedSwitchPoint();
     tminfinaldist = subCalcDistanceBasedSwitchPoint();
 
@@ -126,11 +158,11 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     hold on;
     t1 = tstart-20;
     tt = t1:self.currentFrame;
-    plotFishIds = assignedFishIds(idx); 
+    plotFishIds = assignedFishIds; 
     pold =orgpos(:,plotFishIds,tt); % old pos
     plot(squeeze(pold(1,:,:))',squeeze(pold(2,:,:))','x-','linewidth',1.5);
     title('before + DAG (square)');
-    pdag = rtrace;
+    pdag = dagpos;
     plot(squeeze(pdag(1,:,:))',squeeze(pdag(2,:,:))','s:','linewidth',1);
     
 
@@ -175,18 +207,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     xlim(xl);
 
 
-
-    % TODO: 
-    % - determine multiple switching points within a crossing based on
-    % distance permutation points.
-    % -  problem is: some of the not changed tracks might have multiple
-    % switching !!!! how to account for this ?
-    % - search for multiple switchpoints within crossing
-
-
-    %function tswitch = subGetSwitchPoints()
     if crossingflag
-
       % first frames of crossings are always switch points
       tswitch =  unique(tfirst);
       % as well as the last (which should be the same for all because
@@ -198,7 +219,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
 
     % add switch points based on distance
     oldpos = orgpos;
-    localpos = permute(oldpos(:,idxOldFishIds,tstart:tend),[3,2,1]);
+    localpos = permute(oldpos(:,oldFishIds,tstart:tend),[3,2,1]);
 
     xd = bsxfun(@minus,localpos(1:end-1,:,1),permute(localpos(2:end,:,1),[1,3,2]));
     yd = bsxfun(@minus,localpos(1:end-1,:,2),permute(localpos(2:end,:,2),[1,3,2]));
@@ -222,6 +243,43 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
   end
 
 
+  function [dagpos,dagf2t,flag, extraIds] = subGetDagBasedPos();
+  % get the backtrace from  tstart (if possible). 
+  
+    flag = 0;
+    stepsback = self.currentFrame-tstart+1;
+    [dagpos,dagf2t] = self.daGraph.backtrace(assignedFishIds,trackIndices,[],stepsback);
+    dagpos = permute(dagpos,[1,3,2]);
+
+    % object index does not correspond to the objindex in dag if
+    % deletions happen. Need to save trackids in dag to handle this
+    assert(~self.opts.tracks.withTrackDeletion)
+    
+    % CAUTION: might involve other fish, so that f2t has not unique
+    % tracks for aeach time frame anymore. 
+    u = unique([unique(dagf2t(:))',assignedFishIds]);
+    Nfish = accumarray(dagf2t(:),1,[self.nfish,1]);
+    if length(u)>length(assignedFishIds)
+      extra = setdiff(u,assignedFishIds);
+      if sum(Nfish(extra))/sum(Nfish)/length(assignedFishIds) > 0.1
+        fish.helper.verbose('WARNING: More tracks involved in crossing !')
+        flag=0; % ignore
+      end
+    end
+    
+    if min(Nfish(assignedFishIds))<stepsback/2
+      fish.helper.verbose('WARNING: Tracks seems to have heavy overlap in DAG !');
+      flag = 2;
+    end
+    if ~all(self.fishId2TrackId(tcurrent-stepsback+1,assignedFishIds)==dagf2t(1,:))
+      fish.helper.verbose('WARNING: DAG initial ordering is different!');
+      flag = 3;
+    end
+
+  end
+  
+  
+  
   function [tminOut,pdiff,tsearchstart,tsearchend] = subCalcClassProbBasedSwitchPoint()
   % get switch time time from classification accuracy 
     

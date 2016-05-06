@@ -12,6 +12,8 @@ classdef PresenterDot < fish.stimulus.Presenter;
     stmLambda = 1; % this eq to dt*PosissonRate  !
     stmSize =100;
     stmCol = [1,1,1]; % stimulus color (RGB [1,1,1] for white)    
+
+    nRound = 100;
     
   end
 

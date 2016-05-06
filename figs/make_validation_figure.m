@@ -1,4 +1,4 @@
-LOAD = 1;
+LOAD = 0;
 PLOT = 1;
 SAVEIF = 0;
 if LOAD
@@ -17,6 +17,7 @@ if LOAD
   tic;
   ft.track();
   toc
+  %ft.getPosFromDag();
 end
 
 
@@ -37,14 +38,14 @@ if PLOT
 
   for i = 1:nfish
     for j = 1:nfish
-      dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,i) - idres.pos(1:end,:,j)).^2,2)));
+      dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,i) - idres.pos(1:end-1,:,j)).^2,2)));
     end
   end
   assignments = assignDetectionsToTracks(dist,1e3);
 
   ftpos = ftres.pos(:,:, assignments(assignments(:,1),2));
   ftposnan = ftresnan.pos(:,:, assignments(assignments(:,1),2));
-  idpos = idres.pos(1:end,:,:);
+  idpos = idres.pos(1:end-1,:,:);
  
   %distances
   s = s+1;

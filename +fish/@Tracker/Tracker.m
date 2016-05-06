@@ -29,7 +29,6 @@ classdef Tracker < handle;
 
     videoFile = '';
 
-    uniqueFishFrames = 0;
     currentFrame = 0;
     currentCrossBoxLengthScale = 1; 
 
@@ -37,11 +36,8 @@ classdef Tracker < handle;
     meanAssignmentCost =1;
     maxAssignmentCost =1;
     tracks = [];
-    cost = [];
     res = [];
-    savedTracks = [];
-    savedTracksFull = [];
-    segments = [];
+
     
     videoHandler = [];
     videoPlayer = [];
@@ -59,6 +55,7 @@ classdef Tracker < handle;
     saveFieldsIn = struct([]);
     saveFieldsOut = struct([]);
 
+    
     nextId = 1; % ID of the next track
     isInitClassifier = [];
 
@@ -68,7 +65,8 @@ classdef Tracker < handle;
     centroids = [];
     idfeatures = [];
     features = [];
-
+    cost = [];
+    segments = [];
     
     classProb = [];
     classProbNoise = [];
@@ -77,6 +75,7 @@ classdef Tracker < handle;
     fishId2TrackId = [];
     meanCost = ones(4,1);
     pos = [];
+    uniqueFishFrames = 0;
     
     assignments = [];
     unassignedTracks = [];
@@ -84,6 +83,8 @@ classdef Tracker < handle;
     featurecosttypes = {'Area','Size'};%,'BoundingBox'};
 
     leakyAvgFrame = [];
+    savedTracks = [];
+    savedTracksFull = [];
 
     nFramesExtendMemory = 250;
     locationCostID = [];
@@ -105,7 +106,7 @@ classdef Tracker < handle;
 
         opts.stmif = 0; % set to zero
         if iscell(S.videoFile)
-          verbose('Realtime-stimulus experiment. Load grabbed video file.')
+          fish.helper.verbose('Realtime-stimulus experiment. Load grabbed video file.')
           S.videoFile = S.videoFile{2};
         end
 
@@ -114,7 +115,7 @@ classdef Tracker < handle;
           if exist([b,c],'file') 
             S.videoFile = [b c];
           else
-            verbose(['WARNING: could not find video file "%s". Please ' 'select!!'],[b c]);
+            fish.helper.verbose(['WARNING: could not find video file "%s". Please ' 'select!!'],[b c]);
             S.videoFile = '';
           end
         end
@@ -126,7 +127,7 @@ classdef Tracker < handle;
               obj.(f{1}) = S.(f{1});
             end
           else
-            verbose('Cannot initialize field %s',f{1});
+            fish.helper.verbose('Cannot initialize field %s',f{1});
           end
         end
       else
@@ -345,10 +346,10 @@ classdef Tracker < handle;
 
     
     function initTracking(self)
-    % MAYBE RESET THE CLASSIFIER ? 
+    % Inits the onjects to make it ready to start the tracking
       
-      if self.opts.classifier.onlyDAGMethod &&  self.opts.tracks.withTrackDeletion
-        error('Dag is not supported with track deletion')
+      if self.opts.tracks.withTrackDeletion
+        error('Track deletion & handling tracks with DAG is currently not supported.')
       end
       
       self.videoHandler.timeRange = self.timerange;                       
@@ -916,30 +917,63 @@ classdef Tracker < handle;
         if  all(ismember(assignedFishIds,assumedFishIds)) 
           % we have a valid assignment (note that it is always a permutation inside
           % those that cross because that is guaranteed in predictFish)
-          [nc ncidx] = self.connectedComponents(thisTrackIndices,assignedFishIds);
-          
-          for i_nc = 1:length(ncidx)
-            idx = ncidx{i_nc};
-            
-            if length(idx)==1 
-              % identity 
-              if  self.enoughEvidenceForBeingHandled(prob(idx),steps(idx),probdiag(idx)) ...
-                  || length(self.tracks(thisTrackIndices(idx)).crossedTrackIds)<=1
-                % delete from crossings
-                subDeleteCrossedTrackIds(thisTrackIndices(idx));
-              end
-            else
-              % permutation
-              if self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx))
-                % enough evidence switch tracks and delete from others. 
-                fish.helper.verbose('valid permutation [%1.2f,%d]: switch...',min(prob(idx)),min(steps(idx)))
-                switchFish(self,thisTrackIndices(idx),assignedFishIds(idx),true);
-                subDeleteCrossedTrackIds(thisTrackIndices(idx)); % always handle
 
+          
+          OLD = 0;
+          if OLD
+            [nc ncidx] = self.connectedComponents(thisTrackIndices,assignedFishIds);
+            
+            for i_nc = 1:length(ncidx)
+              idx = ncidx{i_nc};
+              
+              if length(idx)==1 
+                % identity 
+                if  self.enoughEvidenceForBeingHandled(prob(idx),steps(idx),probdiag(idx)) ...
+                    || length(self.tracks(thisTrackIndices(idx)).crossedTrackIds)<=1
+                  % delete from crossings
+                  subDeleteCrossedTrackIds(thisTrackIndices(idx));
+                end
+              else
+                % permutation
+                if self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx))
+                  % enough evidence switch tracks and delete from others. 
+                  fish.helper.verbose('valid permutation [%1.2f,%d]: switch...',min(prob(idx)),min(steps(idx)))
+                  switchFish(self,thisTrackIndices(idx),assignedFishIds(idx),true)
+                  subDeleteCrossedTrackIds(thisTrackIndices(idx)); % always handle
+                  
+                  
+                end
+              end
+            end
+          else
+            if any(assignedFishIds ~= assumedFishIds)
+              
+              if self.enoughEvidenceForReassignment(prob,steps,probdiag)
+                % enough evidence switch tracks and delete from others. 
+                fish.helper.verbose('valid permutation [%1.2f,%d]: switch...',min(prob),min(steps))
+
+                switchFish(self,thisTrackIndices,assignedFishIds,true)
+                subDeleteCrossedTrackIds(thisTrackIndices); % always handle;
+                
+              end
+            
+            else
+              if  self.enoughEvidenceForBeingHandled(prob,steps,probdiag)
+                subDeleteCrossedTrackIds(thisTrackIndices);
+              end
+              
+              for idx=1:length(thisTrackIndices)
+                if  length(self.tracks(thisTrackIndices(idx)).crossedTrackIds)<=1
+                  % delete all from crossings
+                  subDeleteCrossedTrackIds(thisTrackIndices(idx));
+                  break
+                end
               end
             end
           end
           
+          
+            
         else
           % Still inside the fishID previously involved in the crossing. 
           % We better put
@@ -985,25 +1019,6 @@ classdef Tracker < handle;
         p = self.opts.display.leakyAvgFrameTau;
         self.leakyAvgFrame = (1-1/p)*self.leakyAvgFrame + im2double(frame);
       end
-    end
-    
-    
-    function [postrace,trackIdxMat] = getPosTraceFromDag(self,assignedFishId)
-
-      if nargin>1
-        predFishIds = assignedFishId;
-      else
-        predFishIds = [self.tracks.predFishId]; % use predFish. Can do Better ?!?
-      end
-
-      %trackIdx  and trackids SHOULD be the same! (if with no deletion)
-      % at laest assert for last tracks (if 1:nfish, all previous should be too)
-      assert(all([self.tracks.id] == 1:self.nfish));
-      
-      % backtrace. 
-      [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nfish,predFishIds);
-      postrace = permute(postrace,[1,3,2]);
-      
     end
     
     
@@ -1119,18 +1134,11 @@ classdef Tracker < handle;
     function cleanup(self) 
     %switch if necessary
       
-      if self.opts.classifier.onlyDAGMethod
-        [postrace,trackIdxMat]  = self.getPosTraceFromDag();
-        mt = size(postrace,3);
-        t = self.currentFrame-mt+1:self.currentFrame;
-        self.fishId2TrackId(t,:) = trackIdxMat;
-        self.pos(:,:,t) = postrace;
-      else
-        trackIndices = 1:length(self.tracks);
-        if ~isempty(trackIndices)
-          self.fishClassifierUpdate(trackIndices,0);
-        end
+      trackIndices = 1:length(self.tracks);
+      if ~isempty(trackIndices)
+        self.fishClassifierUpdate(trackIndices,0);
       end
+
     end
     
 
@@ -1573,9 +1581,17 @@ classdef Tracker < handle;
 
         
         %% predict fishIDs according to DAG
+        currentPredFishIds = [self.tracks.predFishId];
+
         predFishIds = self.daGraph.predictFishIds();
-        for i = 1:length(self.tracks)
-          self.tracks(i).predFishId = predFishIds(i);
+        trackIndices = find(currentPredFishIds ~= predFishIds);
+        if ~isempty(trackIndices)
+          % switching!
+          self.resetBatchIdx(trackIndices); 
+          fish.helper.verbose('Dag switched a fish...\r')
+        end
+        for i = 1:length(trackIndices)
+          self.tracks(trackIndices(i)).predFishId = predFishIds(trackIndices(i));
         end
         if self.opts.classifier.onlyDAGMethod
           for i = 1:length(self.tracks)
@@ -1774,7 +1790,7 @@ classdef Tracker < handle;
 
       costThres = self.maxAssignmentCost + self.opts.classifier.crossCostThres*self.meanAssignmentCost;
       for i = 1:length(self.tracks)
-        
+
         if sum(msk(i,:))>1  || sum(bBoxOverlap(i,:))>1  
           if self.tracks(i).consecutiveInvisibleCount>0 || self.tracks(i).assignmentCost>costThres 
             crossmat(i,:) =  msk(i,:)  | bBoxOverlap(i,:);
@@ -1853,7 +1869,7 @@ classdef Tracker < handle;
         self.createNewTracks();
       end
       
-      if self.opts.tracks.withTrackDeletion % CAUTION: some strange osciallations can happen...
+      if self.opts.tracks.withTrackDeletion 
         self.deleteLostTracks(); 
       end
 
@@ -2078,7 +2094,7 @@ classdef Tracker < handle;
       def.opts.classifier.nFramesForInit = 200; 
       doc.classifier.nFramesForInit = {'Number of unique frames for initialize the classifier'};
 
-      def.opts.classifier.nFramesAfterCrossing =  5; % 8
+      def.opts.classifier.nFramesAfterCrossing =  8; % 8
       doc.classifier.nFramesAfterCrossing = {'When to check for permutations after crossings'};
       
       def.opts.classifier.nFramesForUniqueUpdate = 70;
@@ -2315,6 +2331,44 @@ classdef Tracker < handle;
     end
 
     
+    function [postrace,trackIdxMat] = getPosFromDag(self,assignedFishId,force)
+
+      if nargin>1 && ~isempty(assignedFishId)
+        predFishIds = assignedFishId;
+      else
+        predFishIds = [self.tracks.predFishId]; % use predFish. Can do Better ?!?
+      end
+      if nargin<3
+        force = 0;
+      end
+      
+      
+      %trackIdx  and trackids SHOULD be the same! (if with no deletion)
+      % at laest assert for last tracks (if 1:nfish, all previous should be too)
+      assert(all([self.tracks.id] == 1:self.nfish));
+      
+      % backtrace. 
+      [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nfish,predFishIds);
+      postrace = permute(postrace,[1,3,2]);
+      
+      mt = size(postrace,3);
+      t = self.currentFrame-mt+1:self.currentFrame;
+
+      if force
+        self.fishId2TrackId(t,:) = trackIdxMat;
+        self.pos(:,:,t) = postrace;
+      else
+        pos = self.pos(:,:,1:self.currentFrame);
+        pos(:,:,t) = postrace;
+        postrace = pos;
+
+        f2t = self.fishId2TrackId(1:self.currentFrame,:);
+        f2t(t,:) = trackIdxMat;
+        trackIdxMat = f2t;
+      end
+    end
+    
+    
     function track(self,trange,saveif,writefile)
     % TRACK([TRANGE],[SAVEIF],[WRITEFILE]). Detect objects, and track them
     % across video frames. TRANGE=[TSTART,TEND] specifies the time
@@ -2407,7 +2461,7 @@ classdef Tracker < handle;
           
           if ~self.stmif &&  ~mod(self.currentFrame,25000) && saveif
             % occasionally save for long videos 
-            verbose('Save tracking progress to disk..');
+            fish.helper.verbose('Save tracking progress to disk..');
             self.save();
           end
         end
@@ -2433,6 +2487,7 @@ classdef Tracker < handle;
       if exist('savedTracks','var')
         self.appendSavedTracks(savedTracks);
         generateResults(self);
+
       end
       self.closeVideoObjects();
       

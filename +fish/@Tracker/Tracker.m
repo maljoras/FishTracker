@@ -336,8 +336,6 @@ classdef Tracker < handle;
       % overwrite the given optiond
       self.fishlength = self.fishlength;
 
-      % initialize graph
-      self.daGraph = fish.core.FishDAGraph(self.nfish,self.nfish);
       
       % set all options
       self.setOpts();
@@ -357,10 +355,14 @@ classdef Tracker < handle;
       self.videoHandler.setCurrentTime(self.timerange(1));
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
+
+      % initialize graph
+      self.daGraph = [];
+      self.daGraph = fish.core.FishDAGraph(self.nfish,self.nfish);
+
       self.setOpts();
       self.videoHandler.initialize();
-      
-      
+
       if isscalar(self.writefile) && self.writefile
         [a,b,c] = fileparts(self.videoFile);
         self.writefile = [a '/' b '_trackingVideo' c];
@@ -2049,7 +2051,7 @@ classdef Tracker < handle;
       
 
       %% detector options
-      def.opts.detector(1).history = 500;  %250 [nframes]
+      def.opts.detector(1).history = 250;  %250 [nframes]
       doc.detector(1).history = 'Background update time [nFrames]';
       
       def.opts.detector.inverted = false;  
@@ -2118,8 +2120,10 @@ classdef Tracker < handle;
       def.opts.tracks.costOfNonAssignment = 1;
       doc.tracks.costOfNonAssignment =  {'Scales the threshold for','cost of non assignment'};
 
-
-
+      %% dag
+      def.opts.dag.probScale = 0.5;
+      doc.dag.probScale = {'DAGraph probScale. 1 means 50/50 weighting of ', ...
+                          'classprob with distance if points a ', 'fishLength apart'};
       
       %% display opts
       def.opts.displayif = 3;
@@ -2227,7 +2231,7 @@ classdef Tracker < handle;
       opts.classifier.minBatchN = max(ceil(opts.classifier.nFramesAfterCrossing*0.75),4);  
       doc.classifier.minBatchN = 'minimum sample size for batch update'; 
 
-      opts.classifier.clpMovAvgTau = opts.classifier.nFramesAfterCrossing; 
+      opts.classifier.clpMovAvgTau = min(opts.classifier.nFramesAfterCrossing,8); 
       doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
 
       opts.classifier.crossCostThres = 3;  

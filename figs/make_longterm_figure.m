@@ -2,9 +2,11 @@ LOAD = 0;
 PLOT = 1;
 SAVEIF = 1;
 if LOAD
-  load ~/data/zebra/videos/longterm/Blongterm11.mat
-  reader = fish.core.FishVideoReader(ft.videoFile);
   
+  %load ~/data/zebra/videos/longterm/Blongterm11_good.mat
+  %reader = fish.core.FishVideoReader(ft.videoFile);
+
+  ft = fish.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nfish',3);
 end
 
 

@@ -18,6 +18,8 @@ classdef Tracker < handle;
     useScaledFormat = 0;
     useKNN = 0;
     
+    verbosity = 1;
+    
     costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area'}; % bounding box ? ()
     scalecost = [10,5,3,2,1,1];
 
@@ -348,6 +350,11 @@ classdef Tracker < handle;
       
       if self.opts.tracks.withTrackDeletion
         error('Track deletion & handling tracks with DAG is currently not supported.')
+      end
+      
+      if ~self.verbosity
+        global VERBOSELEVEL;
+        VERBOSELEVEL = 0;
       end
       
       self.videoHandler.timeRange = self.timerange;                       
@@ -1590,7 +1597,9 @@ classdef Tracker < handle;
         if ~isempty(trackIndices)
           % switching!
           self.resetBatchIdx(trackIndices); 
-          fish.helper.verbose('Dag switched a fish...\r')
+          if self.verbosity>1
+            fish.helper.verbose('Dag switched a fish...\r');
+          end
         end
         for i = 1:length(trackIndices)
           self.tracks(trackIndices(i)).predFishId = predFishIds(trackIndices(i));
@@ -2048,7 +2057,9 @@ classdef Tracker < handle;
       def.opts.useScaledFormat = false;
       doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)' ''};
 
-      
+      def.opts.verbosity = 3;
+      doc.verbosity = {['Sets verbosity level. 0:off, 1:moderate, >1: ' ...
+                        'very verbose']};
 
       %% detector options
       def.opts.detector(1).history = 250;  %250 [nframes]
@@ -2258,7 +2269,7 @@ classdef Tracker < handle;
       opts.tracks.invisibleForTooLong = 15; % on track basis. Only for deletion
       opts.tracks.ageThreshold = 10;
       opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
-
+      
       opts.classifier.onlyDAGMethod = 0;
       if opts.classifier.onlyDAGMethod
         fish.helper.verbose('Switch method: DAG');

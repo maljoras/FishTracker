@@ -21,7 +21,12 @@ function tracks = step(self,tracks,framesize,t)
   end
 
 
-  fishIds = [tracks.fishId];
+  if self.usePredFishId
+    fishIds = [tracks.predFishId];
+  else
+    fishIds = [tracks.fishId];
+  end
+  
   stmInfo = self.stepStimulus(x,y,t,fishIds);
 
   for i =1:length(tracks)

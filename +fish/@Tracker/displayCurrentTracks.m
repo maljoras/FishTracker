@@ -57,8 +57,13 @@ function varargout = displayCurrentTracks(self)
       if length(reliableTracks)==self.nfish && self.isInitClassifier
 
         ids = [reliableTracks(:).fishId];
-        [~,pids] = max(cat(1,reliableTracks.clpMovAvg),[],2);
 
+        if self.opts.classifier.onlyDAGMethod
+          [~,pids] = max(cat(1,reliableTracks.clpMovAvg),[],2);
+        else
+          pids = cat(1,reliableTracks.predFishId);
+        end
+        
         clabels = uint8(cols(ids,:)*255);
         pclabels = uint8(cols(pids,:)*255);
         % Draw the objects on the frame.
@@ -124,18 +129,24 @@ function varargout = displayCurrentTracks(self)
           delidx = find(any(any(isnan(trackpos),1),2));
           trackpos(:,:,delidx) = [];
           f2t(delidx,:) = [];
-          cli = zeros(length(idx),self.nfish);
-          for iii = 1:length(self.tracks)
-            [classProbs, w]= self.tracks(iii).classProbHistory.getData(length(idx));
-            [~,classIdx] = max(classProbs,[],2);
-            msk = any(isnan(classProbs),2) | w < self.tracks(iii).classProbHistory.reasonableThres;
-            classIdx(msk) = 0;
-            cli(end-size(classIdx)+1:end,iii) = classIdx;
+          cli = NaN(length(idx),self.nfish);
+          if ~isempty(self.tracks(1).classProbHistory)
+
+            for iii = 1:length(self.tracks)
+              [classProbs, w]= self.tracks(iii).classProbHistory.getData(length(idx));
+              [~,classIdx] = max(classProbs,[],2);
+              msk = any(isnan(classProbs),2) | w < self.tracks(iii).classProbHistory.reasonableThres;
+              classIdx(msk) = 0;
+              cli(end-size(classIdx)+1:end,iii) = classIdx;
+            end
+
           end
           cli(delidx,:) = [];
+          cli = cat(2,ones(size(cli,1),1),cli+1);
+          
           trackIds = [self.tracks.id];
           [~,f2i] = ismember(f2t,trackIds);
-          cli = cat(2,ones(size(cli,1),1),cli+1);
+
           if ~isempty(trackpos)
             for ii = 1:self.nfish
               idx1 = f2i(:,ii)+1;

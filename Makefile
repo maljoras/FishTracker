@@ -76,6 +76,8 @@ endif
 HELPERDIR = +fish/+helper
 CAPTUREDIR = +fish/+core/@FishVideoCapture/private
 HANDLERDIR = +fish/+core/@FishVideoHandlerMex/private
+BTRACEDIR = +fish/+core/@FishDAGraph/private
+GTTDIR = +fish/@Tracker/private
 
 # savevideo
 ifneq ($(FLYCAPFLAG),)
@@ -90,6 +92,15 @@ SARTARGET = $(TARGETDIR)/$(HELPERDIR)/strucarr2strucmat.$(MEXEXT)
 # pdist
 PDIST = $(SRCDIR)/pdist2Euclidean.c
 PDISTTARGET = $(TARGETDIR)/$(HELPERDIR)/pdist2Euclidean.$(MEXEXT)
+
+# pdist
+BTRACE = $(SRCDIR)/backtrace_.c
+BTRACETARGET = $(TARGETDIR)/$(BTRACEDIR)/backtrace_.$(MEXEXT)
+
+# current tracks
+GTT = $(SRCDIR)/getCurrentTracks_.c
+GTTTARGET = $(TARGETDIR)/$(GTTDIR)/getCurrentTracks_.$(MEXEXT)
+
 
 # pcenterlinedist
 PCLDIST = $(SRCDIR)/pdist2CenterLine.c
@@ -124,7 +135,7 @@ override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPLIBS)
 
 # targets
 all: $(ALLTARGET) 
-helper: $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
+helper: $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET) $(BTRACETARGET) $(GTTTARGET)
 everything: $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
 nograb: $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
 
@@ -153,9 +164,15 @@ $(PDISTTARGET): $(PDIST)
 $(PCLDISTTARGET): $(PCLDIST)
 	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(HELPERDIR) -output $(PCLDISTTARGET) $< 
 
+$(BTRACETARGET): $(BTRACE)
+	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(BTRACEDIR) -output $(BTRACETARGET) $< 
+
+$(GTTTARGET): $(GTT)
+	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(GTTDIR) -output $(GTTTARGET) $< 
+
 $(MUNKRESTARGET): $(MUNKRES)
 	$(MEX) -largeArrayDims -cxx CXXFLAGS='$$CXXFLAGS -std=c++11 -lstdc++' -I$(SRCDIR) -outdir $(TARGETDIR)/$(HELPERDIR) -output $(MUNKRESTARGET) $<
 
 clean:
-	rm $(TARGETS1) $(TARGETS2) $(OBJECTS) $(SAVEVIDEOOBJ) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET)
+	rm $(TARGETS1) $(TARGETS2) $(OBJECTS) $(SAVEVIDEOOBJ) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET) $(BTRACETARGET) $(GTTTARGET)
 

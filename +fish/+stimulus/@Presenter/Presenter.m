@@ -11,6 +11,9 @@ classdef Presenter < handle;
     screenBoundingBox = [];
   
     muteAllFlipping = false; % CAUTION: Turns off all flipping (for debugging only)
+  
+    usePredFishId = true;  % wether to use the ID predicted by
+                           % DAG. 
   end
   
   

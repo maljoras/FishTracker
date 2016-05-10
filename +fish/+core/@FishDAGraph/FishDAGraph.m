@@ -22,12 +22,15 @@ classdef FishDAGraph < handle;
     probScale = 0.5; % 1 means 50/50 weighting of classprob with distance
                    % if points a fishLength apart
     useClassProbNoise = false; % weights class prob with estimated noise
+    saveDagIif = 0;
   end
 
   properties (GetAccess=private)
     startPenalty = 1e5; % for start
     seqMissedPenalty = 100;
     memoryBlock = 250; % in frames
+  
+    dagIsave = [];
   end
   
   
@@ -37,6 +40,7 @@ classdef FishDAGraph < handle;
     dagPos = [];
     dagIdx = [];
     dagI = [];
+
   end
 
   methods(Access=private)    
@@ -328,6 +332,11 @@ classdef FishDAGraph < handle;
       self.dagIdx = nan(self.nfish,self.nhyp,self.memoryBlock);
       self.dagPos = nan(self.dim,self.nhyp,self.memoryBlock);
 
+      if self.saveDagIif
+        self.dagIsave = nan(self.nfish,self.nhyp,self.memoryBlock);
+        self.dagIsave(:,:,1) = self.dagI;
+      end
+      
       self.frameCounter = 1; % next step if 2
 
       for i = 1:self.nfish
@@ -433,23 +442,37 @@ classdef FishDAGraph < handle;
 
       % save
       self.frameCounter = self.frameCounter + 1;
+
       if size(self.dagIdx,3)<self.frameCounter
         self.dagIdx = cat(3,self.dagIdx,nan(self.nfish,self.nhyp,self.memoryBlock));
         
+        self.dagPos = cat(3,self.dagPos,nan(2,self.nhyp,self.memoryBlock));        
+
         % to avoid overflow
         self.dagI = self.dagI - min(self.dagI(:));
+
+        if self.saveDagIif
+          self.dagIsave = cat(3,self.dagIsave,nan(self.nfish,self.nhyp,self.memoryBlock));          
+        end
       
       end
+      
       self.dagIdx(:,:,self.frameCounter) = permute(idx,[1,3,2]);
-
-      if size(self.dagPos,3)<self.frameCounter
-        self.dagPos = cat(3,self.dagPos,nan(2,self.nhyp,self.memoryBlock));
-      end
       self.dagPos(:,:,self.frameCounter) = pos;
+
+      if self.saveDagIif
+        self.dagIsave(:,:,self.frameCounter) = self.dagI;
+      end
 
     end
 
-    
+    function dagI = getSavedDagI(self);
+      if ~self.saveDagIif
+        error('Need to turn on option "saveDagIif" to save the dagI');
+      else
+        dagI = self.dagIsave;
+      end
+    end
     
     function self = FishDAGraph(nfish,nhyp,opts)
     % self = FishDAGraph(nfish,nhyp)

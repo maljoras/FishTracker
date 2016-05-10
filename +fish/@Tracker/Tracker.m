@@ -1910,7 +1910,7 @@ classdef Tracker < handle;
     function trackinfo = getCurrentTracks(self)
     % gets the track info 
       
-      if self.opts.tracks.keepFullTrackStruc && n==self.nfish 
+      if self.opts.tracks.keepFullTrackStruc && length(self.tracks)==self.nfish 
         % ignore initial times when not all tracks are created
         self.savedTracksFull = cat(1,self.savedTracksFull,self.tracks);
       end
@@ -2503,6 +2503,16 @@ classdef Tracker < handle;
 
     end
     
+    %% 
+    function st = getSavedTracksFull(self)
+    % returns the savedTracksFull structure
+      if ~self.opts.tracks.keepFullTrackStruc
+        error(['To access the full structure, track with ' ...
+               'opts.tracks.keepFullTrackStruc  turned on']);
+      else
+        st = self.savedTracksFull;
+      end
+    end
     
   end
   

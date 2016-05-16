@@ -12,17 +12,17 @@ function res = getTrackingResults(self,delinvif,forceif,dagif)
     delinvif = 0;
   end
   if ~exist('dagif','var') || isempty(dagif)
-    dagif = 0;
+    dagif = self.opts.tracks.useDagResults;
   end
   
   if isempty(self.res)
     error('No results available. First track()...');
   else
     if dagif 
-      verbose('Getting DAGraph tracking results')
+      fish.helper.verbose('Getting DAGraph tracking results')
       res = subDelInv(self.res.dag);
     else
-      verbose('Getting Switch-based tracking results')
+      fish.helper.verbose('Getting Switch-based tracking results')
       res = subDelInv(self.res);
       
       if isfield(res,'dag')

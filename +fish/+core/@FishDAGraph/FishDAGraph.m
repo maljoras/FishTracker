@@ -40,6 +40,8 @@ classdef FishDAGraph < handle;
     dagPos = [];
     dagIdx = [];
     dagI = [];
+    
+    offsetFrame = 0;
 
   end
 
@@ -231,8 +233,7 @@ classdef FishDAGraph < handle;
     end
     
     
-    
-    function checkOverlap(self,objidx);
+    function varargout =checkOverlap(self,objidx);
 
       if nargin<2
         [rtrace,objidx] = self.backtrace();
@@ -240,18 +241,27 @@ classdef FishDAGraph < handle;
       objidx = reshape(objidx,[],self.nfish,self.nhyp);
 
       % check for potential overlaps
+      n = self.nfish;
+      eqmsk = zeros([size(objidx,1),n*(n-1)/2]);
+      s = 0;
       for i = 1:self.nfish
         for j = i+1:self.nfish
+          s = s+1;
+          eqmsk(:,s) = (objidx(:,i,i) == objidx(:,j,j));
+          if sum(eqmsk(:,s))>1
+            d = diff([0;eqmsk(:,s);0]);
+            stop = find(d==-1);
+            start = find(d==1);
+            L = stop - start; 
+            sL = sort(L,'descend');
 
-          eqmsk = (objidx(:,i,i) == objidx(:,j,j));
-          if sum(eqmsk)>1
-            endidx = find(diff(eqmsk)<0) + 1 ; % first again non-overlapping
-            if ~isempty(endidx) % take only last for now
-              endidx = endidx(end);
-              fprintf('[%d,%d] Found %d overlap\n', i,j,sum(eqmsk))
-            end
+            fish.helper.verbose('[%d,%d] Found %1.2f%% [%d] overlap. ', i,j,mean(eqmsk(:,s))*100,sum(eqmsk(:,s)))
+            fish.helper.verbose('Median length %d. Longest: [ %s] \n', median(L),sprintf('%d ',sL(1:min(end,3))));
           end
         end
+      end
+      if nargout
+        varargout{1} = eqmsk;
       end
     end
     
@@ -323,7 +333,7 @@ classdef FishDAGraph < handle;
     
     
     
-    function reset(self,initPos);
+    function reset(self,initPos,tframe);
       % init pos has to be in fishID order...
       
       self.dagI = self.startPenalty*ones(self.nfish,self.nhyp);
@@ -348,6 +358,9 @@ classdef FishDAGraph < handle;
         self.dagPos(:,1:size(initPos,2),1) = initPos;
       end
       
+      if nargin>2
+        self.offsetFrame = tframe;
+      end
     end
   
     
@@ -359,6 +372,17 @@ classdef FishDAGraph < handle;
 
       pos = cat(1,tracks.centroid)'; 
       cl = cat(1,tracks.classProb)';
+
+      if size(cl,2)~=size(pos,2)
+        % some classprob were empty. Do one by one
+        cl = zeros(size(pos,2));
+        for i = 1:length(tracks)
+          if ~isempty(tracks(i).classProb)
+            cl(:,i) = tracks(i).classProb;
+          end
+        end
+      end
+      
       cl(isnan(cl)) = 0;
       if self.useClassProbNoise
         w = cat(1,tracks.classProbW)';

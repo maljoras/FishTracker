@@ -62,7 +62,7 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
     case {'PROBMAP','DOMAINS'}
 
 
-      dxy = 10;
+      dxy = 15;
       szFrame = self.videoHandler.frameSize;
       sz = ceil(szFrame/dxy);
       sz = sz(1:2);
@@ -95,7 +95,8 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
         ylabel('y-Position [px]')
         axis xy;
       else
-
+        p = sum(P,3);
+        P(P<max(p(:))*1e-2) = 0;
         [~,cl] = max(P,[],3);
         cl = cl + (sum(P,3)~=0);
         imagesc(1:szFrame(2),1:szFrame(1),cl);

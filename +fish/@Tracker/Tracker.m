@@ -97,6 +97,8 @@ classdef Tracker < handle;
   
     function obj = loadobj(S)
 
+      deleted_fields = {'saveFieldSub'};
+
       if isstruct(S)
         % compatibility with old FishTracker files
         opts = S.opts;
@@ -129,14 +131,215 @@ classdef Tracker < handle;
               obj.(f{1}) = S.(f{1});
             end
           else
-            fish.helper.verbose('Cannot initialize field %s',f{1});
+            if ~any(strcmp(f{1},deleted_fields))
+              fish.helper.verbose('Cannot initialize field %s',f{1});
+            end
           end
+          
         end
       else
         obj = S;
       end
     end
   
+    
+    %% test
+    
+    function [success,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
+    %SUCCESS = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT) makes a validation versus
+    %the idTracker [1] with the video provided by idTracker. OPTS is a struct
+    %with fields given to initialize fish.Tracker. PATHTOMAT is the trajectory
+    %file from idTracker tracking the same video. PATHTOVIDEO is the video file
+    %from idTracker (5 Zebrafish). TMAX sets the trange of the tracking
+    %comparison (in seconds). Set TMAX to [] to test the whole 7.4min video.
+    %
+    % [FTPOS,IDPOS] = RUNTEST returns additionally the position results.
+    % [..,FT] = RUNTEST returns additionally the fish.Tracker object.
+    %  
+    % [1] Perez-Escudero et al Nature Methods 2014
+
+      if nargin<1 || isempty(tmax)
+        trange = [];
+      else
+        trange = [0,tmax];
+      end
+      
+      if nargin<2 || isempty(opts)
+        args = {};
+      else
+        args{1} = opts;
+      end
+
+      if nargin<3
+        if isunix()
+          pathToVideo = '~/Videos/5Zebrafish_nocover_22min.avi';   
+        end
+        
+        if ~exist(pathToVideo)
+          pathToVideo = [fish.helper.getFTRoot() 'data/5Zebrafish_nocover_22min.avi'];   
+        end
+        if ~exist(pathToVideo)
+          error(['Please set PATHTOVIDEO to dowloaded video file available at "http://' ...
+                 'www.cajal.csic.es/files/gpolavieja/5Zebrafish_nocover_22min.avi" ' ...
+                 'or put the downloaded avi-file into the "+fish/../data" directory.']);
+        end
+      end
+      
+      if nargin<4
+        pathToMat = [fish.helper.getFTRoot() 'data/trajectories.mat']; 
+      end
+
+      if nargin<5
+        plotif = 1;
+      end
+      
+      MAXDISTANCE = 0;
+      
+      % handle ID
+      id = load(pathToMat);
+      idres.pos = permute(id.trajectories,[1,3,2]);
+
+      % run benchmark
+      ft = fish.Tracker(pathToVideo,args{:});
+      ft.setDisplay(0);
+      ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
+
+      tic;
+      ft.track(trange);
+      t_elapsed = toc;
+      
+      
+      nfish = ft.nfish;
+      ftres = ft.getTrackingResults();
+      ftresnan = ft.getTrackingResults(1);
+
+      dist = zeros(nfish);
+      offs = size(idres.pos,1) - size(ftres.pos,1);
+      
+      for i = 1:nfish
+        for j = 1:nfish
+          dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
+        end
+      end
+      assignments = fish.helper.assignDetectionsToTracks(dist,1e3);
+      
+      ftpos = ftres.pos;
+      ftposnan = ftresnan.pos;
+      idpos = idres.pos(1:end-offs,:,assignments(assignments(:,1),2));
+ 
+      t = ftres.tracks.t(:,1);
+      d = sqrt(sum((ftpos(:,:,:) - idpos(:,:,:)).^2,2))/ft.fishlength;
+      
+      success = mean(nanmax(d,[],3)>1)<0.05;
+
+      varargout{1} = ftposnan;
+      varargout{2} = idpos;
+      varargout{3} = ft;
+      
+      if plotif
+        figure;
+        
+        r1 = 4;
+        r2 = 1;
+        s = 0;
+        a = [];
+        
+
+        %distances
+        s = s+1;
+        a(end+1) = subplot(r1,r2,s,'align');
+        
+
+        if MAXDISTANCE
+          plot(t,nanmax(d,[],3));
+        else
+          fish.helper.errorbarpatch(t,nanmean(d,3),fish.helper.stderr(d,3));
+        end
+        
+        hold on;
+        plot(t([1,end]),[1,1],'r:');
+        
+        set(a(s),'fontsize',8);
+        if MAXDISTANCE
+          ylabel(sprintf('Max distance\n[Fish length]'),'fontsize',10);
+        else
+          ylabel(sprintf('Avg. distance\n[Fish length]'),'fontsize',10);
+        end
+        
+        xlim(t([1,end]));
+        box off;
+        
+        %detections
+        s = s+1;
+        a(end+1) = subplot(r1,r2,s,'align');
+        nconv = 75;
+        ftnan = conv(sum(isnan(ftposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
+        idnan = conv(sum(isnan(idpos(:,1,:)),3),ones(nconv,1)/nconv,'same');
+        plot(t,[ftnan,idnan]*100/ft.nfish);
+        xlim(t([1,end]))
+        set(a(s),'fontsize',8);
+        
+        ylabel(sprintf('Avg. lost\n tracks [%%]'),'fontsize',10);
+        
+        legend({'fish.Tracker','idTracker'},'location','NorthWest','fontsize',8)
+        box off;
+        
+        
+        %crossings
+        s = s+1;
+        a(end+1) = subplot(r1,r2,s,'align');
+        
+        
+        cross = diff(ftres.tracks.lastFrameOfCrossing-ftres.tracks.firstFrameOfCrossing)>0;
+        ccross = conv2(sum(double(cross),2),ones(nconv,1)/nconv,'same');
+        plot(t(1:end-1),ccross,'k')
+        set(a(s),'fontsize',8);
+        ylabel(sprintf('Avg. # of \ncrossing events'),'fontsize',10);
+        xlim(t([1,end]));
+        box off;
+        
+        
+        % probability
+        s = s+1;
+        a(end+1) = subplot(r1,r2,s,'align');
+        clp = ftres.tracks.classProb;
+        dclp = zeros(size(clp,1),size(clp,2));
+        mclp = zeros(size(clp,1),size(clp,2));
+        for i =1:size(clp,2)
+          mclp(:,i) = max(clp(:,i,setdiff(1:size(clp,2),i)),[],3);
+          dclp(:,i) = clp(:,i,i);
+        end
+        
+        percent = sum(sum(mclp>dclp))/numel(mclp);
+        %fprintf('%1.1f%% correct.\n',(1-percent)*100);
+        
+        mclp = conv2(mclp,ones(nconv,1)/nconv,'same');
+        dclp = conv2(dclp,ones(nconv,1)/nconv,'same');
+        
+        h1 = fish.helper.errorbarpatch(t,mean(dclp,2),fish.helper.stderr(mclp,2),'color',[0,0.5,0]);
+        hold on;
+        h2 = fish.helper.errorbarpatch(t,mean(mclp,2),fish.helper.stderr(dclp,2),'color',[1.0000, 0.6445, 0]);
+        xlim(t([1,end]));
+        box off;
+        ylabel(sprintf('Class\nprobability'),'fontsize',10);
+        legend([h1(1),h2(1)],{'Avg.','Other'},'location','NorthWest','fontsize',8)
+        set(a(end),'fontsize',8)
+        
+        
+        xlabel('Time [sec]','fontsize',10);
+        b = fish.helper.labelsubplot(gcf);
+        fish.helper.shiftaxes(b,[0.02])
+        
+      end
+
+      if nargout>1
+        warning('RunTest failed due to high inaccuracies in the tracking.');
+      else
+        assert(success,'RunTest failed due to high inaccuracies in the tracking.');
+      end
+    end
+    
+    
   end
   
 
@@ -765,7 +968,7 @@ classdef Tracker < handle;
         [self.tracks.crossedTrackIds] = deal([]);
         
         % initialize DAG
-        self.daGraph.reset(self.pos(:,:,self.currentFrame));
+        self.daGraph.reset(self.pos(:,:,self.currentFrame),self.currentFrame);
         
         
         self.uniqueFishFrames  = 0;
@@ -1576,16 +1779,19 @@ classdef Tracker < handle;
         self.tracks(ind).age = self.tracks(ind).age + 1;
         self.tracks(ind).consecutiveInvisibleCount =  self.tracks(ind).consecutiveInvisibleCount + 1;
 
+
+        % do not update the tracks with nan, but use clp average instead
+        self.tracks(ind).classProb = self.tracks(ind).clpMovAvg;
+        
         if ~self.opts.classifier.onlyDAGMethod
-          % do not update the tracks with nan (last classprob will remain)
-          % only put into history:
+          % only nan into history:
           self.tracks(ind).classProbHistory.update(nan(1,self.nfish),NaN);
         end
         
       end
       
       %% update DAG
-      if ~isempty(self.classProb) % classifier should be init
+      if self.isInitClassifier % classifier should be init
         self.daGraph.updateFromTracks(self.tracks,self.fishlength);
 
         
@@ -1637,8 +1843,7 @@ classdef Tracker < handle;
         lostTrackIds = [self.tracks(lostInds).id];
         fishIds = [self.tracks.fishId];
         if any(~isnan(fishIds(lostInds)))
-          warning('want to delete a true track');
-          keyboard;
+          error('want to delete a true track');
         end
         
         self.tracks = self.tracks(~lostInds);
@@ -2027,7 +2232,7 @@ classdef Tracker < handle;
 
 
       def.vid = [];
-      doc.vid = 'Video file name';
+      doc.vid = 'Video file name or {CAMIDX,''WRITEFILENAME''}';
       
       %% properties
       
@@ -2039,8 +2244,6 @@ classdef Tracker < handle;
       def.opts.fishwidth = [];
       doc.fishwidth = {'Approx width of fish in pixel (estimated if empty)'};
 
-      def.opts.maxVelocity = [];
-      doc.maxVelocity = {'Maximal fish velocity in px/sec (estimated if empty)'};
       
       def.opts.stmif = false;
       doc.stmif = 'Use online visual stimulation';
@@ -2054,12 +2257,10 @@ classdef Tracker < handle;
       def.opts.useKNN = false;
       doc.useKNN = {'Use the KNN instead of thresholding ' 'for background segmentation (SLOW)'};
 
-      def.opts.useScaledFormat = false;
-      doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)' ''};
 
       def.opts.verbosity = 3;
       doc.verbosity = {['Sets verbosity level. 0:off, 1:moderate, >1: ' ...
-                        'very verbose']};
+                        'very verbose'],''};
 
       %% detector options
       def.opts.detector(1).history = 250;  %250 [nframes]
@@ -2069,10 +2270,7 @@ classdef Tracker < handle;
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
       
       def.opts.detector.adjustThresScale = 0.92;   
-      doc.detector.adjustThresScale = {'0..1 : reduce when bwmask noisy (useKNN=0)' ,''};
-
-      def.opts.detector.fixedSize = 0;  
-      doc.detector.fixedSize = 'Set 1 for saving the fixedSize image';
+      doc.detector.adjustThresScale = {'0..1 : reduce when detections too noisy (useKNN=0)',''};
 
 
       %% reader
@@ -2111,30 +2309,44 @@ classdef Tracker < handle;
       doc.classifier.nFramesAfterCrossing = {'When to check for permutations after crossings'};
       
       def.opts.classifier.nFramesForUniqueUpdate = 70;
-      doc.classifier.nFramesForUniqueUpdate = {'Unique frames needed for update all fish simultaneously',''};
+      doc.classifier.nFramesForUniqueUpdate = {'Unique frames needed for update all fish simultaneously'};
       
+      def.opts.classifier.crossCostThres = 3; 
+      doc.classifier.crossCostThres = {'candidates for crossings: scales mean assignment cost',''};
 
 
       %% tracks
-      def.opts(1).tracks.costtau = 500;
+      def.opts(1).tracks.costtau = 250;% 500
       doc.tracks.costtau = {'Time constant for computing the mean cost [nFrames]'};
 
-      def.opts.tracks.crossBoxLengthScale = 0.75; %0.5 
+      def.opts.tracks.crossBoxLengthScale = 0.75; 
       doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded as a crossing'};
       
       def.opts.tracks.adjustCostDuringCrossing = true; 
-      doc.tracks.adjustCostDuringCrossing = {'Whether to scale non-assignment cost during crossings',''};
+      doc.tracks.adjustCostDuringCrossing = {'Whether to scale non-assignment cost during crossings'};
 
       def.opts.tracks.keepFullTrackStruc = false;
-      doc.tracks.keepFullTrackStruc = {'Whether to keep full track' ' structure. ONLY FOR DEBUG!'};
+      doc.tracks.keepFullTrackStruc = {'Whether to keep full track structure. ONLY FOR DEBUG!'};
       
-      def.opts.tracks.costOfNonAssignment = 1;
+      def.opts.tracks.costOfNonAssignment = 3;
       doc.tracks.costOfNonAssignment =  {'Scales the threshold for','cost of non assignment'};
 
+      def.opts.tracks.invisibleCostScale = 1; 
+      doc.tracks.invisibleCostScale = {'Factor for nonAssignmentCost per frame with','invisible count'};
+
+
+      def.opts.tracks.crossingCostScale =  0.8 ;
+      doc.tracks.crossingCostScale = {'Scaling of non-assignment cost during crossings'};
+
+      def.opts.tracks.useDagResults = 1;
+      doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
+      
+
+      
       %% dag
       def.opts.dag.probScale = 0.5;
       doc.dag.probScale = {'DAGraph probScale. 1 means 50/50 weighting of ', ...
-                          'classprob with distance if points a ', 'fishLength apart'};
+                          'classprob with distance if points a fishLength apart',''};
       
       %% display opts
       def.opts.displayif = 3;
@@ -2162,7 +2374,7 @@ classdef Tracker < handle;
       doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
 
       def.opts.display.calibration = true;
-      doc.display.calibration = {'Stimulus calibration results'};
+      doc.display.calibration = {'Stimulus calibration results',''};
       
       % stimulus
       def.opts.stimulus.presenter = [];
@@ -2181,13 +2393,20 @@ classdef Tracker < handle;
       VERBOSELEVEL = 0;
       ALLFIELDNAMES = 1;
       
-
+      MFILENAME = 'fish.Tracker';
       fish.helper.parseInputs;
-      self = self@handle();  
-      if HELP;return;end
+      if HELP;self.videoHandler = [];return;end
 
       
       %%options not really important
+      opts.detector.fixedSize = 0;  
+      doc.detector.fixedSize = {'Set 1 for saving the fixedSize image'};
+
+      opts.maxVelocity = [];
+      doc.maxVelocity = {'Maximal fish velocity in px/sec (estimated if empty)'};
+      
+      opts.useScaledFormat = false;
+      doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)'};
 
       opts.detector.nskip = 5; 
       doc.detector.nskip = 'Skip frames for background (useKNN=0)';
@@ -2227,14 +2446,9 @@ classdef Tracker < handle;
       opts.tracks.tauVelocity = 5; 
       doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [nFrames]'};
 
-      opts.tracks.invisibleCostScale = 0.5; %1
-      doc.tracks.invisibleCostScale = {'Factor for nonAssignment',' cost per frame with','invisible count'};
 
       opts.tracks.kalmanFilterPredcition = false; 
       doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter ' '(DEPRECIATED)'};
-
-      opts.tracks.crossingCostScale = 0.8; 
-      doc.tracks.crossingCostScale = {'Scaling of non-assignment' ' cost during crossings'};
 
       opts.tracks.crossBoxLengthScalePreInit = max(opts.tracks.crossBoxLengthScale*0.75,0.5); 
       doc.tracks.crossBoxLengthScalePreInit = {'Before classifier init ' '(reduced somewhat)'};
@@ -2245,8 +2459,6 @@ classdef Tracker < handle;
       opts.classifier.clpMovAvgTau = min(opts.classifier.nFramesAfterCrossing,8); 
       doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
 
-      opts.classifier.crossCostThres = 3;  
-      doc.classifier.crossCostThres = {'candidates for crossings: scales ' ['mean assignment ' 'cost']};
 
       opts.classifier.nFramesForSingleUpdate = 4*opts.classifier.nFramesForUniqueUpdate; 
       doc.classifier.nFramesForSingleUpdate = {'single fish update. Should be ' ...
@@ -2314,8 +2526,6 @@ classdef Tracker < handle;
       end
       
       % construct object
-
-
       self.opts = opts;
       self.setProps();
       self.setupSystemObjects(vid); % will call setOpts
@@ -2325,7 +2535,7 @@ classdef Tracker < handle;
     
     function disp(self)
       if isempty(self.videoHandler)
-        fprintf('Empty FishTracker Object\n\n');
+        fprintf('Empty fish.Tracker Object\n\n');
       else
         disp@handle(self);
       end
@@ -2513,6 +2723,7 @@ classdef Tracker < handle;
       end
 
     end
+    
     
     %% 
     function st = getSavedTracksFull(self)

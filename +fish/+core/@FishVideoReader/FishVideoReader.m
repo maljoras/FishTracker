@@ -278,7 +278,11 @@ classdef FishVideoReader < handle;
     
     function set.timeRange(self,trange)
       if isempty(trange) || diff(trange)<=0
-        self.timeRange= [0,self.duration];
+        if isempty(self.tframe)
+          self.timeRange= [0,self.duration];
+        else
+          self.timeRange= [self.tframe(1),self.tframe(end)];
+        end
       else
         assert(length(trange)==2);
         if self.duration

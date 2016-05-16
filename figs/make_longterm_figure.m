@@ -2,9 +2,11 @@ LOAD = 0;
 PLOT = 1;
 SAVEIF = 1;
 if LOAD
-  load ~/data/zebra/videos/longterm/Blongterm11.mat
-  reader = fish.core.FishVideoReader(ft.videoFile);
   
+  %load ~/data/zebra/videos/longterm/Blongterm11_draft.mat
+  %reader = fish.core.FishVideoReader(ft.videoFile);
+
+  ft = fish.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nfish',3);
 end
 
 
@@ -30,7 +32,7 @@ if PLOT
   axis xy;
   hold on;
   bbox = double(squeeze(ft.res.tracks.bbox(iframe,:,:)));
-  cols = [rgb('red');rgb('blue');rgb('green')];
+  cols = [rgb('red');rgb('green');rgb('blue')];
 
   for i = 1:size(bbox,1);
     rectangle('position',bbox(i,:),'edgecolor',cols(i,:),'linewidth',0.5);

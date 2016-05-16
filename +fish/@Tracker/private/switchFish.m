@@ -54,7 +54,10 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     
   if ~errorflag && (crossingflag  || length(trackIndices)>2|| (self.currentFrame-tstart > minDagFrames))
     % use dag pos
-    fish.helper.verbose('Use DAG based switching');
+    if self.verbosity>1
+      fish.helper.verbose('Use DAG based switching');
+    end
+    
     t = tstart:self.currentFrame;   
     self.fishId2TrackId(t,assignedFishIds) = dagf2t;
     self.pos(:,assignedFishIds,t) = dagpos;
@@ -69,7 +72,10 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
   else
   
     %% switch the tracks for each connected component  
-    fish.helper.verbose('Use conventional switching');
+    if self.verbosity>1
+      fish.helper.verbose('Use conventional switching');
+    end
+    
     [nc ncidx]= self.connectedComponents(trackIndices,assignedFishIds);
     for i_ncidx = 1:length(ncidx)  % actually do not need to check again.
       idx = ncidx{i_ncidx};
@@ -262,17 +268,24 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     if length(u)>length(assignedFishIds)
       extra = setdiff(u,assignedFishIds);
       if sum(Nfish(extra))/sum(Nfish)/length(assignedFishIds) > 0.1
-        fish.helper.verbose('WARNING: More tracks involved in crossing !')
+        if self.verbosity>2
+          fish.helper.verbose('WARNING: More tracks involved in crossing !')
+        end
+        
         flag=0; % ignore
       end
     end
     
     if min(Nfish(assignedFishIds))<stepsback/2
-      fish.helper.verbose('WARNING: Tracks seems to have heavy overlap in DAG !');
+      if self.verbosity>2
+        fish.helper.verbose('WARNING: Tracks seems to have heavy overlap in DAG !');
+      end
       flag = 2;
     end
     if ~all(self.fishId2TrackId(tcurrent-stepsback+1,assignedFishIds)==dagf2t(1,:))
-      fish.helper.verbose('WARNING: DAG initial ordering is different!');
+      if self.verbosity>2
+        fish.helper.verbose('WARNING: DAG initial ordering is different!');
+      end
       flag = 3;
     end
 
@@ -355,9 +368,10 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     else
       tminOut = lastidx + tsearchstart1 + t1 - 1; %
     end
-
-    fish.helper.verbose('N[P] = %d',tminOut-tcurrent);
-
+    if self.verbosity>2
+      fish.helper.verbose('N[P] = %d',tminOut-tcurrent);
+    end
+    
   end % nested function
     
     
@@ -384,8 +398,10 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
       %localpos(cat(3,msk,msk)~=0 | cat(3,msk1(1:end-1,:),msk1(1:end-1,:) )) = NaN; 
       %finalpos = cat(1,localpos(1:tswitch31-1,:,:),localpos(tswitch31:end,change,:));
       tminOut = tswitch1 +tstart -1;
+      if self.verbosity>2
+        fish.helper.verbose('N[L] = %d',tminOut-tcurrent);
+      end
       
-      fish.helper.verbose('N[L] = %d',tminOut-tcurrent);
     else 
       tminOut = [];
     end
@@ -449,8 +465,9 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     [~,tminsub] = min(mdist);
     tminOut = tstart + tminsub-1;
     
-    
-    fish.helper.verbose('N[D] = %d',tminOut-tcurrent);
+    if self.verbosity>2
+      fish.helper.verbose('N[D] = %d',tminOut-tcurrent);
+    end
     
   end % nested function
     

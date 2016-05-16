@@ -117,7 +117,8 @@ for i = 1:length(WW)
   if strcmp(WW{i},'ALLFIELDNAMES'), continue; end;
   if strcmp(WW{i},'STRICT'), continue; end; 
   if strcmp(WW{i},'HELP'), continue; end; 
-  
+  if strcmp(WW{i},'self'), continue; end;   
+
   INPUTS.(WW{i}) = eval(WW{i});
 
   if isempty(eval(WW{i})) && isfield(def,WW{i}) && ~isobject(eval(WW{i}))

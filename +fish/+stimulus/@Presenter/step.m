@@ -20,7 +20,6 @@ function tracks = step(self,tracks,framesize,t)
     y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
   end
 
-
   if self.usePredFishId
     fishIds = [tracks.predFishId];
   else

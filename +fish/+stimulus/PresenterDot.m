@@ -98,6 +98,7 @@ classdef PresenterDot < fish.stimulus.Presenter;
      oldstmIdx = self.stmIdx;
      lastRound = self.iround;
 
+    
      if isempty(self.stimulatedMsk)
        self.stimulatedMsk = zeros(length(fishIds),1);
      end
@@ -116,7 +117,7 @@ classdef PresenterDot < fish.stimulus.Presenter;
          % stimulus time
          if self.iround~=lastRound
            % new stim round
-           self.stimulatedMsk = (rand(size(fishIds)) < self.funStmFishIdProb(fishIds));
+           self.stimulatedMsk = rand(length(fishIds),1) < self.funStmFishIdProb(fishIds(:)));
          end
          self.stmIdx = self.ID_STIMULATION;
        

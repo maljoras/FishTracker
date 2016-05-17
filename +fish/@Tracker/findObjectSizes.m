@@ -14,8 +14,9 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   for i = 1:n
 
     [segm] = self.videoHandler.step();
-    fprintf('%1.1f%%\r',i/n*100); % some output
+    fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
 
+    
     if isempty(segm)
       continue;
     end

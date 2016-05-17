@@ -200,14 +200,15 @@ classdef Tracker < handle;
       idres.pos = permute(id.trajectories,[1,3,2]);
 
       % run benchmark
+      fish.helper.verbose('Starting run test.');
       ft = fish.Tracker(pathToVideo,args{:});
       ft.setDisplay(0);
       ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
 
       tic;
       ft.track(trange);
-      t_elapsed = toc;
-      
+      toc
+
       
       nfish = ft.nfish;
       ftres = ft.getTrackingResults();
@@ -555,10 +556,9 @@ classdef Tracker < handle;
         error('Track deletion & handling tracks with DAG is currently not supported.')
       end
       
-      if ~self.verbosity
-        global VERBOSELEVEL;
-        VERBOSELEVEL = 0;
-      end
+      global VERBOSELEVEL;
+      VERBOSELEVEL = self.verbosity;
+      
       
       self.videoHandler.timeRange = self.timerange;                       
       self.timerange = self.videoHandler.timeRange; % to get the boundaries right;
@@ -2396,6 +2396,9 @@ classdef Tracker < handle;
       MFILENAME = 'fish.Tracker';
       fish.helper.parseInputs;
       if HELP;self.videoHandler = [];return;end
+
+      global VERBOSELEVEL;
+      VERBOSELEVEL = self.verbosity;
 
       
       %%options not really important

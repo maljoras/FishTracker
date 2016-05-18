@@ -145,7 +145,7 @@ classdef Tracker < handle;
     
     %% test
     
-    function [success,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
+    function [success,t_elapsed,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
     %SUCCESS = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT) makes a validation versus
     %the idTracker [1] with the video provided by idTracker. OPTS is a struct
     %with fields given to initialize fish.Tracker. PATHTOMAT is the trajectory
@@ -170,7 +170,7 @@ classdef Tracker < handle;
         args{1} = opts;
       end
 
-      if nargin<3
+      if nargin<3 || isempty(pathToVideo)
         if isunix()
           pathToVideo = '~/Videos/5Zebrafish_nocover_22min.avi';   
         end
@@ -185,7 +185,7 @@ classdef Tracker < handle;
         end
       end
       
-      if nargin<4
+      if nargin<4 || isempty(pathToMat)
         pathToMat = [fish.helper.getFTRoot() 'data/trajectories.mat']; 
       end
 
@@ -207,7 +207,7 @@ classdef Tracker < handle;
 
       tic;
       ft.track(trange);
-      toc
+      t_elapsed=toc;
 
       
       nfish = ft.nfish;
@@ -330,11 +330,13 @@ classdef Tracker < handle;
         xlabel('Time [sec]','fontsize',10);
         b = fish.helper.labelsubplot(gcf);
         fish.helper.shiftaxes(b,[0.02])
-        
+        drawnow;
       end
 
       if nargout>1
-        warning('RunTest failed due to high inaccuracies in the tracking.');
+        if ~success
+          warning('RunTest failed due to high inaccuracies in the tracking.');
+        end
       else
         assert(success,'RunTest failed due to high inaccuracies in the tracking.');
       end
@@ -2411,7 +2413,7 @@ classdef Tracker < handle;
       opts.useScaledFormat = false;
       doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)'};
 
-      opts.detector.nskip = 5; 
+      opts.detector.nskip = 10; 
       doc.detector.nskip = 'Skip frames for background (useKNN=0)';
 
 

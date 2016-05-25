@@ -217,6 +217,7 @@ classdef Tracker < handle;
       dist = zeros(nfish);
       offs = size(idres.pos,1) - size(ftres.pos,1);
       
+      
       for i = 1:nfish
         for j = 1:nfish
           dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
@@ -2271,7 +2272,7 @@ classdef Tracker < handle;
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
       
-      def.opts.detector.adjustThresScale = 0.92;   
+      def.opts.detector.adjustThresScale = 0.9;   
       doc.detector.adjustThresScale = {'0..1 : reduce when detections too noisy (useKNN=0)',''};
 
 
@@ -2292,28 +2293,32 @@ classdef Tracker < handle;
       def.opts.classifier.npca = 40; 
       doc.classifier.npca = 'Number of PCA components';
 
-      def.opts.classifier.nlfd = 10; 
+      def.opts.classifier.nlfd = 8; 
       doc.classifier.nlfd = {'Number of LFD components. Set to 0 to turn off.'};
 
       def.opts.classifier.tau = 5000; 
       doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
-      def.opts.classifier.reassignProbThres = 0.4; %0.45
+      def.opts.classifier.reassignProbThres = 0.15; %0.45
       doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
       
-      def.opts.classifier.handledProbThres = 0.3; %0.45
+      def.opts.classifier.handledProbThres = 0.25; %0.45
       doc.classifier.handledProbThres = {'minimal diff probability for crossing exits'};
 
       def.opts.classifier.nFramesForInit = 200; 
       doc.classifier.nFramesForInit = {'Number of unique frames for initialize the classifier'};
 
-      def.opts.classifier.nFramesAfterCrossing =  8; % 8
+      def.opts.classifier.nFramesAfterCrossing =  12; % 8
       doc.classifier.nFramesAfterCrossing = {'When to check for permutations after crossings'};
       
       def.opts.classifier.nFramesForUniqueUpdate = 70;
       doc.classifier.nFramesForUniqueUpdate = {'Unique frames needed for update all fish simultaneously'};
-      
-      def.opts.classifier.crossCostThres = 3; 
+
+      %def.opts.classifier.clpMovAvgTau = min(opts.classifier.nFramesAfterCrossing,8); 
+      def.opts.classifier.clpMovAvgTau = 8; 
+      doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
+
+      def.opts.classifier.crossCostThres = 5; 
       doc.classifier.crossCostThres = {'candidates for crossings: scales mean assignment cost',''};
 
 
@@ -2333,12 +2338,15 @@ classdef Tracker < handle;
       def.opts.tracks.costOfNonAssignment = 3;
       doc.tracks.costOfNonAssignment =  {'Scales the threshold for','cost of non assignment'};
 
-      def.opts.tracks.invisibleCostScale = 1; 
+      def.opts.tracks.invisibleCostScale = 8;%1 
       doc.tracks.invisibleCostScale = {'Factor for nonAssignmentCost per frame with','invisible count'};
 
 
       def.opts.tracks.crossingCostScale =  0.8 ;
       doc.tracks.crossingCostScale = {'Scaling of non-assignment cost during crossings'};
+
+      def.opts.tracks.probThresForFish = 0.1; 
+      doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
 
       def.opts.tracks.useDagResults = 1;
       doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
@@ -2461,8 +2469,6 @@ classdef Tracker < handle;
       opts.classifier.minBatchN = max(ceil(opts.classifier.nFramesAfterCrossing*0.75),4);  
       doc.classifier.minBatchN = 'minimum sample size for batch update'; 
 
-      opts.classifier.clpMovAvgTau = min(opts.classifier.nFramesAfterCrossing,8); 
-      doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
 
 
       opts.classifier.nFramesForSingleUpdate = 4*opts.classifier.nFramesForUniqueUpdate; 
@@ -2475,8 +2481,6 @@ classdef Tracker < handle;
       opts.classifier.discardPotentialReversed = true;
       doc.classifier.discardPotentialReversed = {'Discard potential reversed during','classification (better ?)'};
       
-      opts.tracks.probThresForFish = 0.1; 
-      doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
       
 
 

@@ -51,19 +51,20 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
 
   %% get the dag pos for the whole crossing
   [dagpos,dagf2t,errorflag]= subGetDagBasedPos();
-    
+  errorflag = errorflag | (length(assignedFishIds)~=size(dagf2t,2));  % could this happen?
+  
   if ~errorflag && (crossingflag  || length(trackIndices)>2|| (self.currentFrame-tstart > minDagFrames))
     % use dag pos
     if self.verbosity>1
       fish.helper.verbose('Use DAG based switching');
     end
     
-    t = tstart:self.currentFrame;   
+    t = self.currentFrame-size(dagf2t,1)+1:self.currentFrame;   
     self.fishId2TrackId(t,assignedFishIds) = dagf2t;
     self.pos(:,assignedFishIds,t) = dagpos;
     
 
-    steps = tstart-self.currentFrame;
+    steps = -length(t)+1;
     for j = 1:length(trackIndices)
       self.tracks(trackIndices(j)).fishId = assignedFishIds(j);
       self.tracks(trackIndices(j)).switchedFrames = steps;

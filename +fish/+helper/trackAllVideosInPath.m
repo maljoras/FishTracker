@@ -10,9 +10,9 @@ function trackAllVideosInPath(path,varargin)
   def.opts.extension = 'avi';
   def.opts.nameadd = 'a_';
   def.opts.args = {'displayif',0}; % for FishTracker
-  def.opts.parallelif = 0;
+  def.opts.parallelif = 1;
   
-  parseInputs;
+  fish.helper.parseInputs;
   if HELP; return;end
   
   

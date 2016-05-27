@@ -10,7 +10,7 @@ function [d,ddag] = parameterfun(opts1,parname,parvalue,tmax,dfname);
   opts = opts1;
 
   opts = fish.helper.setfield(opts,parname,parvalue);
-  verbose('Start parameter variation: %s = %f',parname,parvalue);
+  fish.helper.verbose('Start parameter variation: %s = %f',parname,parvalue);
 
   ft = [];
   [~,t_elapsed,ftposdag,idpos, ft] = fish.Tracker.runTest(tmax,opts,[],[],0);

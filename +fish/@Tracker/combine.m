@@ -41,7 +41,7 @@ function combinedObj = combine(self,varargin)
 
     if obj.timerange(1)> combinedObj.timerange(2)
       % no overlap
-      warning('no overlap. Fish IDs might get mixed up!!');
+      fish.helper.verbose('WARNING: no overlap. Fish IDs might get mixed up!!');
       keyboard
       % just append
       combinedRes.tracks = cat(1,combinedRes.tracks,res.tracks);

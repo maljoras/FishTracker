@@ -38,7 +38,7 @@ function setDisplay(self,varargin)
   end
 
   if ~self.displayif && nargin>2
-    warning('Displaying is turned off. Turn on with ft.setDisplay(1)')
+    fish.helper.verbose('WARNING: Displaying is turned off. Turn on with ft.setDisplay(1)')
   end
 
 end

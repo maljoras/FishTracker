@@ -255,7 +255,7 @@ function texture = makeTexture(typestr,dim,varargin)
     w = opts.carrierwidth/mean(opts.visspace);
 
     if w>1/carrierfreq
-      warning('carrierwidth is specified too large')
+      fish.helper.verbose('WARNING: carrierwidth is specified too large')
     end
     
     x1 = cos(pi*carrierfreq*w);

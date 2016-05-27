@@ -61,6 +61,7 @@ if COMPUTE
   for i = 1:length(pars)
     for j = 1:length(pararr{i})
       s= s+1;
+      
       fn = sprintf('%sdiary.%d.log',basepath,s);
       f(s) = parfeval(@parameterfun,2,opts,pars{i},pararr{i}(j),tmax,fn);
       translate{s} = [i,j];
@@ -68,7 +69,7 @@ if COMPUTE
   end
   fish.helper.verbose('Submitted %d tasks.',s);
   res = [];
-
+  
   for k = 1:length(f)
 
     [completedIdx, d, ddag] = fetchNext(f);

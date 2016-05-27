@@ -57,7 +57,7 @@ classdef FishBatchClassifier < handle;
       
       if ~iscell(batchsample) || length(batchsample)~=self.nfish || ...
             all(cellfun('isempty',batchsample))
-        warning('provide a batch for each fish!');
+        fish.helper.verbose('WARNING: provide a batch for each fish!');
         keyboard
         return
       end
@@ -67,7 +67,7 @@ classdef FishBatchClassifier < handle;
       elseif 3*prod(self.featdim)==size(batchsample{1},2)
         self.featdim = [self.featdim ,3];        
       else
-        warning('Set feature dimensions correctly, otherwise plotting will be impiared');
+        fish.helper.verbose('WARNING: Set feature dimensions correctly, otherwise plotting will be impiared');
         self.featdim = [size(batchsample{1},2),1];        
       end
       
@@ -263,7 +263,7 @@ classdef FishBatchClassifier < handle;
 
       validclasses = l(:)>=minBatchN;
       if ~any(validclasses) || isempty(fishidx)
-        warning('no valid classes')
+        fish.helper.verbose('WARNING: no valid classes')
         return
       end
       
@@ -275,7 +275,7 @@ classdef FishBatchClassifier < handle;
         [assignedFishIdx(validclasses) prob(validclasses)] = self.predictPermutedAssignments(X,fishidx(validclasses),0);
         
         if any(assignedFishIdx(validclasses)~=fishidx(validclasses))
-          warning('mixed up classes.')
+          fish.helper.verbose('WARNING: mixed up classes.')
           %return !?!?!?
         end
       end

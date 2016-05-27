@@ -336,7 +336,7 @@ classdef Tracker < handle;
 
       if nargout>1
         if ~success
-          warning('RunTest failed due to high inaccuracies in the tracking.');
+          fish.helper.verbose('WARNING: RunTest failed due to high inaccuracies in the tracking.');
         end
       else
         assert(success,'RunTest failed due to high inaccuracies in the tracking.');
@@ -520,7 +520,7 @@ classdef Tracker < handle;
 
         
         if (nfish>25 || ~nfish) && isempty(self.nfish)% too many... something wrong
-          warning('The fish size and number cannot be determined')
+          fish.helper.verbose('WARNING: The fish size and number cannot be determined')
           if self.displayif && self.opts.display.fishSearchResults
             self.nfish = fish.helper.chooseNFish(vid,1); % only if interactively
             fishSize = [100,20]; % wild guess;
@@ -585,7 +585,7 @@ classdef Tracker < handle;
         self.videoWriter = self.newVideoWriter(self.writefile);
       else
         if ~isempty(self.writefile)
-          warning('display tracks for writing a video file!');
+          fish.helper.verbose('WARNING: display tracks for writing a video file!');
         end
         self.videoWriter = [];
       end
@@ -611,7 +611,7 @@ classdef Tracker < handle;
       
 
       if self.opts.tracks.keepFullTrackStruc
-        warning('Will keep full tracks-structure. This will cost huge amount of memory!');
+        fish.helper.verbose('WARNING: Will keep full tracks-structure. This will cost huge amount of memory!');
       end
 
       self.tracks = self.initializeTracks(); % Create an empty array of tracks.
@@ -2105,7 +2105,7 @@ classdef Tracker < handle;
       
       
       if self.opts.tracks.withTrackDeletion
-        warning('DO NOT CONVERT SAVEDTRACKS')
+        fish.helper.verbose('WARNING: DO NOT CONVERT SAVEDTRACKS')
         return
       end
       
@@ -2266,13 +2266,13 @@ classdef Tracker < handle;
                         'very verbose'],''};
 
       %% detector options
-      def.opts.detector(1).history = 250;  %250 [nframes]
+      def.opts.detector(1).history = 1000;  %250 [nframes]
       doc.detector(1).history = 'Background update time [nFrames]';
       
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
       
-      def.opts.detector.adjustThresScale = 0.9;   
+      def.opts.detector.adjustThresScale = 0.95;   
       doc.detector.adjustThresScale = {'0..1 : reduce when detections too noisy (useKNN=0)',''};
 
 
@@ -2299,10 +2299,10 @@ classdef Tracker < handle;
       def.opts.classifier.tau = 5000; 
       doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
-      def.opts.classifier.reassignProbThres = 0.15; %0.45
+      def.opts.classifier.reassignProbThres = 0.4; %0.45
       doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
       
-      def.opts.classifier.handledProbThres = 0.25; %0.45
+      def.opts.classifier.handledProbThres = 0.3; %0.45
       doc.classifier.handledProbThres = {'minimal diff probability for crossing exits'};
 
       def.opts.classifier.nFramesForInit = 200; 
@@ -2315,10 +2315,10 @@ classdef Tracker < handle;
       doc.classifier.nFramesForUniqueUpdate = {'Unique frames needed for update all fish simultaneously'};
 
       %def.opts.classifier.clpMovAvgTau = min(opts.classifier.nFramesAfterCrossing,8); 
-      def.opts.classifier.clpMovAvgTau = 8; 
+      def.opts.classifier.clpMovAvgTau = 5; 
       doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
 
-      def.opts.classifier.crossCostThres = 5; 
+      def.opts.classifier.crossCostThres = 3; 
       doc.classifier.crossCostThres = {'candidates for crossings: scales mean assignment cost',''};
 
 
@@ -2338,7 +2338,7 @@ classdef Tracker < handle;
       def.opts.tracks.costOfNonAssignment = 3;
       doc.tracks.costOfNonAssignment =  {'Scales the threshold for','cost of non assignment'};
 
-      def.opts.tracks.invisibleCostScale = 8;%1 
+      def.opts.tracks.invisibleCostScale = 1;%1 
       doc.tracks.invisibleCostScale = {'Factor for nonAssignmentCost per frame with','invisible count'};
 
 

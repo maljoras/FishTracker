@@ -10,7 +10,7 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
   end
 
   if isempty(self.res)
-    warning('No results available. First track()...');
+    fish.helper.verbose('WARNING: No results available. First track()...');
     return;
   end
 

@@ -77,7 +77,7 @@ classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fis
       end
       
       if ~setif
-        warning('Nothing set in VideoHandler');
+        fish.helper.verbose('WARNING: Nothing set in VideoHandler');
       end
 
       self.frameFormat = [self.grayFormat,self.detector.expectedFrameFormat];

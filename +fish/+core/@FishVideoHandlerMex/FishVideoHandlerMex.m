@@ -393,7 +393,7 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
 
 
       if self.useScaled
-        warning('Set permanently to non-scaled format')
+        fish.helper.verbose('WARNING: Set permanently to non-scaled format')
         self.setToRGBFormat();
       end  
       [~,~,frame] = self.step();
@@ -429,7 +429,7 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
     function  [frame,oframe] = a_readScaledUFrame(self);      
 
       if ~self.useScaled
-        warning('Set permanently to scaled format')
+        fish.helper.verbose('WARNING: Set permanently to scaled format')
         self.setToScaledFormat();
       end
       

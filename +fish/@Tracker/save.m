@@ -7,9 +7,13 @@ function  save(self,savename,savepath,vname)
     [~,savename] = fileparts(defname);
   end
   if ~exist('savepath','var') || isempty(savepath)
-    [savepath] = fileparts(defname);
+    savepath = fileparts(savename);
+    if isempty(savepath)
+      [savepath] = fileparts(defname);
+    end
   end
-
+  [~,savename] = fileparts(savename);
+  
   if ~exist('vname','var') || isempty(vname)
     vname = 'ft';
   end

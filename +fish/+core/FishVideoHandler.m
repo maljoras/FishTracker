@@ -107,7 +107,7 @@ classdef FishVideoHandler < handle & fish.core.FishVideoReader & fish.core.FishB
       end
       
       if ~setif
-        warning('Nothing set in VideoHandler');
+        fish.helper.verbose('WARNING: Nothing set in VideoHandler');
       end
 
       self.frameFormat = [self.grayFormat,self.detector.expectedFrameFormat];

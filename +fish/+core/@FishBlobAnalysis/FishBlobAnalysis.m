@@ -574,7 +574,7 @@ classdef FishBlobAnalysis < handle;
         
         % maybe use BB to check whether fixed width is good choice
         if  fixedheight/2 < bb(4)/2
-          %warning('Fishheight probably too small')
+          %fish.helper.verbose('WARNING: Fishheight probably too small')
         end
         
         startidx = max(find(any(msk,2),1,'first')-2,1);

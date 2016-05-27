@@ -134,7 +134,6 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
 
     
     if crossingflag 
-      
       % delete some of the critical points
       tcross = tstart:tend;
       p = self.pos(:,assignedFishIds,tcross);

@@ -8,37 +8,25 @@ classdef Tracker < handle;
 
   properties (SetAccess = private)
 
-    maxVelocity = [];
-    displayif = 3;
-    
+
+    videoFile = '';
+    writefile = '';
+    currentFrame = 0;
+
+    nfish = [];
+    fishlength = [];
+    fishwidth = [];
+
+    maxVelocity = [];        
+
     stmif = 0;
-    
     useMex = 1;
     useOpenCV = 1;
     useScaledFormat = 0;
     useKNN = 0;
     
     verbosity = 1;
-    
-    costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area'}; % bounding box ? ()
-    scalecost = [10,5,3,2,1,1];
-
-    saveFields = {};
-
-    nfish = [];
-    fishlength = [];
-    fishwidth = [];
-
-    videoFile = '';
-
-    currentFrame = 0;
-    currentCrossBoxLengthScale = 1; 
-
-
-    meanAssignmentCost =1;
-    maxAssignmentCost =1;
-    tracks = [];
-    res = [];
+    displayif = 3;    
 
     
     videoHandler = [];
@@ -48,7 +36,9 @@ classdef Tracker < handle;
     
     fishClassifier = [];
     daGraph = [];
-    writefile = '';
+    tracks = [];
+    res = [];
+
   end
   
   properties (SetAccess = private, GetAccess=private);
@@ -57,6 +47,10 @@ classdef Tracker < handle;
     saveFieldsIn = struct([]);
     saveFieldsOut = struct([]);
 
+    costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area','BoundingBox'}; % bounding box ? ()
+    scalecost = [];
+
+    saveFields = {};
     
     nextId = 1; % ID of the next track
     isInitClassifier = [];
@@ -88,8 +82,12 @@ classdef Tracker < handle;
     savedTracks = [];
     savedTracksFull = [];
 
+    currentCrossBoxLengthScale = 1; 
+    
     nFramesExtendMemory = 250;
-    locationCostID = [];
+    meanAssignmentCost =1;
+    maxAssignmentCost =1;
+
   end
 
   
@@ -146,14 +144,16 @@ classdef Tracker < handle;
     %% test
     
     function [success,t_elapsed,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
-    %SUCCESS = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT) makes a validation versus
+    %[SUCCESS,T_ELAPSED] = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT) makes a validation versus
     %the idTracker [1] with the video provided by idTracker. OPTS is a struct
     %with fields given to initialize fish.Tracker. PATHTOMAT is the trajectory
     %file from idTracker tracking the same video. PATHTOVIDEO is the video file
     %from idTracker (5 Zebrafish). TMAX sets the trange of the tracking
-    %comparison (in seconds). Set TMAX to [] to test the whole 7.4min video.
+    %comparison (in seconds). Set TMAX to [] to test the whole
+    %7.4min video. T_ELAPSED is the required tracking time in
+    %seconds. 
     %
-    % [FTPOS,IDPOS] = RUNTEST returns additionally the position results.
+    % [..,FTPOS,IDPOS] = RUNTEST returns additionally the position results.
     % [..,FT] = RUNTEST returns additionally the fish.Tracker object.
     %  
     % [1] Perez-Escudero et al Nature Methods 2014
@@ -234,7 +234,7 @@ classdef Tracker < handle;
       
       success = mean(nanmax(d,[],3)>1)<0.05;
 
-      varargout{1} = ftposnan;
+      varargout{1} = ftpos;
       varargout{2} = idpos;
       varargout{3} = ft;
       
@@ -360,7 +360,7 @@ classdef Tracker < handle;
       end
       
       for f = fieldnames(self.opts)'
-        if ~any(strcmp(f{1},{'tracks','classifier','blob','detector','reader','stimulus'}))  && isprop(self,f{1})
+        if ~any(strcmp(f{1},{'cost','tracks','classifier','blob','detector','reader','stimulus'}))  && isprop(self,f{1})
           self.(f{1}) = opts.(f{1});
         end
       end
@@ -490,7 +490,7 @@ classdef Tracker < handle;
     % objects in each frame, and playing the video.
 
       
-    %% Create a video file reader.
+      %% Create a video file reader.
       self.videoHandler = [];
       [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange);
       self.videoFile = vid;
@@ -514,46 +514,15 @@ classdef Tracker < handle;
       end
       
       
-      %% look for objects 
-      if isempty(self.nfish) || isempty(self.fishlength) || isempty(self.fishwidth) || self.useScaledFormat  
-        [nfish,fishSize] = self.findObjectSizes();
-
-        
-        if (nfish>25 || ~nfish) && isempty(self.nfish)% too many... something wrong
-          fish.helper.verbose('WARNING: The fish size and number cannot be determined')
-          if self.displayif && self.opts.display.fishSearchResults
-            self.nfish = fish.helper.chooseNFish(vid,1); % only if interactively
-            fishSize = [100,20]; % wild guess;
-            close(gcf);
-          else
-            error('Please manual provide fishlength, fishwidth and nfish');
-          end
-        end
-      end  
-      
-      if isempty(self.opts.fishlength) % otherwise already set by hand
-        self.fishlength = fishSize(1);
-      end
-      if isempty(self.opts.fishwidth) 
-        self.fishwidth = fishSize(2); 
-      end
-      if isempty(self.opts.nfish) 
-        self.nfish = nfish;
-      end
-      assert(self.fishlength>self.fishwidth);
-
-      % overwrite the given optiond
-      self.fishlength = self.fishlength;
-
-      
-      % set all options
+      %% set all options
+      self.checkOpts();
       self.setOpts();
       
     end
 
     
     function initTracking(self)
-    % Inits the onjects to make it ready to start the tracking
+    % Inits the objects to make it ready to start the tracking
       
       if self.opts.tracks.withTrackDeletion
         error('Track deletion & handling tracks with DAG is currently not supported.')
@@ -633,19 +602,15 @@ classdef Tracker < handle;
       self.saveFieldsIn = struct([]);
       self.saveFieldsOut = struct([]);
       
-      self.locationCostID = find(strcmpi('location',self.costinfo));
-      if isempty(self.locationCostID)
-        warning(['Expect location as cost info for DAG computation. ' ...
-                 'Take ID 1 instead. UNEXPECTED RESULTS!']);
-        self.locationCostID = 1;
-      end;
-      
-      if length(self.scalecost)< length(self.costinfo)
-        fish.helper.verbose('Enlarging scalecost with 1s.')
-        scale = self.scalecost;
-        self.scalecost = ones(1,length(self.costinfo));
-        self.scalecost(1:length(scale)) =  scale;
+      self.costinfo = fieldnames(self.opts.cost)';
+      self.scalecost = zeros(1,length(self.costinfo));
+      for i =1:length(self.costinfo)
+        self.scalecost(i) = self.opts.cost.(self.costinfo{i});
       end
+      delidx = find(~self.scalecost);
+      self.costinfo(delidx) = [];
+      self.scalecost(delidx) = [];
+      assert(length(self.scalecost)>0);
       
       self.meanCost = ones(1,length(self.scalecost));
       
@@ -1450,7 +1415,7 @@ classdef Tracker < handle;
               %dst = bsxfun(@rdivide,dst,thresDist).^2;
 
               dst = (dst/thresDist);%.^2;
-      %  dst(dst>highCost) = highCost; % also ^2?
+              %  dst(dst>highCost) = highCost; % also ^2?
 
               fcost(:,:,k) = dst;
 
@@ -1458,23 +1423,14 @@ classdef Tracker < handle;
             case {'centerline'}
               if self.useMex
                 
-                %dst = zeros(nTracks,nDetections);
-                %dstrev = zeros(nTracks,nDetections);
-                %centerLineRev = self.centerLine(end:-1:1,:,:);
-                %for i = 1:nTracks
-                %  dst(i,:) = mean(sqrt(sum(bsxfun(@minus,self.centerLine,self.tracks(i).centerLine).^2,2)),1);
-                %  dstrev(i,:) = mean(sqrt(sum(bsxfun(@minus,centerLineRev,self.tracks(i).centerLine).^2,2)),1);
-                %end
-                %dst = min(dst,dstrev);
-
-                %% use the mex-file instead of the above
+                %% use the mex-file
                 dst = fish.helper.pdist2CenterLine(cat(3,self.tracks.centerLine),self.centerLine);
                 
                 nidx = any(isnan(dst),2);
                 %dst = bsxfun(@rdivide,dst,thresDist).^2; % better square?
 
                 dst = (dst/thresDist);%.^2; % better square?
-    %dst(dst>highCost) = highCost;
+               %dst(dst>highCost) = highCost;
                 
                 
                 % makes not sense to compare the distance to others if one is nan
@@ -2265,16 +2221,40 @@ classdef Tracker < handle;
       doc.verbosity = {['Sets verbosity level. 0:off, 1:moderate, >1: ' ...
                         'very verbose'],''};
 
+      %% cost options
+
+      % 0 turns off cost
+      def.opts.cost.Location = 10;
+      doc.cost.Location = {'Centroid comparison','Relative cost weighting. 0 turns cost type off.'};
+      
+      def.opts.cost.Overlap = 5;
+      doc.cost.Overlap = {'BBox overlap'};
+
+      def.opts.cost.CenterLine = 3;
+      doc.cost.CenterLine = {'CenterLine feature comparison'};
+
+      def.opts.cost.Classifier = 2;
+      doc.cost.Classifier = {'Classification prob comparison'};
+
+      def.opts.cost.Size = 1;
+      doc.cost.Size = {'Major/Minor axis comparison'};
+      
+      def.opts.cost.Area = 1;
+      doc.cost.Area = {'blob pixel area comparison'};
+
+      def.opts.cost.BoundingBox = 0; 
+      doc.cost.BoundingBox = {'[x,y,w,h] bbox comparison',''};
+      
       %% detector options
-      def.opts.detector(1).history = 1000;  %250 [nframes]
+      def.opts.detector(1).history = 500;  %250 [nframes]
       doc.detector(1).history = 'Background update time [nFrames]';
       
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
       
       def.opts.detector.adjustThresScale = 0.95;   
-      doc.detector.adjustThresScale = {'0..1 : reduce when detections too noisy (useKNN=0)',''};
-
+      doc.detector.adjustThresScale = {'0.8..1 : reduce when detections too noisy (useKNN=0)',''};
+      
 
       %% reader
       def.opts.reader(1).resizeif = false;
@@ -2293,22 +2273,23 @@ classdef Tracker < handle;
       def.opts.classifier.npca = 40; 
       doc.classifier.npca = 'Number of PCA components';
 
-      def.opts.classifier.nlfd = 8; 
-      doc.classifier.nlfd = {'Number of LFD components. Set to 0 to turn off.'};
+      def.opts.classifier.nlfd = -1; 
+      doc.classifier.nlfd = {'Number of LFD components. Set to 0 to turn off.',...
+                          '-1 for auto setting.'};
 
       def.opts.classifier.tau = 5000; 
       doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
-      def.opts.classifier.reassignProbThres = 0.4; %0.45
+      def.opts.classifier.reassignProbThres = 0.05; %0.45
       doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
       
-      def.opts.classifier.handledProbThres = 0.3; %0.45
+      def.opts.classifier.handledProbThres = 0.05; %0.45
       doc.classifier.handledProbThres = {'minimal diff probability for crossing exits'};
 
       def.opts.classifier.nFramesForInit = 200; 
       doc.classifier.nFramesForInit = {'Number of unique frames for initialize the classifier'};
 
-      def.opts.classifier.nFramesAfterCrossing =  12; % 8
+      def.opts.classifier.nFramesAfterCrossing =  5; 
       doc.classifier.nFramesAfterCrossing = {'When to check for permutations after crossings'};
       
       def.opts.classifier.nFramesForUniqueUpdate = 70;
@@ -2326,7 +2307,7 @@ classdef Tracker < handle;
       def.opts(1).tracks.costtau = 250;% 500
       doc.tracks.costtau = {'Time constant for computing the mean cost [nFrames]'};
 
-      def.opts.tracks.crossBoxLengthScale = 0.75; 
+      def.opts.tracks.crossBoxLengthScale = 1; 
       doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded as a crossing'};
       
       def.opts.tracks.adjustCostDuringCrossing = true; 
@@ -2335,14 +2316,14 @@ classdef Tracker < handle;
       def.opts.tracks.keepFullTrackStruc = false;
       doc.tracks.keepFullTrackStruc = {'Whether to keep full track structure. ONLY FOR DEBUG!'};
       
-      def.opts.tracks.costOfNonAssignment = 3;
+      def.opts.tracks.costOfNonAssignment = 4;
       doc.tracks.costOfNonAssignment =  {'Scales the threshold for','cost of non assignment'};
 
       def.opts.tracks.invisibleCostScale = 1;%1 
       doc.tracks.invisibleCostScale = {'Factor for nonAssignmentCost per frame with','invisible count'};
 
 
-      def.opts.tracks.crossingCostScale =  0.8 ;
+      def.opts.tracks.crossingCostScale =  1;
       doc.tracks.crossingCostScale = {'Scaling of non-assignment cost during crossings'};
 
       def.opts.tracks.probThresForFish = 0.1; 
@@ -2525,7 +2506,7 @@ classdef Tracker < handle;
       end
       
       if ~isempty(opts.nfish) && opts.nfish<0 && ~iscell(vid)
-        fish.helper.chooseNFish(vname,1);
+        opts.nfish = fish.helper.chooseNFish(vname,1);
       end
       
       if ~iscell(vid)

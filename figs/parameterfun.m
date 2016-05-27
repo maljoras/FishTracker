@@ -14,6 +14,8 @@ function [d,ddag] = parameterfun(opts1,parname,parvalue,tmax,dfname);
 
   ft = [];
   [~,t_elapsed,ftposdag,idpos, ft] = fish.Tracker.runTest(tmax,opts,[],[],0);
+
+  
   ddag = squeeze(sqrt(sum((ftposdag - idpos).^2,2)));
   r = ft.getTrackingResults(0,[],0);
   ftpos = r.pos;

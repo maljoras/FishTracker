@@ -450,21 +450,21 @@ classdef Tracker < handle;
       
       if isempty(self.writefile) 
 
-        if dopts.level==4
-          self.opts.display.displayEveryNFrame = 1;
-        end
-        
-        if dopts.level==3
-          self.opts.display.displayEveryNFrame = 20;
-        end
-        
-        if dopts.level==2
-          self.opts.display.displayEveryNFrame = 50;
-        end
-        
-        if dopts.level==1
-          self.opts.display.displayEveryNFrame = 100;
-        end
+% $$$         if dopts.level==4
+% $$$           self.opts.display.displayEveryNFrame = 1;
+% $$$         end
+% $$$         
+% $$$         if dopts.level==3
+% $$$           self.opts.display.displayEveryNFrame = 25;
+% $$$         end
+% $$$         
+% $$$         if dopts.level==2
+% $$$           self.opts.display.displayEveryNFrame = 25;
+% $$$         end
+% $$$         
+% $$$         if dopts.level==1
+% $$$           self.opts.display.displayEveryNFrame = 100;
+% $$$         end
       
       else
         self.opts.display.displayEveryNFrame = 1;
@@ -2226,6 +2226,8 @@ classdef Tracker < handle;
       def.opts.fishwidth = [];
       doc.fishwidth = {'Approx width of fish in pixel (estimated if empty)'};
 
+      def.opts.useScaledFormat = false;
+      doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)'};
       
       def.opts.stmif = false;
       doc.stmif = 'Use online visual stimulation';
@@ -2370,7 +2372,7 @@ classdef Tracker < handle;
       def.opts.displayif = 3;
       doc.displayif = {'Turn on/off all displaying'};
 
-      def.opts.display.displayEveryNFrame = 10;
+      def.opts.display.displayEveryNFrame = 20;
       doc.display.displayEveryNFrame = {'How often to update the track display window (SLOW)'};
 
       def.opts.display.tracks = true;
@@ -2426,8 +2428,6 @@ classdef Tracker < handle;
       opts.maxVelocity = [];
       doc.maxVelocity = {'Maximal fish velocity in px/sec (estimated if empty)'};
       
-      opts.useScaledFormat = false;
-      doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)'};
 
       opts.detector.nskip = 10; 
       doc.detector.nskip = 'Skip frames for background (useKNN=0)';

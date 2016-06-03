@@ -8,6 +8,23 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
 
   self.videoHandler.reset();
   self.videoHandler.originalif = true;
+
+  if numel(self.useScaledFormat)==3 || numel(self.useScaledFormat)==6;
+    % THIS IS JUST AN INITIAL GUESS
+    scale = self.useScaledFormat(1:3);
+    if numel(self.useScaledFormat)==6
+      delta = self.useScaledFormat(4:6);
+    else
+      mu = [0.5,0.5,0.5];
+      delta = -scale.*mu + 0.5/3;
+    end
+    self.videoHandler.setToScaledFormat(scale,delta);
+    fish.helper.verbose('Scale initially RGB format with %1.1f %1.1f %1.1f',...
+                        scale(1),scale(2),scale(3))    
+  elseif numel(self.useScaledFormat)~=1
+    error('useScaledFormat: Either provide scale RGB + delta values or set to true/false');
+  end
+
   n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
   self.videoHandler.initialize(0);
   s = 0;
@@ -42,24 +59,32 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
     title(sprintf('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize));
   end
 
-  if self.useScaledFormat
-    % get good color conversion
-    bwmsks = {};
-    cframes = {};
-    for i =1:10 % based on not just one frame to get better estimates
-      [segm] = self.videoHandler.step();
-      bwmsks{i} =self.videoHandler.getCurrentBWImg();
-      cframes{i} = im2double(self.videoHandler.getCurrentFrame());
-    end
+
+  if any(self.useScaledFormat)
+
+      % get good/better color conversion
+      
+      bwmsks = {};
+      cframes = {};
+      
+      for i =1:10 % based on not just one frame to get better estimates
+        [segm] = self.videoHandler.step();
+        bwmsks{i} =self.videoHandler.getCurrentBWImg();
+        cframes{i} = im2double(self.videoHandler.getCurrentFrame());
+      end
+      [scale,delta] = fish.helper.getColorConversion(bwmsks,cframes);
+
     
-    [scale,delta] = fish.helper.getColorConversion(bwmsks,cframes);
-    
+      
     if ~isempty(scale)
       self.videoHandler.setToScaledFormat(scale,delta);
       self.videoHandler.resetBkg(); 
       self.videoHandler.computeSegments = false;
       % re-generate some background
-      fish.helper.verbose('Set to scaled format. Regenerate background..')
+      fish.helper.verbose('Scale to scaled RGB format: %1.1f %1.1f %1.1f',...
+                          scale(1),scale(2),scale(3))    
+
+      fish.helper.verbose('Regenerate background.')
       for i =1:(n/2)
         [~,frame] = self.videoHandler.step();    
         fprintf('%1.1f%%\r',i/n*2*100); % some output

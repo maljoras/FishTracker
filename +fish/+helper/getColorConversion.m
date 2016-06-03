@@ -5,6 +5,7 @@ function [scale,delta] = getColorConversion(bwmsks,cframes)
   if ~iscell(bwmsks) || ~iscell(cframes)
     error('Expect cell array');
   end
+
   
   assert(length(bwmsks)==length(cframes));
   
@@ -40,9 +41,10 @@ function [scale,delta] = getColorConversion(bwmsks,cframes)
   end
 
   scale = double(fv'./spread);
-  delta = double(-mu.*fv' + 0.5/3); % !! needs to be double
-  
-  if sum(fv)< 1e-5 % makes no sense
+  delta = double(-mu.*fv' + 1/3); % !! needs to be double
+
+
+  if abs(sum(fv))< 1e-5 % makes no sense
     scale = [];
     delta = [];
   end

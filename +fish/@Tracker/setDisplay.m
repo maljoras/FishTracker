@@ -27,7 +27,8 @@ function setDisplay(self,varargin)
         disp(fieldnames(self.opts.display));
         error(sprintf('Provide valid display types (see above). "%s" unknown.',varargin{i}));
       end
-      assert(isnumeric(varargin{i+1}) && length(varargin{i+1})==1)
+      assert((isnumeric(varargin{i+1}) ||islogical(varargin{i+1})) ...
+             && length(varargin{i+1})==1)
       self.opts.display.(varargin{i}) = varargin{i+1};
     end
     

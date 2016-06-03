@@ -54,9 +54,9 @@ function plotCenterLine(self,fishIds,plotTimeRange)
       plot(b.clx(:,idx,i),b.cly(:,idx,i),'color',col1(j),'linewidth',1);
       plot(b.clx(1,idx,i),b.cly(1,idx,i),'o','color',col1(j),'linewidth',1,'markersize',6);
 
-      x =  [b.clx(1,idx,i)', b.clx(1,idx,i)' + 10*cos(b.ori(idx,i))];
-      y =  [b.cly(1,idx,i)', b.cly(1,idx,i)' - 10*sin(b.ori(idx,i))];
-      plot(x',y','color',col1(j),'linewidth',1);
+      %x =  [b.clx(1,idx,i)', b.clx(1,idx,i)' + 10*sin(b.ori(idx,i))];
+      %y =  [b.cly(1,idx,i)', b.cly(1,idx,i)' - 10*cos(b.ori(idx,i))];
+      %plot(x',y','color',col1(j),'linewidth',1);
     end
   end
 

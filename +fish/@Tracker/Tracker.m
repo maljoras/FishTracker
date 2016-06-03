@@ -448,22 +448,27 @@ classdef Tracker < handle;
       end
       dopts = self.opts.display;
       
-      if dopts.level==4
+      if isempty(self.writefile) 
+
+        if dopts.level==4
+          self.opts.display.displayEveryNFrame = 1;
+        end
+        
+        if dopts.level==3
+          self.opts.display.displayEveryNFrame = 20;
+        end
+        
+        if dopts.level==2
+          self.opts.display.displayEveryNFrame = 50;
+        end
+        
+        if dopts.level==1
+          self.opts.display.displayEveryNFrame = 100;
+        end
+      
+      else
         self.opts.display.displayEveryNFrame = 1;
       end
-
-      if dopts.level==3
-        self.opts.display.displayEveryNFrame = 20;
-      end
-
-      if dopts.level==2
-        self.opts.display.displayEveryNFrame = 50;
-      end
-
-      if dopts.level==1
-        self.opts.display.displayEveryNFrame = 100;
-      end
-      
       
       if self.displayif && isempty(self.videoPlayer) && dopts.tracks
         self.videoPlayer = self.newVideoPlayer();
@@ -544,14 +549,17 @@ classdef Tracker < handle;
 
       self.setOpts();
       self.videoHandler.initialize();
-
+      
       if isscalar(self.writefile) && self.writefile
         [a,b,c] = fileparts(self.videoFile);
         self.writefile = [a '/' b '_trackingVideo' c];
       end
 
-      if ~isempty(self.writefile) && self.displayif && self.opts.display.tracks
+      if ~isempty(self.writefile) 
         self.videoWriter = self.newVideoWriter(self.writefile);
+        self.opts.display.displayEveryNFrame = 1;
+        self.opts.display.tracks = true;
+        self.displayif = 1;
       else
         if ~isempty(self.writefile)
           fish.helper.verbose('WARNING: display tracks for writing a video file!');
@@ -559,13 +567,13 @@ classdef Tracker < handle;
         self.videoWriter = [];
       end
 
-     
+      self.setDisplayType();     
       
       %% get new fish classifier 
       self.fishClassifier = newFishClassifier(self,self.opts.classifier);
       self.isInitClassifier = isInit(self.fishClassifier);
       
-      self.setDisplayType();
+
       if self.displayif && self.opts.display.tracks && ~isOpen(self.videoPlayer)
         self.videoPlayer.show();
       end
@@ -1644,17 +1652,32 @@ classdef Tracker < handle;
                                                 % check whether centerLIne is in the right direction
           p = centeredCenterLine * vel';
           if sum(p(1:n2))>sum(p(n2:end))
-            %reverse
-            reversed = 1;
-            centerLine = centerLine(end:-1:1,:);
-            thickness = thickness(end:-1:1);
-
-            if self.opts.detector.fixedSize %% only for saveing needed
-              self.segments(detectionIdx).FilledImageFixedSizeRotated = ...
-                  self.segments(detectionIdx).FilledImageFixedSizeRotated(:,end:-1:1,:);
+            
+            % additional test whether the distance is also shorter
+            cL = self.tracks(trackIdx).centerLine;
+            flag = 0;
+            if ~isempty(cL)
+              cldist = (centerLine-cL).^2;
+              cldistrev = (centerLine-cL(end:-1:1,:)).^2;
+              if sum(cldist(:))<sum(cldistrev(:))
+                flag = 1;
+              end
             end
             
+            if ~flag
+              %reverse
+              reversed = 1;
+              centerLine = centerLine(end:-1:1,:);
+              thickness = thickness(end:-1:1);
+              
+              if self.opts.detector.fixedSize %% only for saveing needed
+                self.segments(detectionIdx).FilledImageFixedSizeRotated = ...
+                    self.segments(detectionIdx).FilledImageFixedSizeRotated(:,end:-1:1,:);
+              end
+              
+            end
           end
+          
         else
           centerLine = [];
           thickness = [];
@@ -2216,10 +2239,14 @@ classdef Tracker < handle;
       def.opts.useKNN = false;
       doc.useKNN = {'Use the KNN instead of thresholding ' 'for background segmentation (SLOW)'};
 
+      def.opts.writefile = '';
+      doc.writefile = 'For saving the tracking progress to video';
 
       def.opts.verbosity = 3;
       doc.verbosity = {['Sets verbosity level. 0:off, 1:moderate, >1: ' ...
                         'very verbose'],''};
+
+      
 
       %% cost options
 

@@ -555,7 +555,6 @@ classdef Tracker < handle;
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
 
-      
       if isempty(self.maxVelocity)
         self.maxVelocity = 4*self.avgVelocity;
       end

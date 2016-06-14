@@ -12,7 +12,7 @@ The tracking system includes 3 versions (in order of increasing performance): A 
 
 For the matlab-based version, only matlab (including the image processing toolbox) has to be installed. For the OpenCV versions, one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Additionally, for grabbing form ptGray cameras one needs to have installed the FlyCapture SDK. 
 
-Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
+For stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and in the matlab path. Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 
 One need to specify the Matlab path and the path to mexpoencv (if available) and the path to FlycaptureSDK (if available) to compile with  
 ~~~~

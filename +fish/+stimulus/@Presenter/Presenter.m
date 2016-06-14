@@ -5,7 +5,9 @@ classdef Presenter < handle;
   properties 
     screen = 1;
     defaultColor = [1,0.2,1];
+
     tmax = Inf;
+    
     xreversed = true; % whether screen versus camera are reversed in x
     yreversed = true; % or y
     screenBoundingBox = [];
@@ -14,6 +16,7 @@ classdef Presenter < handle;
   
     usePredFishId = true;  % wether to use the ID predicted by
                            % DAG. 
+    borderWidth = 0;
   end
   
   
@@ -155,7 +158,7 @@ classdef Presenter < handle;
     end
 
     function wrect = toScreenRect(self,rect);
-    % converted matlav type of rectangle in norm coordinates to the
+    % converted matlab type of rectangle in norm coordinates to the
     % expected format of PsychToolbox
 
       x = self.toScreenX(rect(1));

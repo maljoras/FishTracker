@@ -3,6 +3,7 @@ function  save(self,savename,savepath,vname)
 % SELF.SAVE([SAVENAME,SAVEPATH,VNAME]) saves the object
 
   [defname,exists] = self.getDefaultFileName();
+  
   if ~exist('savename','var') || isempty(savename)
     [~,savename] = fileparts(defname);
   end
@@ -18,8 +19,24 @@ function  save(self,savename,savepath,vname)
     vname = 'ft';
   end
   eval([vname '=self;']);
-  fname = [savepath filesep savename '.mat'];
-  save([savepath filesep savename],vname,'-v7.3');
 
+  if ~isempty(savepath)
+    fname = [savepath filesep savename '.mat'];
+  else
+    fname = [savename '.mat'];
+  end
+
+  % do not overwrite
+  fname1 = fname;
+  s = 0;
+  while exist(fname1,'file')
+    s = s+1;
+    fname1 = [num2str(s) fname];
+  end
+  fname = fname1;
+  
+  save(fname,vname,'-v7.3');
+  
+  
   fish.helper.verbose('saved variable %s to %s',vname,fname);
 end      

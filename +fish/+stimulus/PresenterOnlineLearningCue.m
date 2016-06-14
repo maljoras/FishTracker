@@ -5,7 +5,8 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     stmTime = 5; %time of stimulus (in seconds)
     gapTime =10; % time of gap after stim
     adaptationTime =1;%600; % time at the beginning (in seconds
-    
+
+    nRound = 10;
     
     colBackground = [0,0,0]; % background color (RGB [0,0,0] for black)
     colBeginCue = [1,0,0];% begining signal (RGB[255,0,0]for red)
@@ -101,6 +102,9 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     function plotStmBkg(self,type,lrswitch);
 
       switch lower(type)
+        
+        case 'simpleborder'
+          self.plotBorder(self.borderWidth,self.stmCol,self.colBackground);
         
         case 'none'
           plotVPlane(self,self.midline,self.colBackground,self.colBackground);
@@ -284,6 +288,7 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
        case {self.ID_GAP,self.ID_ADAPTATION,self.ID_PAUSE}
          self.plotVPlane(0.5,self.colBackground,self.colBackground);
        otherwise
+
          % during stimulus
          lrswitch = self.stmIdx==self.ID_TEST_RL || self.stmIdx==self.ID_STIMULUS_RL;
          self.plotStmBkg(self.stmBkgType,lrswitch);
@@ -294,6 +299,9 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
                    
      end
 
+    
+     
+     
      % save stm info
      stmInfo = zeros(length(fishIds),4);
      stmInfo(:,1) = self.stmIdx;

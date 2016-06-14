@@ -72,6 +72,7 @@ classdef Tracker < handle;
     fishId2TrackId = [];
     meanCost = ones(4,1);
     pos = [];
+    tabs = [];
     uniqueFishFrames = 0;
     
     assignments = [];
@@ -85,8 +86,13 @@ classdef Tracker < handle;
 
     currentCrossBoxLengthScale = 1; 
     
+    % constants
     nFramesExtendMemory = 250;
-
+    nFramesAppendSavedTracks = 100;
+    nStepsSaveProgress = 250; % times nFramesAppendSavedTracks
+    nFramesVerbose = 40;
+    
+    % autoinit
     nFramesForInit  = [];
     nFramesAfterCrossing = [];
     nFramesForUniqueUpdate = [];
@@ -100,6 +106,9 @@ classdef Tracker < handle;
     maxClassificationProb =0;
     
     avgTimeScale = [];
+    
+    timeStamp = [];
+    lastTimeStamp = [];
     
   end
 
@@ -554,9 +563,10 @@ classdef Tracker < handle;
       self.videoHandler.setCurrentTime(self.timerange(1));
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
-
+      self.timeStamp = self.videoHandler.getCurrentTime();
+      
       if isempty(self.maxVelocity)
-        self.maxVelocity = 4*self.avgVelocity;
+        self.maxVelocity = 15*self.avgVelocity;
       end
       
       self.avgTimeScale = 1/(self.avgVelocity/self.videoHandler.frameRate);
@@ -914,12 +924,18 @@ classdef Tracker < handle;
       % save track positions
       if isempty(self.pos)
         self.pos = nan(2,self.nfish,self.nFramesExtendMemory);
+        self.tabs = nan(self.nFramesExtendMemory,1);
       end
-      
+
       if size(self.pos,3)<t
         self.pos = cat(3,self.pos,nan(2,self.nfish,self.nFramesExtendMemory));
       end
 
+      if size(self.tabs,1)<t
+        self.tabs = cat(1,self.tabs,nan(self.nFramesExtendMemory,1));
+      end
+
+      self.tabs(t,1) = self.timeStamp;
       
       if isempty(tracks) % no tracks
         return;
@@ -1426,7 +1442,7 @@ classdef Tracker < handle;
       
       if nDetections>0
         %mdist = min(pdist(double(centroids)));
-        maxDist = self.maxVelocity/self.videoHandler.frameRate*self.fishlength; % dist per frame
+        maxDist = self.maxVelocity*(self.timeStamp-self.lastTimeStamp)*self.fishlength; % dist per frame
     % $$$         minDist = 2;
     % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
     % $$$         %nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
@@ -1581,9 +1597,10 @@ classdef Tracker < handle;
           latestCentroids = cat(1,self.tracks(trackIdx).centroid);
           velocity = sqrt(sum((centroids - latestCentroids).^2,2))./(nvis(trackIdx) +1);
           
-          idx = find(velocity>self.maxVelocity/self.videoHandler.frameRate*self.fishlength);
+          dt = (self.timeStamp-self.lastTimeStamp);
+          idx = find(velocity>self.maxVelocity*dt*self.fishlength);
 
-          if ~isempty(idx)
+          if ~isempty(idx) && dt
             self.unassignedTracks = [self.unassignedTracks; trackIdx(idx)];
             self.unassignedDetections = [self.unassignedDetections; detectionIdx(idx)];
             self.assignments(idx,:) = [];
@@ -2173,7 +2190,7 @@ classdef Tracker < handle;
       trackinfo = getCurrentTracks_(self.nfish,self.tracks,self.saveFieldsIn,self.saveFieldsOut,self.saveFieldSegIf);
 
       % update time
-      [trackinfo.t] = deal(self.videoHandler.currentTime);
+      [trackinfo.t] = deal(self.timeStamp);
     end
     
     
@@ -2204,8 +2221,12 @@ classdef Tracker < handle;
       if isempty(savename)
         savename = 'FishTrackerSave';
       end
-      
-      savemat = [savepath filesep savename '.mat'];
+
+      if ~isempty(savepath)
+        savemat = [savepath filesep savename '.mat'];
+      else
+        savemat = [savename '.mat'];
+      end
       exists = ~~exist(savemat,'file');
       
     end
@@ -2693,6 +2714,7 @@ classdef Tracker < handle;
       %% tracking loop
       localTimeReference = tic;
       localTime = toc(localTimeReference);
+      verboseTime = toc(localTimeReference);
       s = 0;
       while  hasFrame(self.videoHandler) && ...
           (~self.opts.display.tracks || ~self.displayif || isOpen(self.videoPlayer)) ...
@@ -2704,12 +2726,12 @@ classdef Tracker < handle;
         %self.trackStep(); % avoid calling this..just paste for performance.
         %unnecessary function call
         self.currentFrame = self.currentFrame + 1;
-
+        self.lastTimeStamp = self.timeStamp;
         if self.displayif && self.opts.display.switchFish
-          [self.segments, frame] = self.videoHandler.step();
+          [self.segments, self.timeStamp, frame] = self.videoHandler.step();
           self.computeLeakyAvgFrame(frame);
         else
-          [self.segments] = self.videoHandler.step(); % faster.. do not need frame ;
+          [self.segments,self.timeStamp] = self.videoHandler.step(); % faster..
         end
         
         self.detectObjects();
@@ -2728,11 +2750,12 @@ classdef Tracker < handle;
         else
           savedTracks(1:self.nfish,s) = self.getCurrentTracks();
         end
-        if ~mod(s,100)
+
+        if ~mod(s,self.nFramesAppendSavedTracks) 
           savedTracks = self.appendSavedTracks(savedTracks);
           s = size(savedTracks,2);
           
-          if ~self.stmif &&  ~mod(self.currentFrame,25000) && saveif
+          if ~self.stmif &&  ~mod(self.currentFrame,self.nStepsSaveProgress*self.nFramesAppendSavedTracks) && saveif
             % occasionally save for long videos 
             fish.helper.verbose('Save tracking progress to disk..');
             self.save();
@@ -2747,9 +2770,15 @@ classdef Tracker < handle;
         end
         
         %% verbose
-        if ~mod(self.currentFrame,40) && ~isempty(self.tracks)
-          t = datevec(seconds(self.videoHandler.getCurrentTime()));
-          fish.helper.verbose(['Currently at time %1.0fh %1.0fm %1.1fs                           \r'],t(4),t(5),t(6));
+        if ~mod(self.currentFrame,self.nFramesVerbose) && ~isempty(self.tracks)
+          tt = toc(localTimeReference);
+          verboseDuration = tt - verboseTime;
+          verboseTime = tt;        
+          trackDuration = self.tabs(self.currentFrame)...
+              - self.tabs(max(self.currentFrame-self.nFramesVerbose,1));
+          t = datevec(seconds(self.timeStamp));
+          fish.helper.verbose(['%1.0fh %1.0fm %1.1fs  [%1.2f x real ' ...
+                              'time]             \r'],t(4),t(5),t(6),trackDuration/verboseDuration);
         end
       end
 

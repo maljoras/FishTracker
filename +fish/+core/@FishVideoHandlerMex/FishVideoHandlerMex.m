@@ -107,14 +107,14 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
     
     
     
-    function [seg,frame] = step(self)
+    function [seg,timeStamp,frame] = step(self)
     % STEP one frame
     %
-    % [segments [ frame]] = vh.step();
+    % [segments, timestamp, [ frame]] = vh.step();
     %
     %
       
-      if nargout<2 
+      if nargout<3 
         [seg,timeStamp] = FishVideoHandler_(self.id, 'step');
       else
         [seg,timeStamp,frame] = FishVideoHandler_(self.id, 'step');

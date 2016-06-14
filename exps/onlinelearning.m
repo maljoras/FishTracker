@@ -1,22 +1,21 @@
 
 LOAD = 1
-COMPUTE =0
+COMPUTE =1
 
-if LOAD || ~exist('ft','var')
+if LOAD && ~exist('ft','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
-  opts.nfish = 3;
+  opts.nfish = 4;
   opts.stmif = 1;
   opts.stimulus.screen = 1;
-  opts.stimulus.screenBoundingBox = [150,53,1580,1256];
+  %opts.stimulus.presenter = 'fish.stimulus.PresenterOnlineLearningCue';
+  opts.stimulus.presenter = 'fish.stimulus.Presenter';
   
-  opts.stimulus.presenter = 'fish.stimulus.PresenterOnlineLearningCue';
-
-  opts.fishwidth = 30;
-  opts.fishlength = 150;
-
-
+  opts.fishwidth = 25;
+  opts.fishlength =  90;
+  
+  
   ft = fish.Tracker({0,videoFile},opts);
 end
 
@@ -25,11 +24,27 @@ if COMPUTE
 
   if ~exist('sbbox','var')
     %sbbox = ft.calibrateStimulusScreen();
-    sbbox = [150,53,1580,1256];
+    sbbox = [81,83,1570,1231];
   end
-  ft.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100,'stimulus.stmSize',100);
-  ft.setDisplay(0);  
+  opts = [];
+  opts.avgVelocity = 6;
+  opts.maxVelocity = 80;
+  
+  
+  opts.stimulus.screenBoundingBox = sbbox;
+  opts.display.displayEveryNFrame = 100;
+  opts.stimulus.stmSize = ft.fishlength;
+  opts.stimulus.usePredFishId = false;
 
+  opts.stimulus.defaultColor = [1,1,1];
+  opts.stimulus.borderWidth = 0.05;
+
+  opts.stimulus.gapTime = 0;
+
+  
+  ft.setOpts(opts);
+
+  ft.setDisplay(0);  
   
   ft.track();
   ft.save();

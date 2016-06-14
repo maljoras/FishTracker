@@ -114,10 +114,10 @@ classdef FishVideoHandler < handle & fish.core.FishVideoReader & fish.core.FishB
     end
 
     
-    function [segm,frame] = step(self)
+    function [segm,timeStamp,frame,varargout] = step(self)
     % STEP one frame
     %
-    % [segments,[frame]] = vh.step();
+    % [segments,timeStamp [frame]] = vh.step();
     %
     %
 
@@ -138,6 +138,8 @@ classdef FishVideoHandler < handle & fish.core.FishVideoReader & fish.core.FishB
 
         oframe = frame;
       end
+      timeStamp = self.currentTime;
+
       bwmsk = self.detector.step(frame);
       self.bwmsk = bwmsk;
       

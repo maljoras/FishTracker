@@ -26,6 +26,12 @@ export PRELOAD_LIBS=/usr/lib64/libstdc++.so.6:/usr/lib64/libtiff.so.5:/usr/lib/l
 alias matlab='LD_PRELOAD=$PRELOAD_LIBS /opt/MATLAB/R2014b/bin/matlab '
 ~~~~  
 
+##Test
+One can test the installation by running 
+~~~~
+>> fish.Tracker.runTest();
+~~~~
+
 ##Usage 
 In MATLAB your need to add the path where the +fish package folder is located. Then, try (without arguments) to get some documentation about the parameters: 
 ~~~~

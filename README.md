@@ -14,7 +14,7 @@ For the matlab-based version, only matlab (including the image processing toolbo
 
 For stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and in the matlab path. Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 
-One need to specify the Matlab path and the path to mexpoencv (if available) and the path to FlycaptureSDK (if available) to compile with  
+For compilation, one needs to specify the Matlab path and the path to mexpoencv (if available) and the path to FlycaptureSDK (if available) to compile with  
 ~~~~
 $ make  MATLABDIR=/my/path/to/MATLAB/ FLYCAPINCLUDEDIR=/usr/include/flycapture MEXOPENCVDIR=/mypath/to/mexopencv
 ~~~~

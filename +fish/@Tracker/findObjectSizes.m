@@ -26,6 +26,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   end
 
   n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
+  n = min(n,500);
   self.videoHandler.initialize(0);
   s = 0;
   for i = 1:n
@@ -45,7 +46,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   end
 
   if ~s
-    error('Something wrong with the bolbAnalyzer ... cannot find objects.');
+    error('Something wrong with the blobAnalyzer ... cannot find objects.');
   end
 
   nObjects = median(count);

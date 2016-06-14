@@ -18,7 +18,8 @@ classdef Tracker < handle;
     fishwidth = [];
 
     maxVelocity = [];        
-
+    avgVelocity = [];
+    
     stmif = 0;
     useMex = 1;
     useOpenCV = 1;
@@ -85,9 +86,21 @@ classdef Tracker < handle;
     currentCrossBoxLengthScale = 1; 
     
     nFramesExtendMemory = 250;
+
+    nFramesForInit  = [];
+    nFramesAfterCrossing = [];
+    nFramesForUniqueUpdate = [];
+    clpMovAvgTau = [];
+    nFramesForSingleUpdate = [];
+    maxFramesPerBatch = [];
+    minBatchN = [];
+    
     meanAssignmentCost =1;
     maxAssignmentCost =1;
-
+    maxClassificationProb =0;
+    
+    avgTimeScale = [];
+    
   end
 
   
@@ -403,7 +416,7 @@ classdef Tracker < handle;
       if fish.helper.hasOpenCV() && self.useOpenCV
         writer = cv.VideoWriter(vidname,self.videoHandler.frameSize([2,1]),'FPS',self.videoHandler.frameRate,'fourcc','X264');
       else
-        writer = vision.VideoFileWriter(vidname,'FrameRate',self.videoReader.frameRate);
+        writer = vision.VideoFileWriter(vidname,'FrameRate',self.videoHandler.frameRate);
       end
     end
     
@@ -518,7 +531,6 @@ classdef Tracker < handle;
         self.addSaveFields('stmInfo');
       end
       
-      
       %% set all options
       self.checkOpts();
       self.setOpts();
@@ -543,10 +555,19 @@ classdef Tracker < handle;
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
 
+      
+      if isempty(self.maxVelocity)
+        self.maxVelocity = 4*self.avgVelocity;
+      end
+      
+      self.avgTimeScale = 1/(self.avgVelocity/self.videoHandler.frameRate);
+      fish.helper.verbose('Set time scale to %1.2f [frame/BL]',self.avgTimeScale);
+      
       % initialize graph
       self.daGraph = [];
       self.daGraph = fish.core.FishDAGraph(self.nfish,self.nfish);
 
+      self.checkOpts();
       self.setOpts();
       self.videoHandler.initialize();
       
@@ -628,13 +649,18 @@ classdef Tracker < handle;
       self.cost = [];
       self.currentFrame = 0;
       
+      % set time scale dependent pars
       self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScalePreInit;
       
-      if isempty(self.maxVelocity)
-        self.maxVelocity = self.fishlength*80; % Ucrit for sustained swimming is 20 BodyLength/s (see Plaut 2000). Thus set
-                                               % twice for short accelaration bursts
-      end
-      
+      self.nFramesAfterCrossing = min(max(ceil(self.opts.classifier.timeAfterCrossing*self.avgTimeScale),1),100);
+      self.nFramesForUniqueUpdate = min(max(ceil(self.opts.classifier.timeForUniqueUpdate*self.avgTimeScale),1),250);
+      self.clpMovAvgTau = max(ceil(self.opts.classifier.clpMovAvgTau*self.avgTimeScale),1);
+
+      self.minBatchN = min(max(ceil(self.nFramesAfterCrossing*0.75),4),50);  
+      self.nFramesForSingleUpdate = min(3*self.nFramesForUniqueUpdate,1000); 
+      self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
+
+      self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),500);
     end
     
     
@@ -826,7 +852,7 @@ classdef Tracker < handle;
 
       % test on the whole set of possible fishIds
       [assignedFishIds prob steps probdiag] = self.predictFish(trackIndices,1:self.nfish,...
-                                                        self.opts.classifier.nFramesForSingleUpdate);
+                                                        self.nFramesForSingleUpdate);
       same = assignedFishIds==fishIds; 
 
       if updateif && (all(same) || self.enoughEvidenceForForcedUpdate(prob,steps,probdiag))
@@ -916,14 +942,14 @@ classdef Tracker < handle;
       success = false;
       thres = 5;
       if length(self.tracks)<self.nfish 
-        if  self.currentFrame > thres*self.opts.classifier.nFramesForInit
+        if  self.currentFrame > thres*self.nFramesForInit
           fish.helper.verbose(['nfish setting might be wrong or some fish are lost\r'])
         end
         return
       end
 
-      if self.uniqueFishFrames>self.opts.classifier.nFramesForInit  || ...
-          self.currentFrame> thres*self.opts.classifier.nFramesForInit % cannot wait for ages..
+      if self.uniqueFishFrames>self.nFramesForInit  || ...
+          self.currentFrame> thres*self.nFramesForInit % cannot wait for ages..
         
         fishIds = cat(2,self.tracks.fishId);      
 
@@ -950,7 +976,7 @@ classdef Tracker < handle;
         self.uniqueFishFrames  = 0;
         success = true;
         
-      elseif self.currentFrame < thres/2*self.opts.classifier.nFramesForInit % cannot wait for ages..
+      elseif self.currentFrame < thres/2*self.nFramesForInit % cannot wait for ages..
         if ~isempty(self.crossings)
           self.resetBatchIdx(1:length(self.tracks));% we do not want a mixture at the beginning
         end
@@ -1002,12 +1028,12 @@ classdef Tracker < handle;
       if any(isnan(probdiag))
         bool = false;
       else
-        bool = mean(prob-probdiag)>self.opts.classifier.reassignProbThres && min(steps)>=self.opts.classifier.minBatchN;
+        bool = mean(prob-probdiag)>self.opts.classifier.reassignProbThres*self.maxClassificationProb && min(steps)>=self.minBatchN;
 
         if bool
           fish.helper.verbose('Enough evidence: %1.2f',sum(prob-probdiag));
         end
-        %bool = min(prob)>self.opts.classifier.reassignProbThres && min(steps)>=self.opts.classifier.minBatchN;
+        %bool = min(prob)>self.opts.classifier.reassignProbThres && min(steps)>=self.minBatchN;
       end
     end
     
@@ -1015,20 +1041,18 @@ classdef Tracker < handle;
       if any(isnan(probdiag)) || length(prob)~=self.nfish
         bool = false;
       else
-        bool = min(steps) >= self.opts.classifier.nFramesAfterCrossing;
-        bool = bool && max(prob)<=self.opts.classifier.reassignProbThres;
+        bool = min(steps) >= self.nFramesAfterCrossing;
+        bool = bool && max(prob)<=self.opts.classifier.forcedReassignProbThres*self.maxClassificationProb;
       end
-      
-      
     end
     
     function bool = enoughEvidenceForBeingHandled(self,prob,steps,probdiag)
       if any(isnan(probdiag))
         bool = false;
       else
-        bool = (min(prob)>self.opts.classifier.handledProbThres ...
-                && min(steps)>=self.opts.classifier.nFramesAfterCrossing) ... 
-               || max(steps)>=self.opts.classifier.nFramesForUniqueUpdate; % to avoid very long crossings
+        bool = (min(prob)>self.maxClassificationProb*self.opts.classifier.handledProbThres ...
+                && min(steps)>=self.nFramesAfterCrossing) ... 
+               || max(steps)>=self.nFramesForUniqueUpdate; % to avoid very long crossings
       end
     end
     
@@ -1100,7 +1124,7 @@ classdef Tracker < handle;
 
         % we force the permutation to be in the valid fish only (otherwise too many errors for many fish)
         [assignedFishIds prob steps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,...
-                                                          self.opts.classifier.nFramesForUniqueUpdate); 
+                                                          self.nFramesForUniqueUpdate); 
 
         if  all(ismember(assignedFishIds,assumedFishIds)) 
           % we have a valid assignment (note that it is always a permutation inside
@@ -1221,7 +1245,7 @@ classdef Tracker < handle;
     
     function  hitBound = testBeyondBound(self);
     % hit bound will be true even if already handled!!
-      hitBound = self.currentFrame-[self.tracks.lastFrameOfCrossing] >= self.opts.classifier.nFramesAfterCrossing;
+      hitBound = self.currentFrame-[self.tracks.lastFrameOfCrossing] >= self.nFramesAfterCrossing;
     end
     
     function newCrossing = testNewCrossing(self)
@@ -1294,7 +1318,7 @@ classdef Tracker < handle;
           
       
       %% unique fish update
-      if (self.uniqueFishFrames-1 > self.opts.classifier.nFramesForUniqueUpdate)  && allhandled
+      if (self.uniqueFishFrames-1 > self.nFramesForUniqueUpdate)  && allhandled
         if self.fishClassifierUpdate(1:length(self.tracks),1);
           fish.helper.verbose('Performed unique frames update.\r')
         end
@@ -1303,7 +1327,7 @@ classdef Tracker < handle;
 
       
       %% single fish update
-      enoughData =  [self.tracks.nextBatchIdx] > self.opts.classifier.nFramesForSingleUpdate;
+      enoughData =  [self.tracks.nextBatchIdx] > self.nFramesForSingleUpdate;
       singleUpdateIdx = find(handled & enoughData);
       if ~isempty(singleUpdateIdx)
         if ~self.fishClassifierUpdate(singleUpdateIdx,1) 
@@ -1403,7 +1427,7 @@ classdef Tracker < handle;
       
       if nDetections>0
         %mdist = min(pdist(double(centroids)));
-        maxDist = self.maxVelocity/self.videoHandler.frameRate; % dist per frame
+        maxDist = self.maxVelocity/self.videoHandler.frameRate*self.fishlength; % dist per frame
     % $$$         minDist = 2;
     % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
     % $$$         %nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
@@ -1558,7 +1582,7 @@ classdef Tracker < handle;
           latestCentroids = cat(1,self.tracks(trackIdx).centroid);
           velocity = sqrt(sum((centroids - latestCentroids).^2,2))./(nvis(trackIdx) +1);
           
-          idx = find(velocity>self.maxVelocity/self.videoHandler.frameRate);
+          idx = find(velocity>self.maxVelocity/self.videoHandler.frameRate*self.fishlength);
 
           if ~isempty(idx)
             self.unassignedTracks = [self.unassignedTracks; trackIdx(idx)];
@@ -1581,7 +1605,7 @@ classdef Tracker < handle;
         self.cost = outcost;
 
         % save the individual mean cost
-        mt = min(self.opts.tracks.costtau,self.currentFrame);
+        mt = max(min(self.opts.tracks.costtau*self.avgTimeScale,self.currentFrame),1);
         self.meanCost = self.meanCost*(mt-1)/mt  + 1/mt*mean(reshape(fcost,[],size(fcost,3)),1);
 
         % save the mean assignment costs
@@ -1592,7 +1616,6 @@ classdef Tracker < handle;
                 + 1/mt*mean(costs);
             self.maxAssignmentCost = self.maxAssignmentCost*(mt-1)/mt ...
                 + 1/mt*max(costs);
-            
           end
         end
         
@@ -1624,8 +1647,8 @@ classdef Tracker < handle;
     %% update assigned
       assignments = self.assignments;
       numAssignedTracks = size(assignments, 1);
-      classopts = self.opts.classifier;
       trackopts = self.opts.tracks;
+      maxClass = 0;
       
       for i = 1:numAssignedTracks
         trackIdx = assignments(i, 1);
@@ -1637,7 +1660,7 @@ classdef Tracker < handle;
           correct(self.tracks(trackIdx).predictor, [centroid]);
         end
 
-        tau = trackopts.tauVelocity;
+        tau = trackopts.tauVelocity*self.avgTimeScale;
         self.tracks(trackIdx).velocity = self.tracks(trackIdx).velocity*(1-1/tau) ...
             + 1/tau*(self.tracks(trackIdx).centroid-centroid);
         
@@ -1696,7 +1719,7 @@ classdef Tracker < handle;
         end
 
 
-        if reversed  && classopts.discardPotentialReversed
+        if reversed  && self.opts.classifier.discardPotentialReversed
           % not update.. fishfeature reversed (cannot be changed outside of mex)
           probNoise = NaN;
           classprob = nan(1,self.nfish);
@@ -1714,8 +1737,10 @@ classdef Tracker < handle;
         
         if w>0
           %update moving average
-          tmp = (1-1/classopts.clpMovAvgTau)*self.tracks(trackIdx).clpMovAvg;
-          self.tracks(trackIdx).clpMovAvg =  tmp  + (w/classopts.clpMovAvgTau) * classprob;
+          tmp = (1-1/self.clpMovAvgTau)*self.tracks(trackIdx).clpMovAvg;
+          self.tracks(trackIdx).clpMovAvg =  tmp  + (w/self.clpMovAvgTau) * classprob;
+
+          maxClass = max(maxClass,max(classprob));
         end
         self.tracks(trackIdx).classProbW = w;
         
@@ -1739,7 +1764,7 @@ classdef Tracker < handle;
         if self.cost(detectionIdx) <= thres && (reasonable  || ~self.isInitClassifier)
           batchIdx = self.tracks(trackIdx).nextBatchIdx;
           self.tracks(trackIdx).batchFeatures(batchIdx,:)  = self.idfeatures(detectionIdx,:);
-          self.tracks(trackIdx).nextBatchIdx = min(batchIdx+1,classopts.maxFramesPerBatch);
+          self.tracks(trackIdx).nextBatchIdx = min(batchIdx+1,self.maxFramesPerBatch);
         else
           self.tracks(trackIdx).nIdFeaturesLeftOut = self.tracks(trackIdx).nIdFeaturesLeftOut +1;
         end
@@ -1751,8 +1776,12 @@ classdef Tracker < handle;
         self.tracks(trackIdx).totalVisibleCount =  self.tracks(trackIdx).totalVisibleCount + 1;
         self.tracks(trackIdx).consecutiveInvisibleCount = 0;
       end
-      
 
+      %% update max classprob for reassignment scaling
+      if maxClass
+        mt = min(self.opts.tracks.costtau*self.avgTimeScale,self.currentFrame-self.nFramesForInit);
+        self.maxClassificationProb = self.maxClassificationProb*(mt-1)/mt + 1/mt*maxClass;
+      end
       
       
       %% update unassigned
@@ -1894,7 +1923,7 @@ classdef Tracker < handle;
         
         %save the features to later update the batchClassifier
         idfeat = self.idfeatures(i,:);
-        bfeat = zeros(self.opts.classifier.maxFramesPerBatch,size(idfeat,2),'single');
+        bfeat = zeros(self.maxFramesPerBatch,size(idfeat,2),'single');
         bfeat(1,:) = idfeat;
         if ~all(isnan(self.classProb))
           clprob = self.classProb(i,:);
@@ -2202,6 +2231,10 @@ classdef Tracker < handle;
     % Options can the set with FISH.TRACKER(VID,OPTNAME1,OPTVALUE1,...) or
     % FISH.TRACKER(VID,OPTS) where OPTS is a structure with fields identical
     % to the names of the options.
+    %
+    % A number of options are given in "avgBLC" which is average body
+    % length covered and is a measure of the time it takes to cover
+    % the distance with the avgVelocity.
     %  
     % To see information about the possible options, run (without arguments):
     %  >> fish.Tracker
@@ -2226,6 +2259,13 @@ classdef Tracker < handle;
       def.opts.fishwidth = [];
       doc.fishwidth = {'Approx width of fish in pixel (estimated if empty)'};
 
+      def.opts.maxVelocity = [];
+      doc.maxVelocity = {'Maximal velocity in BL/sec (estimated if empty)'};
+
+      def.opts.avgVelocity = 4;
+      doc.maxVelocity = {'Approx. avg velocity. Important parameter ', ...
+                          'to set the time scale of the tracking problem'};
+      
       def.opts.useScaledFormat = false;
       doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)'};
       
@@ -2244,11 +2284,12 @@ classdef Tracker < handle;
       def.opts.writefile = '';
       doc.writefile = 'For saving the tracking progress to video';
 
-      def.opts.verbosity = 3;
+      def.opts.verbosity = 2;
       doc.verbosity = {['Sets verbosity level. 0:off, 1:moderate, >1: ' ...
                         'very verbose'],''};
 
       
+
 
       %% cost options
 
@@ -2273,10 +2314,11 @@ classdef Tracker < handle;
 
       def.opts.cost.BoundingBox = 0; 
       doc.cost.BoundingBox = {'[x,y,w,h] bbox comparison',''};
+
       
       %% detector options
       def.opts.detector(1).history = 500;  %250 [nframes]
-      doc.detector(1).history = 'Background update time [nFrames]';
+      doc.detector(1).history = 'Background update time constant [nFrames]';
       
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
@@ -2295,9 +2337,12 @@ classdef Tracker < handle;
       %% blob anaylser
 
       def.opts.blob(1).colorfeature = false; 
-      doc.blob.colorfeature = {'Use color information for fish feature',''};
+      doc.blob.colorfeature = {'Use color information for fish feature'};
 
+      def.opts.blob.headprop = 0.6; 
+      doc.blob.headprop = {'Proportion of object length to use as feature',''};
 
+      
       %% classification
       def.opts.classifier.npca = 40; 
       doc.classifier.npca = 'Number of PCA components';
@@ -2309,32 +2354,24 @@ classdef Tracker < handle;
       def.opts.classifier.tau = 5000; 
       doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
-      def.opts.classifier.reassignProbThres = 0.05; %0.45
+      def.opts.classifier.reassignProbThres = 0.2; %0.45
       doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
+
+      def.opts.classifier.forcedReassignProbThres = 0.6; %0.45
+      doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
+
       
-      def.opts.classifier.handledProbThres = 0.05; %0.45
+      def.opts.classifier.handledProbThres = 0.2; %0.45
       doc.classifier.handledProbThres = {'minimal diff probability for crossing exits'};
 
-      def.opts.classifier.nFramesForInit = 200; 
-      doc.classifier.nFramesForInit = {'Number of unique frames for initialize the classifier'};
-
-      def.opts.classifier.nFramesAfterCrossing =  5; 
-      doc.classifier.nFramesAfterCrossing = {'When to check for permutations after crossings'};
-      
-      def.opts.classifier.nFramesForUniqueUpdate = 70;
-      doc.classifier.nFramesForUniqueUpdate = {'Unique frames needed for update all fish simultaneously'};
-
-      %def.opts.classifier.clpMovAvgTau = min(opts.classifier.nFramesAfterCrossing,8); 
-      def.opts.classifier.clpMovAvgTau = 5; 
-      doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [nFrames].'};
 
       def.opts.classifier.crossCostThres = 3; 
       doc.classifier.crossCostThres = {'candidates for crossings: scales mean assignment cost',''};
 
 
       %% tracks
-      def.opts(1).tracks.costtau = 250;% 500
-      doc.tracks.costtau = {'Time constant for computing the mean cost [nFrames]'};
+      def.opts(1).tracks.costtau = 100;
+      doc.tracks.costtau = {'Time constant for computing the mean cost [avgBLC]'};
 
       def.opts.tracks.crossBoxLengthScale = 1; 
       doc.tracks.crossBoxLengthScale = {'How many times the bbox is regarded as a crossing'};
@@ -2361,12 +2398,45 @@ classdef Tracker < handle;
       def.opts.tracks.useDagResults = 1;
       doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
       
+      def.opts.tracks.kalmanFilterPredcition = false; 
+      doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter'};
+      
+      def.opts.classifier.timeToInit = 20;  
+      doc.classifier.timeToInit = {'Time to initialize the classifier [avgBLC]'};
+
+      def.opts.classifier.timeAfterCrossing =  2; 
+      doc.classifier.timeAfterCrossing = {['When to check for permutations after ' ...
+                          'crossings [avgBLC]']};
+      
+      def.opts.classifier.timeForUniqueUpdate = 12; 
+      doc.classifier.nFramesForUniqueUpdate = {['Unique frames needed for update all ' ...
+                          'fish simultaneously [avgBLC]']};
+
+      def.opts.classifier.clpMovAvgTau = 1; 
+      doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [avgBLC].'};
+
+      def.opts.tracks.tauVelocity = 1; 
+      doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [avgBLC]'};
+
 
       
       %% dag
       def.opts.dag.probScale = 0.5;
       doc.dag.probScale = {'DAGraph probScale. 1 means 50/50 weighting of ', ...
                           'classprob with distance if points a fishLength apart',''};
+      
+      %% stimulus
+      def.opts.stimulus.presenter = [];
+      doc.stimulus.presenter = {'Stimulus presenter object  (for STMIF=true)'};
+      
+      def.opts.stimulus.screen = 1;
+      doc.stimulus.screen = 'Screen number to use.';
+
+      def.opts.stimulus.screenBoundingBox = [];
+      doc.stimulus.screenBoundingBox = {['Bbox of stimulus screen in frame ' ...
+                          'pixels'],'use calibrateScreen to get estimate.'};
+
+      
       
       %% display opts
       def.opts.displayif = 3;
@@ -2396,17 +2466,6 @@ classdef Tracker < handle;
       def.opts.display.calibration = true;
       doc.display.calibration = {'Stimulus calibration results',''};
       
-      % stimulus
-      def.opts.stimulus.presenter = [];
-      doc.stimulus.presenter = {'Stimulus presenter object  (for STMIF=true)'};
-      
-      def.opts.stimulus.screen = 1;
-      doc.stimulus.screen = 'Screen number to use.';
-
-      def.opts.stimulus.screenBoundingBox = [];
-      doc.stimulus.screenBoundingBox = {['Bbox of stimulus screen in frame ' ...
-                          'pixels'],'use calibrateScreen to get estimate.'};
-
       
       STRICT = 1; % be not too strict. Some settings of the videoHandler are not
                   % explicitly given here
@@ -2421,37 +2480,31 @@ classdef Tracker < handle;
       VERBOSELEVEL = self.verbosity;
 
       
-      %%options not really important
-      opts.detector.fixedSize = 0;  
-      doc.detector.fixedSize = {'Set 1 for saving the fixedSize image'};
-
-      opts.maxVelocity = [];
-      doc.maxVelocity = {'Maximal fish velocity in px/sec (estimated if empty)'};
-      
-
-      opts.detector.nskip = 10; 
-      doc.detector.nskip = 'Skip frames for background (useKNN=0)';
-
+      %%options depending on avgVelocity (will be set in init)
 
       opts.display.leakyAvgFrameTau = 50;
       doc.display.leakyAvgFrameTau = {'Tau for switch fish plot'};
-      
-      
+
+
+      %%options not really important or debug
+      opts.detector.fixedSize = 0;  
+      doc.detector.fixedSize = {'Set 1 for saving the fixedSize image'};
+
+      opts.detector.nskip = max(ceil(opts.detector.history/50),1); 
+      doc.detector.nskip = 'Skip frames for background (useKNN=0)';
+
       opts.display.detectedObjects = false;
       doc.display.detectedObjects = {'Detection info plot (for DEBUGGING) '};
       
       opts.display.crossings = false;
       doc.display.crossings = {'Crossings info plot (for DEBUGGING) '};
 
-
       opts.display.classifier = false;
       doc.display.classifier = {'Classifier plot (for DEBUGGING) '};
-
 
       opts.display.assignmentCost = false;
       doc.display.assignmentCost = {'Assignment cost info plot (for DEBUGGING) '};
 
-      
       opts.blob.computeMSERthres= 2; % just for init str
       doc.blob(1).computeMSERthres =  {'When to compute MSER (SLOW; only ' 'for useMex=0)'};
 
@@ -2464,39 +2517,18 @@ classdef Tracker < handle;
       opts.blob.interpif = 1;
       doc.blob.interpif = {'Whether to interpolate while','debending'};
 
-      opts.tracks.tauVelocity = 5; 
-      doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [nFrames]'};
-
-
-      opts.tracks.kalmanFilterPredcition = false; 
-      doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter ' '(DEPRECIATED)'};
-
       opts.tracks.crossBoxLengthScalePreInit = max(opts.tracks.crossBoxLengthScale*0.75,0.5); 
       doc.tracks.crossBoxLengthScalePreInit = {'Before classifier init ' '(reduced somewhat)'};
 
-      opts.classifier.minBatchN = max(ceil(opts.classifier.nFramesAfterCrossing*0.75),4);  
-      doc.classifier.minBatchN = 'minimum sample size for batch update'; 
-
-
-
-      opts.classifier.nFramesForSingleUpdate = 4*opts.classifier.nFramesForUniqueUpdate; 
-      doc.classifier.nFramesForSingleUpdate = {'single fish update. Should be ' ...
-                          'larger than unique.'};
-
-      opts.classifier.maxFramesPerBatch = opts.classifier.nFramesForSingleUpdate + 50;
-      doc.classifier.maxFramesPerBatch = {'Maximal frames for saving ' ...
-                          'the fish feature'};
-      opts.classifier.discardPotentialReversed = true;
-      doc.classifier.discardPotentialReversed = {'Discard potential reversed during','classification (better ?)'};
+      opts.classifier.discardPotentialReversed = opts.blob.headprop~=1;
+      doc.classifier.discardPotentialReversed = {'Discard potential reversed during','classification'};
       
-      
-
 
       %% other developmental parameters
 
       %lost tracks
-      opts.tracks.invisibleForTooLong = 15; % on track basis. Only for deletion
-      opts.tracks.ageThreshold = 10;
+      opts.tracks.invisibleForTooLong = 15; % [nFrames] on track basis. Only for deletion
+      opts.tracks.ageThreshold = 10; % [nFrames]
       opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
       
       opts.classifier.onlyDAGMethod = 0;
@@ -2504,7 +2536,7 @@ classdef Tracker < handle;
         fish.helper.verbose('Switch method: DAG');
       end
       
-      %% paramter checking
+      %% parameter checking
 
       if isempty(vid)
         vid = fish.helper.getVideoFile();

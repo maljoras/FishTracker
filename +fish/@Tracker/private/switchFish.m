@@ -36,10 +36,10 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
   tcurrent = self.currentFrame;
       
   if crossingflag
-    tstart = max(min(tfirst) - 2*self.opts.classifier.nFramesAfterCrossing,1);
-    tend = min(self.currentFrame,max(tlast) + self.opts.classifier.nFramesAfterCrossing);
+    tstart = max(min(tfirst) - 2*self.nFramesAfterCrossing,1);
+    tend = min(self.currentFrame,max(tlast) + self.nFramesAfterCrossing);
   else
-    tstart = max(max(tlast) - 2*self.opts.classifier.nFramesAfterCrossing,1) ; % put about last crossing in...
+    tstart = max(max(tlast) - 2*self.nFramesAfterCrossing,1) ; % put about last crossing in...
     tend = tcurrent;
   end
 
@@ -107,7 +107,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
         % fishClassUpdate
         tminprob = subCalcClassProbBasedSwitchPoint();
         
-        if tcurrent-tminprob> 2*self.opts.classifier.nFramesAfterCrossing
+        if tcurrent-tminprob> 2*self.nFramesAfterCrossing
           tminfinal = tminprob;
         else
           if length(idx)>2
@@ -269,7 +269,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
       extra = setdiff(u,assignedFishIds);
       if sum(Nfish(extra))/sum(Nfish)/length(assignedFishIds) > 0.1
         if self.verbosity>2
-          fish.helper.verbose('WARNING: More tracks involved in crossing !')
+          fish.helper.verbose('CAUTION: More tracks involved in crossing !')
         end
         
         flag=0; % ignore
@@ -278,13 +278,13 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
     
     if min(Nfish(assignedFishIds))<stepsback/2
       if self.verbosity>2
-        fish.helper.verbose('WARNING: Tracks seems to have heavy overlap in DAG !');
+        fish.helper.verbose('CAUTION: Tracks seem to have heavy overlap in DAG !');
       end
       flag = 2;
     end
     if ~all(self.fishId2TrackId(tcurrent-stepsback+1,assignedFishIds)==dagf2t(1,:))
       if self.verbosity>2
-        fish.helper.verbose('WARNING: DAG initial ordering is different!');
+        fish.helper.verbose('CAUTION: DAG initial ordering is different!');
       end
       flag = 3;
     end
@@ -415,7 +415,7 @@ function switchFish(self,trackIndices,assignedFishIds,crossingflag)
 
 
   % build Gaussian kernel
-  %sigma = self.opts.classifier.clpMovAvgTau; % same for dist/clprob based
+  %sigma = self.clpMovAvgTau; % same for dist/clprob based
   %dt = 1; % in frames
   %l = 0:dt:sigma*8;
   %l = [l(end:-1:2) l];

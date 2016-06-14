@@ -11,14 +11,16 @@ classdef FishBlobAnalysis < handle;
 
     fishwidth = 20;% approximate value in pixels
     fishlength = 100; 
-
+    headprop = 0.6; % proportion of fishlength to use as feature;
+    
     interpif = 1; % much better effect it seems
     readjustposition = false;
     plotif = 0;    
     se = [];
     segm = [];
     colorfeature = false;
-  
+
+
   end
 
 
@@ -32,7 +34,7 @@ classdef FishBlobAnalysis < handle;
     minWidth  = [];
     featurewidth = [];
     featureheight = [];
-
+    
   end
   
   
@@ -792,15 +794,18 @@ classdef FishBlobAnalysis < handle;
       if ~exist('verboseif','var')
         verboseif = 1;
       end
-      setFishSize(self,self.fishlength,self.fishwidth,verboseif);
+      setFishSize(self,self.fishlength,self.fishwidth,self.headprop,verboseif);
     end
     
     
-    function setFishSize(self,fishlength,fishwidth,verboseif)
+    function setFishSize(self,fishlength,fishwidth,headprop,verboseif)
     % adjust paremeters according to the fishsize
       
       if ~exist('verboseif','var')
         verboseif = 1;
+      end
+      if ~exist('headprop','var')
+        headprop = 0.6;
       end
 
       if ~isempty(fishlength)
@@ -821,7 +826,7 @@ classdef FishBlobAnalysis < handle;
 
       
       self.featurewidth = self.fishwidth;
-      self.featureheight = floor(self.fishlength*0.6);
+      self.featureheight = floor(self.fishlength*headprop);
 
       self.maxextent = 5*(self.fishlength+self.fishwidth);
       self.minextent = 0.1*(self.fishlength+self.fishwidth);

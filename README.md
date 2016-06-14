@@ -8,9 +8,13 @@ is not lost for long tracking experiments.
 
 ##Installation
 
-For the OpenCV version one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
+The tracking system includes 3 versions (in order of increasing performance): A purely matlab based version, an OpenCV/matlab version, and an optimized MEX/C++/OpenCV version. All versions have the same matlab interface. The system automatically chooses the fastest available version depending what additional packages are installed on the system. 
 
-One need to specify the Matlab path and the path to mexpoencv and the path to flycaptureSDK compile with  
+For the matlab-based version, only matlab (including the image processing toolbox) has to be installed. For the OpenCV versions, one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Additionally, for grabbing form ptGray cameras one needs to have installed the FlyCapture SDK. 
+
+For stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and in the matlab path. Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
+
+For compilation, one needs to specify the Matlab path and the path to mexpoencv (if available) and the path to FlycaptureSDK (if available) to compile with  
 ~~~~
 $ make  MATLABDIR=/my/path/to/MATLAB/ FLYCAPINCLUDEDIR=/usr/include/flycapture MEXOPENCVDIR=/mypath/to/mexopencv
 ~~~~
@@ -21,6 +25,12 @@ To avoid library incompatibility with Matlab's packaged libraries one needs to p
 export PRELOAD_LIBS=/usr/lib64/libstdc++.so.6:/usr/lib64/libtiff.so.5:/usr/lib/libflycapture.so:/usr/lib64/libglibmm-2.4.so:/usr/lib64/libglib-2.0.so.0:/usr/lib64/libsigc-2.0.so.0:/usr/lib/libflycapture.so.2:`ls /usr/local/lib/libopencv*.so |xargs|tr ' ' ':'`
 alias matlab='LD_PRELOAD=$PRELOAD_LIBS /opt/MATLAB/R2014b/bin/matlab '
 ~~~~  
+
+##Test
+One can test the installation by running 
+~~~~
+>> fish.Tracker.runTest();
+~~~~
 
 ##Usage 
 In MATLAB your need to add the path where the +fish package folder is located. Then, try (without arguments) to get some documentation about the parameters: 

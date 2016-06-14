@@ -26,8 +26,8 @@ function [combinedFT varargout] = trackParallel(self,inTimeRange, ...
 
   if ~exist('tOverlap','var') || isempty(tOverlap)
     % allow enough time for the classifer to init in the overlapping period
-    tOverlap = 5*dt*max([self.opts.classifier.nFramesForInit,self.opts.classifier.nFramesForUniqueUpdate]); 
-    tOverlap = max(tOverlap,self.opts.tracks.costtau*dt);
+    tOverlap = 5*dt*max([self.nFramesForInit,self.nFramesForUniqueUpdate]); 
+    tOverlap = max(tOverlap,self.opts.tracks.costtau*self.avgTimeScale*dt);
   end
 
   assert(minDurationPerWorker>tOverlap);

@@ -11,7 +11,7 @@ function [screenBoundingBox] = calibrateStimulusScreen(self);
   % save
   stimPresenter = self.stimulusPresenter;
   nfish = self.nfish;
-  nFrames = self.opts.classifier.nFramesForInit;
+  nFrames = self.nFramesForInit;
   inverted = self.videoHandler.inverted;
   displayif = self.displayif;
   sf = self.saveFields;
@@ -32,7 +32,7 @@ function [screenBoundingBox] = calibrateStimulusScreen(self);
   % stmiulature is already init. so take its values
 
   self.nfish = 4;
-  self.opts.classifier.nFramesForInit = Inf;
+  self.nFramesForInit = Inf;
   self.videoHandler.inverted = 1;
   self.addSaveFields('bbox');
 
@@ -117,7 +117,7 @@ function [screenBoundingBox] = calibrateStimulusScreen(self);
   self.stimulusPresenter = stimPresenter;
   self.stimulusPresenter.setScreenSize(screenBoundingBox);
   self.nfish = nfish;
-  self.opts.classifier.nFramesForInit = nFrames;
+  self.nFramesForInit = nFrames;
   self.videoHandler.inverted = inverted;
   self.displayif = displayif;
   self.saveFields = sf;

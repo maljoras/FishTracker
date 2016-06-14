@@ -18,7 +18,9 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     midline = 0.5;  % position of the line form 0..1
 
     testingProb = 0;
-    lrSwitchProb =  1; % 0: no change, 1:switching each stmround
+    lrSwitchProb =  0; % 0: no change, 1:switching each stmround
+    
+    nRound = 10;
     
     % this function is applied to stimulate fishIds either on the left (<0)
     % or on the right (>0) side or not stm (0)
@@ -31,8 +33,8 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     textureOri = [pi,pi/2];
     textureCol = [1,1,1;1,1,1]; % RGB
     
-    stmLambda = 0.5; % this eq to dt*PosissonRate  !
-    stmBkgType = 'texture'; % one of 'none','plane','texture','border'
+    stmLambda = 1; % this eq to dt*PosissonRate  !
+    stmBkgType = 'none'; % one of 'none','plane','texture','border'
     stmBkgBrightness = 0.8; % from 0..1  
     stmSize =100;
     stmCol = [1,1,1]; % stimulus color (RGB [1,1,1] for white)    

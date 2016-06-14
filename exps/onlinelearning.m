@@ -1,20 +1,18 @@
 
 LOAD = 1
-COMPUTE =0
+COMPUTE =1
 
-if LOAD || ~exist('ft','var')
+if LOAD && ~exist('ft','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
-  opts.nfish = 3;
+  opts.nfish = 2;
   opts.stmif = 1;
   opts.stimulus.screen = 1;
-  opts.stimulus.screenBoundingBox = [150,53,1580,1256];
+  %opts.stimulus.screenBoundingBox = sbbox;
   
   opts.stimulus.presenter = 'fish.stimulus.PresenterOnlineLearningCue';
 
-  opts.fishwidth = 30;
-  opts.fishlength = 150;
 
 
   ft = fish.Tracker({0,videoFile},opts);
@@ -25,14 +23,15 @@ if COMPUTE
 
   if ~exist('sbbox','var')
     %sbbox = ft.calibrateStimulusScreen();
-    sbbox = [150,53,1580,1256];
+    sbbox = [0.1589    0.0601    1.5647    1.2685]*1e3;
   end
-  ft.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100,'stimulus.stmSize',100);
-  ft.setDisplay(0);  
+  ft.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100,'stimulus.stmSize',100,'stimulus.stmBkgType','texture','stimulus.stmLambda',0,'stimulus.stmTime',15,'stimulus.gapTime',1,'stimulus.midline',0.5,'stimulus.usePredFishId',false);
+  
+  ft.setDisplay(1);  
 
   
   ft.track();
-  ft.save();
+  %ft.save();
 
   
 

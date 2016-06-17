@@ -8,24 +8,19 @@ function tracks = step(self,tracks,framesize,t)
 
 
   if isempty(self.screenBoundingBox)
-    sbbox = [1,1,framesize([2,1])-1];
-  else
-    sbbox = self.screenBoundingBox;
+    self.setScreenSize([1,1,framesize([2,1])-1]);
   end
+  sbbox = self.screenBoundingBox;
 
   x = nan(length(tracks),1);
   y = nan(length(tracks),1);
+
   for i =1:length(tracks)
     x(i) = (tracks(i).centroid(1)-sbbox(1))/sbbox(3);
     y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
   end
 
-  if self.usePredFishId
-    fishIds = [tracks.predFishId];
-  else
-    fishIds = [tracks.fishId];
-  end
-  
+  fishIds = self.getFishIdsFromTracks(tracks);
   stmInfo = self.stepStimulus(x,y,t,fishIds);
 
   for i =1:length(tracks)

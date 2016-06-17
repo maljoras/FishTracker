@@ -364,9 +364,74 @@ classdef Tracker < handle;
         assert(success,'RunTest failed due to high inaccuracies in the tracking.');
       end
     end
+
+    
+    function [screenBoundingBox] = calibrateStimulusScreen(camIdx,screenIdx,plotif);
+    % [SCREENBOUNDINGBOX] =
+    % CALIBRATESTIMULUSSCREEN(CAMIDX,SCREENIDX gets the
+    % SCREENBOUNDINGBOX used for stimulus presentation.
+    
+      opts = [];
+      opts.nfish = 4;
+      opts.fishlength = 100;
+      opts.fishwidth = 30;
+      opts.stmif = 1;
+      opts.stimulus.presenter = 'fish.stimulus.PresenterCalibration';
+      opts.stimulus.screen =   screenIdx;
+      opts.classifier.timeToInit = Inf; 
+      opts.detector.inverted = 1;
+      opts.tracks.useDagResults = 0;
+      
+      ft = fish.Tracker({camIdx,''},opts);
+
+      if nargin<3
+        plotif = 1;
+      end
+      
+      if plotif>1
+        ft.setDisplay(1);
+        ft.setDisplay('tracks',1);      
+      else
+        ft.setDisplay(0);
+      end
+      
+      ft.addSaveFields('bbox');
+
+      ft.stimulusPresenter.width = 50; % maybe needs to be adjusted
+      ft.stimulusPresenter.tmax = 30;
+      ft.stimulusPresenter.freq = 0.2;
+      
+      fish.helper.verbose(['\n\n****** \tStarting calibration. ' ...
+                          'Make sure that the IR filter is NOT ' ...
+                          'installed! \n\tHit Enter to proceed!\n']);
+      pause;
+      
+      % start detecting
+      ft.track(); % track the markings
+      ft.stimulusPresenter.flip(); % turn stim off
+
+      pos = ft.deleteInvisible('pos');
+      bbox = ft.deleteInvisible('bbox');
+
+      [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,ft.videoHandler.frameSize);
+      
+      if plotif
+        figure;
+        imagesc(ft.videoHandler.getCurrentFrame());
+        colormap('gray')
+        hold on;
+        plot(xyframe(:,:,1),xyframe(:,:,2),'linewidth',1);
+        rectangle('position',screenBoundingBox,'linewidth',1, ...
+                  'edgecolor','r','facecolor','none')
+        title('Estimated Screen size');
+      end
+
+      fish.helper.verbose('Found Bounding Box [%d,%d,%d,%d]',round(screenBoundingBox));
+
+    end
     
     
-  end
+  end % STATIC METHODS
   
 
   methods (Access=private)
@@ -563,6 +628,7 @@ classdef Tracker < handle;
       self.videoHandler.setCurrentTime(self.timerange(1));
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
+      
       self.timeStamp = self.videoHandler.getCurrentTime();
       
       if isempty(self.maxVelocity)
@@ -598,6 +664,15 @@ classdef Tracker < handle;
       end
 
       self.setDisplayType();     
+      
+      %% init stimulus
+      if self.stmif
+        if isempty(self.stimulusPresenter)
+          error('No stimulus Presenter given');
+        end
+        self.stimulusPresenter.reset();
+      end
+      
       
       %% get new fish classifier 
       self.fishClassifier = newFishClassifier(self,self.opts.classifier);
@@ -669,7 +744,12 @@ classdef Tracker < handle;
       self.nFramesForSingleUpdate = min(3*self.nFramesForUniqueUpdate,1000); 
       self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
 
-      self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),500);
+      if ~isinf(self.opts.classifier.timeToInit)
+        self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),500);
+      else
+        self.nFramesForInit = Inf; % disables the classifier
+      end
+      
     end
     
     
@@ -1318,7 +1398,7 @@ classdef Tracker < handle;
           [misif,pdiff] = self.testTrackMisalignment(handledIndices);
           if misif 
             
-            fish.helper.verbose('Probably misaligned (%1.2f): better test again..\r',pdiff);
+            fish.helper.verbose('Probably misaligned (%1.2f)..\r',pdiff);
             self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
             
           end
@@ -2777,8 +2857,13 @@ classdef Tracker < handle;
           trackDuration = self.tabs(self.currentFrame)...
               - self.tabs(max(self.currentFrame-self.nFramesVerbose,1));
           t = datevec(seconds(self.timeStamp));
-          fish.helper.verbose(['%1.0fh %1.0fm %1.1fs  [%1.2f x real ' ...
-                              'time]             \r'],t(4),t(5),t(6),trackDuration/verboseDuration);
+          if ~self.stmif
+            fish.helper.verbose(['%1.0fh %1.0fm %1.1fs  [%1.2f x real ' ...
+                                'time]             \r'],t(4),t(5),t(6),trackDuration/verboseDuration);
+          else
+            fish.helper.verbose(['%1.0fh %1.0fm %1.1fs  [%1.2f FPS] ' ...
+                                '                  \r'],t(4),t(5),t(6),self.nFramesVerbose/verboseDuration) ;  
+          end
         end
       end
 

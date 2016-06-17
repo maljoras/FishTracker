@@ -14,8 +14,9 @@ classdef Presenter < handle;
   
     muteAllFlipping = false; % CAUTION: Turns off all flipping (for debugging only)
   
-    usePredFishId = true;  % wether to use the ID predicted by
-                           % DAG. 
+    usePredFishId = false;  % wether to use the ID predicted by
+                           % DAG. (DEPRECIATED. Results in too many
+                           % switches)
     borderWidth = 0;
   end
   
@@ -43,7 +44,13 @@ classdef Presenter < handle;
       self.setOpts(varargin{:});
       
     end
-
+    
+    
+    function reset(sefl);
+    % RESET(SELF) called in initTracking. Can be overloaded to reset the
+    % state of the stimulus presenter
+    end
+    
     
     function setOpts(self,varargin)
 
@@ -160,23 +167,49 @@ classdef Presenter < handle;
     function wrect = toScreenRect(self,rect);
     % converted matlab type of rectangle in norm coordinates to the
     % expected format of PsychToolbox
-
-      x = self.toScreenX(rect(1));
-      y = self.toScreenY(rect(2));
-      wx = self.toScreenWidth(rect(3));
-      wy = self.toScreenHeight(rect(4));
+      
+      if size(rect,1)==1
+        rect = rect';
+      end
+      
+      x = self.toScreenX(rect(:,1));
+      y = self.toScreenY(rect(:,2));
+      wx = self.toScreenWidth(rect(:,3));
+      wy = self.toScreenHeight(rect(:,4));
       
       wrect = [x,y,x+wx,y+wy];
 
       if self.xreversed
-        wrect([1,3]) = [x-wx,x];
+        wrect(:,[1,3]) = [x-wx,x];
       end
       if self.yreversed
-        wrect([2,4]) = [y-wy,y];
+        wrect(:,[2,4]) = [y-wy,y];
       end
       
     end
+    
+    function fishIds = getFishIdsFromTracks(self,tracks)
+      if self.usePredFishId
+        fishIds = [tracks.predFishId];
+      else
+        fishIds = [tracks.fishId];
+      end
+    end
+    
+    function convertedbbox = toScreenBbox(self,bbox)
+    % converts the bounding box from matlab to coordinates of
+    % PsychToolbox. CAUTION: for converting from norm coordinates use
+    % TOSCREENRECT
+    
+      sbbox = self.screenBoundingBox(:)'; % bbox of the overall screen
 
+      nbbox = zeros(size(bbox,1),4);
+      nbbox(:,1:2) =  bsxfun(@rdivide,bsxfun(@minus,bbox(:,1:2),sbbox(1,1:2)),sbbox(1,3:4));
+      nbbox(:,3:4) = bsxfun(@rdivide,bbox(:,3:4),sbbox(1,3:4));
+    
+      convertedbbox = self.toScreenRect(nbbox);
+    end
+    
     function timestamp = flip(self,force);
     % Flip to the screen
       if ~self.muteAllFlipping || (nargin>1 && force)

@@ -37,7 +37,11 @@ function setDisplay(self,varargin)
     disp(fieldnames(self.opts.display));
     error('Choose one of the above field names to set, E.g. ft.setDisplay(''tracks'',1)');
   end
-
+  
+  if ~isempty(self.videoHandler)
+    self.videoHandler.plotting(~~self.opts.display.videoHandler);
+  end
+  
   if ~self.displayif && nargin>2
     fish.helper.verbose('WARNING: Displaying is turned off. Turn on with ft.setDisplay(1)')
   end

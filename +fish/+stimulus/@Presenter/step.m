@@ -1,7 +1,7 @@
 function tracks = step(self,tracks,framesize,t)
 % this function will be called from fish.Tracker after each
 % round. Calls the stepStimulus method which should be overloaded!
-
+  
   if isempty(tracks)
     return;
   end
@@ -28,5 +28,12 @@ function tracks = step(self,tracks,framesize,t)
   end
 
   self.flip();
+  
+  if self.progressBar
+    if ~mod(self.istep,self.progressBarUpdateInt)
+      self.updateProgressBar(t,self.tmax);
+    end
+    self.istep = self.istep + 1;
+  end
 
 end

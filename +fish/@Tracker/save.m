@@ -31,7 +31,8 @@ function  save(self,savename,savepath,vname)
   s = 0;
   while exist(fname1,'file')
     s = s+1;
-    fname1 = [num2str(s) fname];
+    [a,b,c] = fileparts(fname);
+    fname1 = [a filesep b '-' num2str(s) c];
   end
   fname = fname1;
   

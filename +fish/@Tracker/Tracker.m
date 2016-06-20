@@ -565,7 +565,11 @@ classdef Tracker < handle;
       self.fishClassifier.plotif = ~~dopts.classifier && self.displayif;
       self.videoHandler.plotting(~~dopts.videoHandler && self.displayif);
                 
-      
+      if self.stmif
+        self.stimulusPresenter.progressBar = self.displayif && ...
+            self.opts.display.stimulusProgress;
+      end
+          
     end
     
     
@@ -663,7 +667,14 @@ classdef Tracker < handle;
         self.videoWriter = [];
       end
 
+      %% get new fish classifier 
+      self.fishClassifier = newFishClassifier(self,self.opts.classifier);
+      self.isInitClassifier = isInit(self.fishClassifier);
+
+      
+      %% set the display  (before stimPresenter.reset)
       self.setDisplayType();     
+      
       
       %% init stimulus
       if self.stmif
@@ -674,11 +685,6 @@ classdef Tracker < handle;
       end
       
       
-      %% get new fish classifier 
-      self.fishClassifier = newFishClassifier(self,self.opts.classifier);
-      self.isInitClassifier = isInit(self.fishClassifier);
-      
-
       if self.displayif && self.opts.display.tracks && ~isOpen(self.videoPlayer)
         self.videoPlayer.show();
       end
@@ -2554,12 +2560,16 @@ classdef Tracker < handle;
       def.opts.display.fishSearchResults = false;
       doc.display.fishSearchResults = {'Info plot nfish auto-search'};
 
+      def.opts.display.stimulusProgress = true;
+      doc.display.stimulusProgress = {'ProgressBar in case of stimulation'};
+      
       def.opts.display.switchFish = false;
       doc.display.switchFish = {'Switch fish info plot (for DEBUGGING) '};
 
       def.opts.display.videoHandler = false;
       doc.display.videoHandler = {'Raw frames and bwmsk MEX only (for DEBUGGING) '};
       
+
       def.opts.display.assignments = false;
       doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
 
@@ -2716,6 +2726,7 @@ classdef Tracker < handle;
         force = 0;
       end
       
+      self.daGraph.checkOverlap([],1);
       
       %trackIdx  and trackids SHOULD be the same! (if with no deletion)
       % at laest assert for last tracks (if 1:nfish, all previous should be too)

@@ -1,9 +1,9 @@
 function res = getTrackingResults(self,delinvif,forceif,dagif)
-% RES = GETTRACKINGRESULTS( ) returns the current results.  
-% GETTRACKINGRESULTS(DELINVIF) sets times in RES.POS where a track was
-% lost to NaN.
-% GETTRACKINGRESULTS(..,FORCIF) forces a regeneration of the
-% pos/res structure. 
+% RES = GETTRACKINGRESULTS(DELINVIF,FORCEIF,DAGIF) returns the current
+% results.  DELINVIF sets times in RES.POS where a track was lost to
+% NaN.  FORCIF==1 forces a re-generation of the pos/res
+% structure. DAGIF==0 uses the switch-based tracks, otherwise the
+% DAG-based tracks
   
   if isempty(self.res) || (exist('forceif','var') && ~isempty(forceif) && forceif)
     generateResults(self); % maybe not done yet

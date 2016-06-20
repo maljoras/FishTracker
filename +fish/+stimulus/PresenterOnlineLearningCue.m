@@ -39,12 +39,16 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     stmBkgBrightness = 0.8; % from 0..1  
     stmSize =100;
     stmCol = [1,1,1]; % stimulus color (RGB [1,1,1] for white)    
+    
 
+    stmBorderThres = 0; % minimal distance to border for stimulation
+    
     % for "fishtextures"
     stmSizeFactor = 1; 
     stmShift = 0; % in px of fishtracker frame
     stmShiftOri = 0; % in RAD=0 means in front
-    fishVelThres = 0;
+    stmVelThres = 0;
+
     lrif = 1; % start first stim LR (1) or RL(0)
     
   end
@@ -71,8 +75,8 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     stmState = [];
     textures = [];
 
-    fishTextures = [];
     fishTexturesBbox = [];
+    fishTextures = [];
     fishVelocity = [];
   end
     
@@ -83,13 +87,13 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     function init(self,varargin)
       
       init@fish.stimulus.Presenter(self,varargin{:});
-      
       self.initStmBkg();
-      updateRoundTime(self);
-      self.stmState = [];
+    
     end
 
     function reset(self)
+      reset@fish.stimulus.Presenter(self);
+
       self.iround = 0 ;
       self.roundTime = 0;
       self.stmIdx = -1;
@@ -167,22 +171,23 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
       end
     end
     
-    function plotVarDot(self,x,y,inSize,inColor)
+    function bbox = plotVarDot(self,x,y,inSize,inColor)
     % plots a dot in normalized coordinates.  
       
       xx = self.toScreenX(x);
       yy = self.toScreenY(y);
       w = self.toScreenWidth(self.midline);
-
+      bbox = zeros(length(x),4);
       for i = 1:length(xx)
         s2 = inSize(min(i,end))/2;
         s2 = min(abs(xx(i)-w),s2);
         rect = [xx(i)-s2,yy(i)-s2,xx(i)+s2,yy(i)+s2];
         Screen('FillOval', self.window, inColor(min(i,end),:)*255, rect);
+        bbox(i,:) = rect;
       end
     end
 
-   function [x,y] = plotStimulus(self,x,y,t,fishIds,lrswitch)
+   function [stmbbox] = plotStimulus(self,x,y,t,fishIds,lrswitch)
 
      if length(x) ~= length(self.stmState)
        % should only happen once in the beginning. (nfish is constant)
@@ -219,31 +224,40 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
      right = ~xleft & stmright & self.stmState(fishIds);
      lr = left | right;
      
+     if self.stmBorderThres
+       lr = lr & (x>self.stmBorderThres & x<1-self.stmBorderThres);
+       lr = lr & (y>self.stmBorderThres & y<1-self.stmBorderThres);
+     end
+
+     stmbbox = nan(length(x),4);
+     
      switch lower(self.stmType)
        
        case 'vardots'
-         self.plotVarDot(x(lr),y(lr),stmSize(lr),stmCol(lr,:));
+         stmbbox(lr,:) = self.plotVarDot(x(lr),y(lr),stmSize(lr),stmCol(lr,:));
+       
        case 'fishtextures'
 
-         lr = lr & (self.fishVelocity>self.fishVelThres);
+         lr = lr & (self.fishVelocity>self.stmVelThres);
 
          for i = find(lr)'
            Screen('drawTexture',self.window,self.fishTextures(i),[],...
                   self.fishTexturesBbox(i,:),[],[],[],stmCol(i,:)*255);
          end
-
+         
+         stmbbox(lr,:) = self.fishTexturesBbox(lr,:);
+       
        otherwise
          error('Unknown stmType');
      end
      
-     nostmmsk = ~(right | left);
-     x(nostmmsk) = NaN;
-     y(nostmmsk) = NaN;
    end
    
    function updateRoundTime(self);
      trainingTime = 2*self.signalTime + self.stmTime;
      self.roundTime = trainingTime + self.gapTime;
+   
+     self.tmax = self.adaptationTime +  self.nRound*self.roundTime;
    end
 
    function saveImageTextures(self,tracks);
@@ -391,6 +405,7 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
      end
        
      %% plotting
+     stmbbox = nan(length(x),4);
      switch self.stmIdx
        case {self.ID_BEGINCUE,self.ID_ENDCUE}
          self.plotCue(self.stmIdx,min(abs(ttmod-self.stmTime-self.signalTime),ttmod));
@@ -403,7 +418,7 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
          self.plotStmBkg(self.stmBkgType,lrswitch);
 
          if self.stmIdx==self.ID_STIMULUS_LR || self.stmIdx==self.ID_STIMULUS_RL
-           [x,y] = self.plotStimulus(x,y,t,fishIds,lrswitch); 
+           stmbbox = self.plotStimulus(x,y,t,fishIds,lrswitch); 
          end
                    
      end
@@ -412,15 +427,11 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
      
      
      % save stm info
-     stmInfo = zeros(length(fishIds),4);
+     stmInfo = zeros(length(fishIds),8);
      stmInfo(:,1) = self.stmIdx;
      stmInfo(:,2:3) = [x,y];
      stmInfo(:,4) = t;
-   end
-   
-        
-   function bool = isFinished(self,t)
-     bool = t>self.adaptationTime+(self.stmTime+2*self.signalTime+self.gapTime)*self.nRound;
+     stmInfo(:,5:8) = stmbbox;
    end
    
   end

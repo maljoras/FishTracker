@@ -13,9 +13,15 @@ function generateResults(self)
              '"savedTracksFull"'])
   end
 
-  nFrames = self.currentFrame;
   
-
+  
+  nFrames = size(self.savedTracks.id,3)/self.nfish;
+  if self.currentFrame~=nFrames
+    fish.helper.verbose(['WARNING: %d frames got lost (premature abort while ' ...
+             'tracking?)'],self.currentFrame-nFrames);
+  end
+  self.currentFrame = nFrames;
+  
   if self.opts.classifier.onlyDAGMethod
     self.getPosFromDag([],1); % overwrites pos
   end

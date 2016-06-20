@@ -18,6 +18,11 @@ classdef Presenter < handle;
                            % DAG. (DEPRECIATED. Results in too many
                            % switches)
     borderWidth = 0;
+    colBorder= [1,1,1];
+    colBackground= [0,0,0];
+  
+    progressBar = 1;
+    progressBarUpdateInt = 50; % in frames
   end
   
   
@@ -34,6 +39,8 @@ classdef Presenter < handle;
 
   properties(SetAccess=private,GetAccess=private);
     topPriorityLevel = [];
+    progressBarH  = [];
+    istep = 0;
   end
   
   methods 
@@ -46,12 +53,45 @@ classdef Presenter < handle;
     end
     
     
-    function reset(sefl);
+    function reset(self);
     % RESET(SELF) called in initTracking. Can be overloaded to reset the
     % state of the stimulus presenter
+    
+      self.istep = 0;
+      if isinf(self.tmax)
+        self.progressBar = 0;
+      end
+      self.initProgressBar();
+    end
+    
+    function closeProgressBar(self)
+
+      if ishandle(self.progressBarH)
+        close(self.progressBarH);
+      end
+      self.progressBarH = [];        
+    end
+    
+    function initProgressBar(self)
+      if self.progressBar
+        self.closeProgressBar();
+        global GLOBAL_CLOSE_REQ;
+        GLOBAL_CLOSE_REQ = 0;
+        self.progressBarH = waitbar(0,'Stimulus progress.. close to stop stimulation.',...
+                                    'Name',sprintf('%s progress..',class(self)));
+      
+        set(self.progressBarH,'CloseRequestFcn',@closereqfun);
+      end
     end
     
     
+    function updateProgressBar(self,t,tmax);
+      tt = datevec(seconds(tmax-t));
+      waitbar(t/tmax,self.progressBarH,...
+              sprintf('Estimated time: %1.0fh %1.0fm %1.1fs',tt(4),tt(5),tt(6)));
+    end
+    
+      
     function setOpts(self,varargin)
 
       if length(varargin)==1 && isstruct(varargin{1});
@@ -139,6 +179,16 @@ classdef Presenter < handle;
     
     function bool = isFinished(self,t);
       bool = t>self.tmax;
+      
+      if self.progressBar
+        if bool
+          self.closeProgressBar();
+        else
+          global GLOBAL_CLOSE_REQ
+          bool =  bool || GLOBAL_CLOSE_REQ;
+        end
+      end
+    
     end
     
     function [xx] =toScreenX(self,normx);
@@ -168,7 +218,7 @@ classdef Presenter < handle;
     % converted matlab type of rectangle in norm coordinates to the
     % expected format of PsychToolbox
       
-      if size(rect,1)==1
+      if size(rect,2)==1
         rect = rect';
       end
       

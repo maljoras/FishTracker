@@ -110,7 +110,7 @@ PCLDISTTARGET = $(TARGETDIR)/$(HELPERDIR)/pdist2CenterLine.$(MEXEXT)
 MUNKRES = $(SRCDIR)/assignDetectionsToTracks.cpp
 MUNKRESTARGET = $(TARGETDIR)/$(HELPERDIR)/assignDetectionsToTracks.$(MEXEXT)
 
-ifneq ($(ALLTARGET),"helper")
+ifneq ($(ALLTARGET),helper)
   # mexopencv files and targets
   HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
   SRCS1      := $(SRCDIR)/FishVideoCapture_.cpp

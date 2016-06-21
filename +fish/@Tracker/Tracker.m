@@ -198,7 +198,7 @@ classdef Tracker < handle;
         end
         
         if ~exist(pathToVideo)
-          pathToVideo = [fish.helper.getFTRoot() 'data/5Zebrafish_nocover_22min.avi'];   
+          pathToVideo = [fish.helper.getFTRoot() 'data' filesep '5Zebrafish_nocover_22min.avi'];   
         end
         if ~exist(pathToVideo)
           error(['Please set PATHTOVIDEO to dowloaded video file available at "http://' ...
@@ -208,7 +208,7 @@ classdef Tracker < handle;
       end
       
       if nargin<4 || isempty(pathToMat)
-        pathToMat = [fish.helper.getFTRoot() 'data/trajectories.mat']; 
+        pathToMat = [fish.helper.getFTRoot() 'data' filesep 'trajectories.mat']; 
       end
 
       if nargin<5
@@ -652,7 +652,7 @@ classdef Tracker < handle;
       
       if isscalar(self.writefile) && self.writefile
         [a,b,c] = fileparts(self.videoFile);
-        self.writefile = [a '/' b '_trackingVideo' c];
+        self.writefile = [a filesep b '_trackingVideo' c];
       end
 
       if ~isempty(self.writefile) 

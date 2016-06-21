@@ -5,15 +5,24 @@ classdef Presenter < handle;
   properties 
     screen = 1;
     defaultColor = [1,0.2,1];
+
     tmax = Inf;
+    
     xreversed = true; % whether screen versus camera are reversed in x
     yreversed = true; % or y
     screenBoundingBox = [];
   
     muteAllFlipping = false; % CAUTION: Turns off all flipping (for debugging only)
   
-    usePredFishId = true;  % wether to use the ID predicted by
-                           % DAG. 
+    usePredFishId = false;  % wether to use the ID predicted by
+                           % DAG. (DEPRECIATED. Results in too many
+                           % switches)
+    borderWidth = 0;
+    colBorder= [1,1,1];
+    colBackground= [0,0,0];
+  
+    progressBar = 1;
+    progressBarUpdateInt = 50; % in frames
   end
   
   
@@ -30,6 +39,8 @@ classdef Presenter < handle;
 
   properties(SetAccess=private,GetAccess=private);
     topPriorityLevel = [];
+    progressBarH  = [];
+    istep = 0;
   end
   
   methods 
@@ -40,8 +51,47 @@ classdef Presenter < handle;
       self.setOpts(varargin{:});
       
     end
-
     
+    
+    function reset(self);
+    % RESET(SELF) called in initTracking. Can be overloaded to reset the
+    % state of the stimulus presenter
+    
+      self.istep = 0;
+      if isinf(self.tmax)
+        self.progressBar = 0;
+      end
+      self.initProgressBar();
+    end
+    
+    function closeProgressBar(self)
+
+      if ishandle(self.progressBarH)
+        close(self.progressBarH);
+      end
+      self.progressBarH = [];        
+    end
+    
+    function initProgressBar(self)
+      if self.progressBar
+        self.closeProgressBar();
+        global GLOBAL_CLOSE_REQ;
+        GLOBAL_CLOSE_REQ = 0;
+        self.progressBarH = waitbar(0,'Stimulus progress.. close to stop stimulation.',...
+                                    'Name',sprintf('%s progress..',class(self)));
+      
+        set(self.progressBarH,'CloseRequestFcn',@closereqfun);
+      end
+    end
+    
+    
+    function updateProgressBar(self,t,tmax);
+      tt = datevec(seconds(tmax-t));
+      waitbar(t/tmax,self.progressBarH,...
+              sprintf('Estimated time: %1.0fh %1.0fm %1.1fs',tt(4),tt(5),tt(6)));
+    end
+    
+      
     function setOpts(self,varargin)
 
       if length(varargin)==1 && isstruct(varargin{1});
@@ -129,6 +179,16 @@ classdef Presenter < handle;
     
     function bool = isFinished(self,t);
       bool = t>self.tmax;
+      
+      if self.progressBar
+        if bool
+          self.closeProgressBar();
+        else
+          global GLOBAL_CLOSE_REQ
+          bool =  bool || GLOBAL_CLOSE_REQ;
+        end
+      end
+    
     end
     
     function [xx] =toScreenX(self,normx);
@@ -155,25 +215,51 @@ classdef Presenter < handle;
     end
 
     function wrect = toScreenRect(self,rect);
-    % converted matlav type of rectangle in norm coordinates to the
+    % converted matlab type of rectangle in norm coordinates to the
     % expected format of PsychToolbox
-
-      x = self.toScreenX(rect(1));
-      y = self.toScreenY(rect(2));
-      wx = self.toScreenWidth(rect(3));
-      wy = self.toScreenHeight(rect(4));
+      
+      if size(rect,2)==1
+        rect = rect';
+      end
+      
+      x = self.toScreenX(rect(:,1));
+      y = self.toScreenY(rect(:,2));
+      wx = self.toScreenWidth(rect(:,3));
+      wy = self.toScreenHeight(rect(:,4));
       
       wrect = [x,y,x+wx,y+wy];
 
       if self.xreversed
-        wrect([1,3]) = [x-wx,x];
+        wrect(:,[1,3]) = [x-wx,x];
       end
       if self.yreversed
-        wrect([2,4]) = [y-wy,y];
+        wrect(:,[2,4]) = [y-wy,y];
       end
       
     end
+    
+    function fishIds = getFishIdsFromTracks(self,tracks)
+      if self.usePredFishId
+        fishIds = [tracks.predFishId];
+      else
+        fishIds = [tracks.fishId];
+      end
+    end
+    
+    function convertedbbox = toScreenBbox(self,bbox)
+    % converts the bounding box from matlab to coordinates of
+    % PsychToolbox. CAUTION: for converting from norm coordinates use
+    % TOSCREENRECT
+    
+      sbbox = self.screenBoundingBox(:)'; % bbox of the overall screen
 
+      nbbox = zeros(size(bbox,1),4);
+      nbbox(:,1:2) =  bsxfun(@rdivide,bsxfun(@minus,bbox(:,1:2),sbbox(1,1:2)),sbbox(1,3:4));
+      nbbox(:,3:4) = bsxfun(@rdivide,bbox(:,3:4),sbbox(1,3:4));
+    
+      convertedbbox = self.toScreenRect(nbbox);
+    end
+    
     function timestamp = flip(self,force);
     % Flip to the screen
       if ~self.muteAllFlipping || (nargin>1 && force)

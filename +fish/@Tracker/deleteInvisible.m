@@ -9,19 +9,20 @@ function out = deleteInvisible(self,field,timeRange)
   if ~exist('timeRange','var') || isempty(timeRange)
     timeRange = self.timerange;
   end
-
-  t = self.res.tracks.t(:,1);
+  
+  res = self.getTrackingResults();
+  t = res.tracks.t(:,1);
   idx = t>=timeRange(1) & t<timeRange(2);
 
-  msk = self.getInvisibleMsk();
+  msk = self.getInvisibleMsk(res);
   msk = msk(idx,:);
   
   if strcmp(field,'pos')
-    out = self.res.pos(idx,:,:);
+    out = res.pos(idx,:,:);
     out(permute(cat(3,msk,msk),[1,3,2])) = NaN;
-  elseif isfield(self.res.tracks,field)
+  elseif isfield(res.tracks,field)
     % always nFrames x nFish x nOther
-    out = double(self.res.tracks.(field)(idx,:,:,:,:,:));
+    out = double(res.tracks.(field)(idx,:,:,:,:,:));
     sz = size(out);
     out = reshape(out,numel(msk),[]);
     out(msk,:) = NaN;

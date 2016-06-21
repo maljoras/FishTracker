@@ -42,6 +42,7 @@ function [pcl,a,mu,Sigma] = emclustering(X,k,plotif)
    mu = bsxfun(@rdivide,X' * pcl,sumcl);
    
    %var (already use new mu)
+   Sigma = zeros([d,d,k]);
    for j = 1:k
      xm = bsxfun(@minus,X,mu(:,j)');
      Sigma(:,:,j) = xm'*(bsxfun(@times,xm,pcl(:,j)))/sumcl(j)+ reg*eye(d);

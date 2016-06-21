@@ -13,9 +13,15 @@ function generateResults(self)
              '"savedTracksFull"'])
   end
 
-  nFrames = self.currentFrame;
   
-
+  
+  nFrames = size(self.savedTracks.id,3)/self.nfish;
+  if self.currentFrame~=nFrames
+    fish.helper.verbose(['WARNING: %d frames got lost (premature abort while ' ...
+             'tracking?)'],self.currentFrame-nFrames);
+  end
+  self.currentFrame = nFrames;
+  
   if self.opts.classifier.onlyDAGMethod
     self.getPosFromDag([],1); % overwrites pos
   end
@@ -23,8 +29,9 @@ function generateResults(self)
   fishId2TrackId = self.fishId2TrackId(1:nFrames,:)';
   self.res = subGenerateTracks(fishId2TrackId);
   self.res.pos = permute(self.pos(:,:,1:nFrames),[3,1,2]);      
+  self.res.t = self.res.tracks.t(:,1);
+  self.res.tabs = self.tabs(1:nFrames,:);
 
-  
   if ~self.opts.classifier.onlyDAGMethod
     % also generate dag
     clear fishId2TrackId
@@ -32,6 +39,8 @@ function generateResults(self)
     self.res.dag = subGenerateTracks(fishId2TrackId');
     
     self.res.dag.pos = permute(pos(:,:,1:nFrames),[3,1,2]);      
+    self.res.dag.t = self.res.dag.tracks.t(:,1);
+    self.res.dag.tabs = self.tabs(1:nFrames,:);
 
   end
   

@@ -31,7 +31,6 @@
 
 # programs
 MATLABDIR  ?= /opt/MATLAB/R2014b
-MEX        = $(MATLABDIR)/bin/mex
 MATLAB     = $(MATLABDIR)/bin/matlab
 MEXOPENCVDIR ?= /home/malte/work/progs/toolboxes/mexopencv
 SRCDIR = src
@@ -67,7 +66,14 @@ endif
 # file extensions
 OBJEXT     = o
 LIBEXT     = a
-MEXEXT     = $(shell $(MATLABDIR)/bin/mexext)
+ifeq ($(wildcard $(MATLABDIR)/bin/mexext.bat),)
+  MEXEXT     = $(shell $(MATLABDIR)/bin/mexext.bat)
+  MEX        = $(MATLABDIR)/bin/mex.bat
+else
+  MEX        = $(MATLABDIR)/bin/mex
+  MEXEXT     = $(shell $(MATLABDIR)/bin/mexext)
+endif
+
 ifeq ($(MEXEXT),)
     $(error "MEX extension not set")
 endif
@@ -110,7 +116,9 @@ PCLDISTTARGET = $(TARGETDIR)/$(HELPERDIR)/pdist2CenterLine.$(MEXEXT)
 MUNKRES = $(SRCDIR)/assignDetectionsToTracks.cpp
 MUNKRESTARGET = $(TARGETDIR)/$(HELPERDIR)/assignDetectionsToTracks.$(MEXEXT)
 
-ifneq ($(ALLTARGET),"helper")
+
+
+ifneq ($(ALLTARGET),helper)
   # mexopencv files and targets
   HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
   SRCS1      := $(SRCDIR)/FishVideoCapture_.cpp

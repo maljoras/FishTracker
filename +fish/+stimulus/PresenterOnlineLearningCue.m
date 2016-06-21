@@ -5,8 +5,10 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     stmTime = 5; %time of stimulus (in seconds)
     gapTime =10; % time of gap after stim
     adaptationTime =1;%600; % time at the beginning (in seconds
+
+    nRound = 10;
     
-    
+    colBorder = [1,1,1];
     colBackground = [0,0,0]; % background color (RGB [0,0,0] for black)
     colBeginCue = [1,0,0];% begining signal (RGB[255,0,0]for red)
     colEndCue = [0,1,0]; % ending signal(RGB[0,255,0]for green)
@@ -32,12 +34,23 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     textureCutoff = [0.01,0.0001]; % right left
     textureOri = [pi,pi/2];
     textureCol = [1,1,1;1,1,1]; % RGB
-    
-    stmLambda = 1; % this eq to dt*PosissonRate  !
-    stmBkgType = 'none'; % one of 'none','plane','texture','border'
+
+    stmType = 'vardots';
+    stmLambda = 0.5; % this eq to dt*PosissonRate  !
+    stmBkgType = 'texture'; % one of 'none','plane','texture','border'
+
     stmBkgBrightness = 0.8; % from 0..1  
     stmSize =100;
     stmCol = [1,1,1]; % stimulus color (RGB [1,1,1] for white)    
+    
+
+    stmBorderThres = 0; % minimal distance to border for stimulation
+    
+    % for "fishtextures"
+    stmSizeFactor = 1; 
+    stmShift = 0; % in px of fishtracker frame
+    stmShiftOri = 0; % in RAD=0 means in front
+    stmVelThres = 0;
 
     lrif = 1; % start first stim LR (1) or RL(0)
     
@@ -64,6 +77,10 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     stmIdx = -1;
     stmState = [];
     textures = [];
+
+    fishTexturesBbox = [];
+    fishTextures = [];
+    fishVelocity = [];
   end
     
 
@@ -73,11 +90,20 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     function init(self,varargin)
       
       init@fish.stimulus.Presenter(self,varargin{:});
-      
       self.initStmBkg();
-      updateRoundTime(self);
+    
     end
 
+    function reset(self)
+      reset@fish.stimulus.Presenter(self);
+
+      self.iround = 0 ;
+      self.roundTime = 0;
+      self.stmIdx = -1;
+      self.testingif = 0;
+      self.stmState = [];
+      self.updateRoundTime();
+    end
     
     function initStmBkg(self)
     % inits all possible backgrounds
@@ -103,6 +129,9 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
     function plotStmBkg(self,type,lrswitch);
 
       switch lower(type)
+        
+        case 'simpleborder'
+          self.plotBorder(self.borderWidth,self.colBorder,self.colBackground);
         
         case 'none'
           plotVPlane(self,self.midline,self.colBackground,self.colBackground);
@@ -145,22 +174,23 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
       end
     end
     
-    function plotVarDot(self,x,y,inSize,inColor)
+    function bbox = plotVarDot(self,x,y,inSize,inColor)
     % plots a dot in normalized coordinates.  
       
       xx = self.toScreenX(x);
       yy = self.toScreenY(y);
       w = self.toScreenWidth(self.midline);
-
+      bbox = zeros(length(x),4);
       for i = 1:length(xx)
         s2 = inSize(min(i,end))/2;
         s2 = min(abs(xx(i)-w),s2);
         rect = [xx(i)-s2,yy(i)-s2,xx(i)+s2,yy(i)+s2];
         Screen('FillOval', self.window, inColor(min(i,end),:)*255, rect);
+        bbox(i,:) = rect;
       end
     end
 
-   function [x,y] = plotStimulus(self,x,y,t,fishIds,lrswitch)
+   function [stmbbox] = plotStimulus(self,x,y,t,fishIds,lrswitch)
 
      if length(x) ~= length(self.stmState)
        % should only happen once in the beginning. (nfish is constant)
@@ -190,21 +220,119 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
        self.stmState(msk) = ~self.stmState(msk);
      end
 
-     left = xleft & stmleft & self.stmState(fishIds);
-     self.plotVarDot(x(left),y(left),self.stmSize,self.stmCol);
+     stmCol = self.stmCol(min(fishIds,end),:);
+     stmSize = self.stmSize(min(fishIds,end));
 
+     left = xleft & stmleft & self.stmState(fishIds);     
      right = ~xleft & stmright & self.stmState(fishIds);
-     self.plotVarDot(x(right),y(right),self.stmSize,self.stmCol);
+     lr = left | right;
+     
+     if self.stmBorderThres
+       lr = lr & (x>self.stmBorderThres & x<1-self.stmBorderThres);
+       lr = lr & (y>self.stmBorderThres & y<1-self.stmBorderThres);
+     end
 
-     nostmmsk = ~(right | left);
-     x(nostmmsk) = NaN;
-     y(nostmmsk) = NaN;
+     stmbbox = nan(length(x),4);
+     
+     switch lower(self.stmType)
+       
+       case 'vardots'
+         stmbbox(lr,:) = self.plotVarDot(x(lr),y(lr),stmSize(lr),stmCol(lr,:));
+       
+       case 'fishtextures'
+
+         lr = lr & (self.fishVelocity>self.stmVelThres);
+
+         for i = find(lr)'
+           Screen('drawTexture',self.window,self.fishTextures(i),[],...
+                  self.fishTexturesBbox(i,:),[],[],[],stmCol(i,:)*255);
+         end
+         
+         stmbbox(lr,:) = self.fishTexturesBbox(lr,:);
+       
+       otherwise
+         error('Unknown stmType');
+     end
+     
    end
    
    function updateRoundTime(self);
      trainingTime = 2*self.signalTime + self.stmTime;
      self.roundTime = trainingTime + self.gapTime;
+   
+     self.tmax = self.adaptationTime +  self.nRound*self.roundTime;
    end
+
+   function saveImageTextures(self,tracks);
+
+     sbbox = self.screenBoundingBox;   
+     self.fishTexturesBbox = zeros(length(tracks),4);
+
+     for i = 1:length(self.fishTextures)
+       Screen('Close', self.fishTextures(i));
+     end
+     self.fishTextures = zeros(length(tracks),1);
+     
+     bodyori = zeros(length(tracks),1);
+     for i = 1:length(tracks)
+       seg = tracks(i).segment;
+
+       if ~isempty(seg)
+         img = flipud(fliplr(seg.Image));
+         bodyori(i) = seg.Orientation;
+       else
+         img = 0;
+         bodyori(i) = 0;
+       end
+       self.fishTextures(i) = Screen('makeTexture',self.window,img*255,0,0);
+     end
+
+     % transform boxes
+     fishIds = self.getFishIdsFromTracks(tracks);     
+
+     bboxes = cat(1,tracks.bbox);
+     bodyori = -bodyori/180*pi+pi/2;
+     vel = cat(1,tracks.velocity);
+     self.fishVelocity = sqrt(vel(:,1).^2 + vel(:,2).^2);
+     velori = atan2(vel(:,1),vel(:,2));
+     bboxes = self.transformBbox(bboxes,velori,fishIds);
+     self.fishTexturesBbox = self.toScreenBbox(bboxes);
+
+   end
+
+   function bboxes = transformBbox(self,bboxes,ori,fishIds)
+
+     stmSizeFactor = self.stmSizeFactor(min(fishIds,end));
+     stmShift = self.stmShift(min(fishIds,end));     
+     stmShiftOri = self.stmShiftOri(min(fishIds,end));     
+     
+     
+     % enlarging
+     bboxes(:,[1,2]) = bboxes(:,[1,2])+bsxfun(@times,bboxes(:,[3,4]),(1-stmSizeFactor(:))/2);
+     bboxes(:,[3,4]) = bsxfun(@times,bboxes(:,[3,4]),stmSizeFactor(:));
+     
+     % get shift orientation
+     ori =  ori + pi +stmShiftOri(:);
+     
+     % shift box
+     bboxes(:,1) = bboxes(:,1) + sin(ori).*stmShift(:);
+     bboxes(:,2) = bboxes(:,2) + cos(ori).*stmShift(:);
+   
+   end
+   
+   
+   function tracks = step(self,tracks,framesize,t)
+   % overloads step to get the textures
+
+     if strcmpi(self.stmType,'fishtextures')
+       self.saveImageTextures(tracks);
+     end
+
+     % let  parent do the work
+     tracks = step@fish.stimulus.Presenter(self,tracks,framesize,t);
+   end
+   
+
    
    function stmInfo = stepStimulus(self,x,y,t,fishIds)
    % stmInfo = stepStimulus(self,x,y,t,fishIds) this function will be
@@ -280,32 +408,33 @@ classdef PresenterOnlineLearningCue < fish.stimulus.Presenter;
      end
        
      %% plotting
+     stmbbox = nan(length(x),4);
      switch self.stmIdx
        case {self.ID_BEGINCUE,self.ID_ENDCUE}
          self.plotCue(self.stmIdx,min(abs(ttmod-self.stmTime-self.signalTime),ttmod));
        case {self.ID_GAP,self.ID_ADAPTATION,self.ID_PAUSE}
          self.plotVPlane(0.5,self.colBackground,self.colBackground);
        otherwise
+
          % during stimulus
          lrswitch = self.stmIdx==self.ID_TEST_RL || self.stmIdx==self.ID_STIMULUS_RL;
          self.plotStmBkg(self.stmBkgType,lrswitch);
 
          if self.stmIdx==self.ID_STIMULUS_LR || self.stmIdx==self.ID_STIMULUS_RL
-           [x,y] = self.plotStimulus(x,y,t,fishIds,lrswitch); 
+           stmbbox = self.plotStimulus(x,y,t,fishIds,lrswitch); 
          end
                    
      end
 
+    
+     
+     
      % save stm info
-     stmInfo = zeros(length(fishIds),4);
+     stmInfo = zeros(length(fishIds),8);
      stmInfo(:,1) = self.stmIdx;
      stmInfo(:,2:3) = [x,y];
      stmInfo(:,4) = t;
-   end
-   
-        
-   function bool = isFinished(self,t)
-     bool = t>self.adaptationTime+(self.stmTime+2*self.signalTime+self.gapTime)*self.nRound;
+     stmInfo(:,5:8) = stmbbox;
    end
    
   end

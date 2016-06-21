@@ -72,6 +72,7 @@ classdef Tracker < handle;
     fishId2TrackId = [];
     meanCost = ones(4,1);
     pos = [];
+    tabs = [];
     uniqueFishFrames = 0;
     
     assignments = [];
@@ -85,8 +86,13 @@ classdef Tracker < handle;
 
     currentCrossBoxLengthScale = 1; 
     
+    % constants
     nFramesExtendMemory = 250;
-
+    nFramesAppendSavedTracks = 100;
+    nStepsSaveProgress = 250; % times nFramesAppendSavedTracks
+    nFramesVerbose = 40;
+    
+    % autoinit
     nFramesForInit  = [];
     nFramesAfterCrossing = [];
     nFramesForUniqueUpdate = [];
@@ -100,6 +106,9 @@ classdef Tracker < handle;
     maxClassificationProb =0;
     
     avgTimeScale = [];
+    
+    timeStamp = [];
+    lastTimeStamp = [];
     
   end
 
@@ -157,18 +166,22 @@ classdef Tracker < handle;
     %% test
     
     function [success,t_elapsed,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
-    %[SUCCESS,T_ELAPSED] = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT) makes a validation versus
+    %[SUCCESS,T_ELAPSED] = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT,PLOTIF) makes a validation versus
     %the idTracker [1] with the video provided by idTracker. OPTS is a struct
     %with fields given to initialize fish.Tracker. PATHTOMAT is the trajectory
     %file from idTracker tracking the same video. PATHTOVIDEO is the video file
     %from idTracker (5 Zebrafish). TMAX sets the trange of the tracking
     %comparison (in seconds). Set TMAX to [] to test the whole
     %7.4min video. T_ELAPSED is the required tracking time in
-    %seconds. 
+    %seconds. if PLOTIF==0 no output is given. PLOTIF==1 plots a result
+    %plot and PLOTIF>1 displays the tracks currently tracked.
     %
     % [..,FTPOS,IDPOS] = RUNTEST returns additionally the position results.
     % [..,FT] = RUNTEST returns additionally the fish.Tracker object.
     %  
+    % Example: 
+    % >> fish.Tracker.runTest(50,[],[],[],2); % with plotting
+    %
     % [1] Perez-Escudero et al Nature Methods 2014
 
       if nargin<1 || isempty(tmax)
@@ -188,10 +201,10 @@ classdef Tracker < handle;
           pathToVideo = '~/Videos/5Zebrafish_nocover_22min.avi';   
         end
         
-        if ~exist(pathToVideo)
-          pathToVideo = [fish.helper.getFTRoot() 'data/5Zebrafish_nocover_22min.avi'];   
+        if ~exist('pathToVideo','var') || ~exist(pathToVideo,'file')
+          pathToVideo = [fish.helper.getFTRoot() 'data' filesep '5Zebrafish_nocover_22min.avi'];   
         end
-        if ~exist(pathToVideo)
+        if ~exist(pathToVideo,'file')
           error(['Please set PATHTOVIDEO to dowloaded video file available at "http://' ...
                  'www.cajal.csic.es/files/gpolavieja/5Zebrafish_nocover_22min.avi" ' ...
                  'or put the downloaded avi-file into the "+fish/../data" directory.']);
@@ -199,7 +212,7 @@ classdef Tracker < handle;
       end
       
       if nargin<4 || isempty(pathToMat)
-        pathToMat = [fish.helper.getFTRoot() 'data/trajectories.mat']; 
+        pathToMat = [fish.helper.getFTRoot() 'data' filesep 'trajectories.mat']; 
       end
 
       if nargin<5
@@ -215,7 +228,7 @@ classdef Tracker < handle;
       % run benchmark
       fish.helper.verbose('Starting run test.');
       ft = fish.Tracker(pathToVideo,args{:});
-      ft.setDisplay(0);
+      ft.setDisplay(max(plotif-1,0));
       ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
 
       tic;
@@ -355,9 +368,74 @@ classdef Tracker < handle;
         assert(success,'RunTest failed due to high inaccuracies in the tracking.');
       end
     end
+
+    
+    function [screenBoundingBox] = calibrateStimulusScreen(camIdx,screenIdx,plotif);
+    % [SCREENBOUNDINGBOX] =
+    % CALIBRATESTIMULUSSCREEN(CAMIDX,SCREENIDX gets the
+    % SCREENBOUNDINGBOX used for stimulus presentation.
+    
+      opts = [];
+      opts.nfish = 4;
+      opts.fishlength = 100;
+      opts.fishwidth = 30;
+      opts.stmif = 1;
+      opts.stimulus.presenter = 'fish.stimulus.PresenterCalibration';
+      opts.stimulus.screen =   screenIdx;
+      opts.classifier.timeToInit = Inf; 
+      opts.detector.inverted = 1;
+      opts.tracks.useDagResults = 0;
+      
+      ft = fish.Tracker({camIdx,''},opts);
+
+      if nargin<3
+        plotif = 1;
+      end
+      
+      if plotif>1
+        ft.setDisplay(1);
+        ft.setDisplay('tracks',1);      
+      else
+        ft.setDisplay(0);
+      end
+      
+      ft.addSaveFields('bbox');
+
+      ft.stimulusPresenter.width = 50; % maybe needs to be adjusted
+      ft.stimulusPresenter.tmax = 30;
+      ft.stimulusPresenter.freq = 0.2;
+      
+      fish.helper.verbose(['\n\n****** \tStarting calibration. ' ...
+                          'Make sure that the IR filter is NOT ' ...
+                          'installed! \n\tHit Enter to proceed!\n']);
+      pause;
+      
+      % start detecting
+      ft.track(); % track the markings
+      ft.stimulusPresenter.flip(); % turn stim off
+
+      pos = ft.deleteInvisible('pos');
+      bbox = ft.deleteInvisible('bbox');
+
+      [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,ft.videoHandler.frameSize);
+      
+      if plotif
+        figure;
+        imagesc(ft.videoHandler.getCurrentFrame());
+        colormap('gray')
+        hold on;
+        plot(xyframe(:,:,1),xyframe(:,:,2),'linewidth',1);
+        rectangle('position',screenBoundingBox,'linewidth',1, ...
+                  'edgecolor','r','facecolor','none')
+        title('Estimated Screen size');
+      end
+
+      fish.helper.verbose('Found Bounding Box [%d,%d,%d,%d]',round(screenBoundingBox));
+
+    end
     
     
-  end
+  end % STATIC METHODS
   
 
   methods (Access=private)
@@ -491,7 +569,11 @@ classdef Tracker < handle;
       self.fishClassifier.plotif = ~~dopts.classifier && self.displayif;
       self.videoHandler.plotting(~~dopts.videoHandler && self.displayif);
                 
-      
+      if self.stmif
+        self.stimulusPresenter.progressBar = self.displayif && ...
+            self.opts.display.stimulusProgress;
+      end
+          
     end
     
     
@@ -554,10 +636,11 @@ classdef Tracker < handle;
       self.videoHandler.setCurrentTime(self.timerange(1));
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
-
+      
+      self.timeStamp = self.videoHandler.getCurrentTime();
       
       if isempty(self.maxVelocity)
-        self.maxVelocity = 4*self.avgVelocity;
+        self.maxVelocity = 15*self.avgVelocity;
       end
       
       self.avgTimeScale = 1/(self.avgVelocity/self.videoHandler.frameRate);
@@ -573,7 +656,7 @@ classdef Tracker < handle;
       
       if isscalar(self.writefile) && self.writefile
         [a,b,c] = fileparts(self.videoFile);
-        self.writefile = [a '/' b '_trackingVideo' c];
+        self.writefile = [a filesep b '_trackingVideo' c];
       end
 
       if ~isempty(self.writefile) 
@@ -588,13 +671,24 @@ classdef Tracker < handle;
         self.videoWriter = [];
       end
 
-      self.setDisplayType();     
-      
       %% get new fish classifier 
       self.fishClassifier = newFishClassifier(self,self.opts.classifier);
       self.isInitClassifier = isInit(self.fishClassifier);
-      
 
+      
+      %% set the display  (before stimPresenter.reset)
+      self.setDisplayType();     
+      
+      
+      %% init stimulus
+      if self.stmif
+        if isempty(self.stimulusPresenter)
+          error('No stimulus Presenter given');
+        end
+        self.stimulusPresenter.reset();
+      end
+      
+      
       if self.displayif && self.opts.display.tracks && ~isOpen(self.videoPlayer)
         self.videoPlayer.show();
       end
@@ -660,7 +754,12 @@ classdef Tracker < handle;
       self.nFramesForSingleUpdate = min(3*self.nFramesForUniqueUpdate,1000); 
       self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
 
-      self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),500);
+      if ~isinf(self.opts.classifier.timeToInit)
+        self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),500);
+      else
+        self.nFramesForInit = Inf; % disables the classifier
+      end
+      
     end
     
     
@@ -915,12 +1014,18 @@ classdef Tracker < handle;
       % save track positions
       if isempty(self.pos)
         self.pos = nan(2,self.nfish,self.nFramesExtendMemory);
+        self.tabs = nan(self.nFramesExtendMemory,1);
       end
-      
+
       if size(self.pos,3)<t
         self.pos = cat(3,self.pos,nan(2,self.nfish,self.nFramesExtendMemory));
       end
 
+      if size(self.tabs,1)<t
+        self.tabs = cat(1,self.tabs,nan(self.nFramesExtendMemory,1));
+      end
+
+      self.tabs(t,1) = self.timeStamp;
       
       if isempty(tracks) % no tracks
         return;
@@ -1303,7 +1408,7 @@ classdef Tracker < handle;
           [misif,pdiff] = self.testTrackMisalignment(handledIndices);
           if misif 
             
-            fish.helper.verbose('Probably misaligned (%1.2f): better test again..\r',pdiff);
+            fish.helper.verbose('Probably misaligned (%1.2f)..\r',pdiff);
             self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
             
           end
@@ -1427,7 +1532,7 @@ classdef Tracker < handle;
       
       if nDetections>0
         %mdist = min(pdist(double(centroids)));
-        maxDist = self.maxVelocity/self.videoHandler.frameRate*self.fishlength; % dist per frame
+        maxDist = self.maxVelocity*(self.timeStamp-self.lastTimeStamp)*self.fishlength; % dist per frame
     % $$$         minDist = 2;
     % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
     % $$$         %nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
@@ -1582,9 +1687,10 @@ classdef Tracker < handle;
           latestCentroids = cat(1,self.tracks(trackIdx).centroid);
           velocity = sqrt(sum((centroids - latestCentroids).^2,2))./(nvis(trackIdx) +1);
           
-          idx = find(velocity>self.maxVelocity/self.videoHandler.frameRate*self.fishlength);
+          dt = (self.timeStamp-self.lastTimeStamp);
+          idx = find(velocity>self.maxVelocity*dt*self.fishlength);
 
-          if ~isempty(idx)
+          if ~isempty(idx) && dt
             self.unassignedTracks = [self.unassignedTracks; trackIdx(idx)];
             self.unassignedDetections = [self.unassignedDetections; detectionIdx(idx)];
             self.assignments(idx,:) = [];
@@ -2174,7 +2280,7 @@ classdef Tracker < handle;
       trackinfo = getCurrentTracks_(self.nfish,self.tracks,self.saveFieldsIn,self.saveFieldsOut,self.saveFieldSegIf);
 
       % update time
-      [trackinfo.t] = deal(self.videoHandler.currentTime);
+      [trackinfo.t] = deal(self.timeStamp);
     end
     
     
@@ -2205,8 +2311,12 @@ classdef Tracker < handle;
       if isempty(savename)
         savename = 'FishTrackerSave';
       end
-      
-      savemat = [savepath filesep savename '.mat'];
+
+      if ~isempty(savepath)
+        savemat = [savepath filesep savename '.mat'];
+      else
+        savemat = [savename '.mat'];
+      end
       exists = ~~exist(savemat,'file');
       
     end
@@ -2454,12 +2564,16 @@ classdef Tracker < handle;
       def.opts.display.fishSearchResults = false;
       doc.display.fishSearchResults = {'Info plot nfish auto-search'};
 
+      def.opts.display.stimulusProgress = true;
+      doc.display.stimulusProgress = {'ProgressBar in case of stimulation'};
+      
       def.opts.display.switchFish = false;
       doc.display.switchFish = {'Switch fish info plot (for DEBUGGING) '};
 
       def.opts.display.videoHandler = false;
       doc.display.videoHandler = {'Raw frames and bwmsk MEX only (for DEBUGGING) '};
       
+
       def.opts.display.assignments = false;
       doc.display.assignments = {'Assignment info plot (for DEBUGGING) '};
 
@@ -2616,6 +2730,7 @@ classdef Tracker < handle;
         force = 0;
       end
       
+      self.daGraph.checkOverlap([],1);
       
       %trackIdx  and trackids SHOULD be the same! (if with no deletion)
       % at laest assert for last tracks (if 1:nfish, all previous should be too)
@@ -2694,6 +2809,7 @@ classdef Tracker < handle;
       %% tracking loop
       localTimeReference = tic;
       localTime = toc(localTimeReference);
+      verboseTime = toc(localTimeReference);
       s = 0;
       while  hasFrame(self.videoHandler) && ...
           (~self.opts.display.tracks || ~self.displayif || isOpen(self.videoPlayer)) ...
@@ -2705,12 +2821,12 @@ classdef Tracker < handle;
         %self.trackStep(); % avoid calling this..just paste for performance.
         %unnecessary function call
         self.currentFrame = self.currentFrame + 1;
-
+        self.lastTimeStamp = self.timeStamp;
         if self.displayif && self.opts.display.switchFish
-          [self.segments, frame] = self.videoHandler.step();
+          [self.segments, self.timeStamp, frame] = self.videoHandler.step();
           self.computeLeakyAvgFrame(frame);
         else
-          [self.segments] = self.videoHandler.step(); % faster.. do not need frame ;
+          [self.segments,self.timeStamp] = self.videoHandler.step(); % faster..
         end
         
         self.detectObjects();
@@ -2729,11 +2845,12 @@ classdef Tracker < handle;
         else
           savedTracks(1:self.nfish,s) = self.getCurrentTracks();
         end
-        if ~mod(s,100)
+
+        if ~mod(s,self.nFramesAppendSavedTracks) 
           savedTracks = self.appendSavedTracks(savedTracks);
           s = size(savedTracks,2);
           
-          if ~self.stmif &&  ~mod(self.currentFrame,25000) && saveif
+          if ~self.stmif &&  ~mod(self.currentFrame,self.nStepsSaveProgress*self.nFramesAppendSavedTracks) && saveif
             % occasionally save for long videos 
             fish.helper.verbose('Save tracking progress to disk..');
             self.save();
@@ -2748,9 +2865,20 @@ classdef Tracker < handle;
         end
         
         %% verbose
-        if ~mod(self.currentFrame,40) && ~isempty(self.tracks)
-          t = datevec(seconds(self.videoHandler.getCurrentTime()));
-          fish.helper.verbose(['Currently at time %1.0fh %1.0fm %1.1fs                           \r'],t(4),t(5),t(6));
+        if ~mod(self.currentFrame,self.nFramesVerbose) && ~isempty(self.tracks)
+          tt = toc(localTimeReference);
+          verboseDuration = tt - verboseTime;
+          verboseTime = tt;        
+          trackDuration = self.tabs(self.currentFrame)...
+              - self.tabs(max(self.currentFrame-self.nFramesVerbose,1));
+          t = datevec(seconds(self.timeStamp));
+          if ~self.stmif
+            fish.helper.verbose(['%1.0fh %1.0fm %1.1fs  [%1.2f x real ' ...
+                                'time]             \r'],t(4),t(5),t(6),trackDuration/verboseDuration);
+          else
+            fish.helper.verbose(['%1.0fh %1.0fm %1.1fs  [%1.2f FPS] ' ...
+                                '                  \r'],t(4),t(5),t(6),self.nFramesVerbose/verboseDuration) ;  
+          end
         end
       end
 

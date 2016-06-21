@@ -233,17 +233,21 @@ classdef FishDAGraph < handle;
     end
     
     
-    function varargout =checkOverlap(self,objidx);
+    function varargout =checkOverlap(self,objidx,verbosity);
 
-      if nargin<2
+      if nargin<2 || isempty(objidx)
         [rtrace,objidx] = self.backtrace();
       end
       objidx = reshape(objidx,[],self.nfish,self.nhyp);
 
+      if nargin<3
+        verbosity = 2;
+      end
+      
       % check for potential overlaps
       n = self.nfish;
       eqmsk = zeros([size(objidx,1),n*(n-1)/2]);
-      s = 0;
+      s = 0;allL = [];
       for i = 1:self.nfish
         for j = i+1:self.nfish
           s = s+1;
@@ -254,12 +258,23 @@ classdef FishDAGraph < handle;
             start = find(d==1);
             L = stop - start; 
             sL = sort(L,'descend');
-
-            fish.helper.verbose('[%d,%d] Found %1.2f%% [%d] overlap. ', i,j,mean(eqmsk(:,s))*100,sum(eqmsk(:,s)))
-            fish.helper.verbose('Median length %d. Longest: [ %s] \n', median(L),sprintf('%d ',sL(1:min(end,3))));
+            allL = [allL;L];
+            if verbosity>1
+              fish.helper.verbose('[%d,%d] Found %1.2f%% [%d] overlap. ', i,j,mean(eqmsk(:,s))*100,sum(eqmsk(:,s)))
+              fish.helper.verbose('Median length %d. Longest: [ %s] \n', median(L),sprintf('%d ',sL(1:min(end,3))));
+            end
           end
+          
         end
       end
+
+      if verbosity==1
+        sallL = sort(allL,'descend');
+        fish.helper.verbose('Found %1.2f%% [%d] overlap. ', mean(eqmsk(:))*100,sum(eqmsk(:)))
+        fish.helper.verbose('Median length %d. Longest: [ %s]', median(allL),sprintf('%d ',sallL(1:min(end,8))));
+
+      end
+      
       if nargout
         varargout{1} = eqmsk;
       end

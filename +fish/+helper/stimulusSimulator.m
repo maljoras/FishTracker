@@ -24,11 +24,8 @@ function stimulusSimulator(stmObj,varargin)
   if ischar(stmObj)
     stmObj = eval(stmObj);
   end
-  
-  stmObj.screen = opts.screen;
-  
-  w =[opts.windowOrigin, opts.windowOrigin + opts.windowSize];
 
+  w =[opts.windowOrigin, opts.windowOrigin + opts.windowSize];
   if ~isempty(opts.stimulus)
     for f = {'screen','screenBoundingBox'}
       if isfield(opts.stimulus,f{1})
@@ -38,10 +35,19 @@ function stimulusSimulator(stmObj,varargin)
     stmObj.setOpts(opts.stimulus);
   end
 
+  stmObj.screenBoundingBox = [];
+  stmObj.screen = opts.screen;
+
   stmObj.init(w);
   stmObj.muteAllFlipping = true;
-  %stmObj.stmTime;
+  if isinf(opts.tmax)
+    stmObj.progressBar = 0;  
+  end
+  stmObj.tmax = opts.tmax/opts.timeFactor;
   
+  %stmObj.stmTime;
+  stmObj.reset();
+
   % make fake tracks
   nt = floor(opts.tmax/opts.dt/opts.timeFactor);
   trace = subMakeTrace(nt,opts.nfish,opts.velocity*opts.dt*opts.timeFactor);
@@ -49,6 +55,7 @@ function stimulusSimulator(stmObj,varargin)
 
   cmap = jet(opts.nfish);
   localTimeReference = tic;
+  fl = opts.fishSize;
   for iframe = 1:nt
 
     % make fake tracks
@@ -56,14 +63,21 @@ function stimulusSimulator(stmObj,varargin)
     tracks = [];
     for i = 1:opts.nfish
       tracks(i).centroid = trace(iframe,:,i).*opts.frameSize([2,1]);
+      tracks(i).bbox = [tracks(i).centroid-[fl,fl]/2,fl,fl];
       tracks(i).fishId = i;
       tracks(i).predFishId = i;
+      tracks(i).velocity = tracks(i).centroid-trace(max(iframe-1,1),:,i).*opts.frameSize([2,1]);
+      tracks(i).segment.Image = ones(fl,fl);
+      tracks(i).segment.Orientation = -atan2(tracks(i).velocity(1), ...
+                                            tracks(i).velocity(2))/pi*180 +90;
+    
     end
     pause(opts.dt-toc(tdelay));
     localTime = toc(localTimeReference);        
 
     % call stimulus object
-    tracks = stmObj.step(tracks,opts.frameSize,localTime*opts.timeFactor);
+    lt = localTime*opts.timeFactor;
+    tracks = stmObj.step(tracks,opts.frameSize,lt);
   
     % plot fishys
     for i = 1:opts.nfish
@@ -72,6 +86,11 @@ function stimulusSimulator(stmObj,varargin)
     stmObj.flip(true);    
     
     fprintf('StmInfo Track 1: %s\r',num2str(tracks(1).stmInfo));
+  
+  
+    if stmObj.isFinished(lt)
+      break
+    end
   end
 
   stmObj.muteAllFlipping = false;

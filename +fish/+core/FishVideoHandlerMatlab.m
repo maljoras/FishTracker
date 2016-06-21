@@ -88,10 +88,10 @@ classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fis
     end
 
     
-    function [segm,bwmsk,frame,varargout] = step(self)
+    function [segm,timeStamp,frame,varargout] = step(self)
     % STEP one frame
     %
-    % [segments,bwimg, frame, [oframe]] = vh.step();
+    % [segments,timeStamp, frame, [oframe]] = vh.step();
     %
     %
 
@@ -111,7 +111,7 @@ classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fis
         end
         oframe = frame;
       end
-            
+      timeStamp = self.currentTime;
       
       bwmsk = self.detector.step(frame);
       if self.computeSegments

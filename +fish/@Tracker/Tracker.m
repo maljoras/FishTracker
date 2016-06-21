@@ -197,10 +197,10 @@ classdef Tracker < handle;
           pathToVideo = '~/Videos/5Zebrafish_nocover_22min.avi';   
         end
         
-        if ~exist(pathToVideo)
+        if ~exist('pathToVideo','var') || ~exist(pathToVideo,'file')
           pathToVideo = [fish.helper.getFTRoot() 'data' filesep '5Zebrafish_nocover_22min.avi'];   
         end
-        if ~exist(pathToVideo)
+        if ~exist(pathToVideo,'file')
           error(['Please set PATHTOVIDEO to dowloaded video file available at "http://' ...
                  'www.cajal.csic.es/files/gpolavieja/5Zebrafish_nocover_22min.avi" ' ...
                  'or put the downloaded avi-file into the "+fish/../data" directory.']);

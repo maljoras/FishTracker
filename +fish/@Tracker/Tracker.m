@@ -166,18 +166,22 @@ classdef Tracker < handle;
     %% test
     
     function [success,t_elapsed,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
-    %[SUCCESS,T_ELAPSED] = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT) makes a validation versus
+    %[SUCCESS,T_ELAPSED] = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT,PLOTIF) makes a validation versus
     %the idTracker [1] with the video provided by idTracker. OPTS is a struct
     %with fields given to initialize fish.Tracker. PATHTOMAT is the trajectory
     %file from idTracker tracking the same video. PATHTOVIDEO is the video file
     %from idTracker (5 Zebrafish). TMAX sets the trange of the tracking
     %comparison (in seconds). Set TMAX to [] to test the whole
     %7.4min video. T_ELAPSED is the required tracking time in
-    %seconds. 
+    %seconds. if PLOTIF==0 no output is given. PLOTIF==1 plots a result
+    %plot and PLOTIF>1 displays the tracks currently tracked.
     %
     % [..,FTPOS,IDPOS] = RUNTEST returns additionally the position results.
     % [..,FT] = RUNTEST returns additionally the fish.Tracker object.
     %  
+    % Example: 
+    % >> fish.Tracker.runTest(50,[],[],[],2); % with plotting
+    %
     % [1] Perez-Escudero et al Nature Methods 2014
 
       if nargin<1 || isempty(tmax)
@@ -224,7 +228,7 @@ classdef Tracker < handle;
       % run benchmark
       fish.helper.verbose('Starting run test.');
       ft = fish.Tracker(pathToVideo,args{:});
-      ft.setDisplay(0);
+      ft.setDisplay(max(plotif-1,0));
       ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
 
       tic;

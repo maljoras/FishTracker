@@ -1,8 +1,8 @@
 
-LOAD = 1
-COMPUTE =1
+LOAD = 0
+COMPUTE =0
 
-PLOT =0;
+PLOT =1
 TEST = 0;
 
 path = '/data/videos/onlinelearning';
@@ -102,10 +102,17 @@ if PLOT
   dagresults = 1;
   ft.setDefaultResultType(dagresults);
   res = ft.getTrackingResults(1);
+  pos = ft.interpolateInvisible('pos');
   
   info = res.tracks.stmInfo;
   stmmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS;
 
+
+  som = nanmean(pos,3);
+  ssom = nanstd(sqrt(sum(bsxfun(@minus,pos,som).^2,2)),[],3);
+  
+  return
+  
   pos = res.pos;
   velocity = ft.deleteInvisible('velocity');
   vel = sqrt(res.tracks.velocity(:,:,1).^2+res.tracks.velocity(:,:,2).^2);

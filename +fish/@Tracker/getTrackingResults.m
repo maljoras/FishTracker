@@ -20,19 +20,22 @@ function res = getTrackingResults(self,delinvif,forceif,dagif)
   else
     if dagif 
       fish.helper.verbose('Getting DAGraph tracking results')
-      res = subDelInv(self.res.dag);
+      res = subGetCleanPos(self.res.dag,delinvif);
     else
       fish.helper.verbose('Getting Switch-based tracking results')
-      res = subDelInv(self.res);
-      
-      if isfield(res,'dag')
-        res = rmfield(res,'dag');
+      res = subGetCleanPos(self.res.swb,delinvif);
+    end
+  
+    for f = fieldnames(self.res)'
+      if any(strcmp(f{1},{'swb','dag'}))
+        continue;
       end
+      res.(f{1}) = self.res.(f{1});
     end
   end
 
 
-  function res = subDelInv(res);
+  function res = subGetCleanPos(res,dif);
   
   
     % delete beyond border pixels
@@ -47,8 +50,8 @@ function res = getTrackingResults(self,delinvif,forceif,dagif)
     res.pos(:,2,:) = posy;
     
 
-    if delinvif
-      p = self.deleteInvisible('pos');
+    if dif
+      p = self.deleteInvisible('pos',[],res);
       res.pos(isnan(p)) = NaN;
     end
     % could add an interpolation for NaN here

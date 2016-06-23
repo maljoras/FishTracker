@@ -1,6 +1,6 @@
 function installHelpersOnWindows()
 
-%  for installing and compiling the helper c-functions (ONLY). For
+% for installing and compiling the helper c-functions (ONLY). For
 % the fast multithreading code use LINUX or (try to) compile with opencv
 % 
 % For this script to work install a compiler, e.g. MINGW see  http://www.mathworks.com/help/matlab/matlab_external/install-mingw-support-package.html

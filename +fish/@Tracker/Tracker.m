@@ -610,7 +610,7 @@ classdef Tracker < handle;
         end
         self.stimulusPresenter.setOpts(self.opts.stimulus);
         self.stimulusPresenter.init();
-        self.addSaveFields('stmInfo');
+        self.addSaveFields('stmInfo','fishId','predFishId');
       end
       
       %% set all options
@@ -755,7 +755,7 @@ classdef Tracker < handle;
       self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
 
       if ~isinf(self.opts.classifier.timeToInit)
-        self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),500);
+        self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),200);
       else
         self.nFramesForInit = Inf; % disables the classifier
       end
@@ -1035,7 +1035,6 @@ classdef Tracker < handle;
       fishIds = cat(2,tracks.fishId);      
       trackIds = cat(2,tracks.id);      
       self.fishId2TrackId(t,fishIds) = trackIds;
-      
       self.pos(1:2,fishIds,t) = cat(1,tracks.centroid)';
       
     end
@@ -1045,7 +1044,7 @@ classdef Tracker < handle;
     % checks condition and inits classifier (if conds are met) and resets relevant counters
 
       success = false;
-      thres = 5;
+      thres = 3;
       if length(self.tracks)<self.nfish 
         if  self.currentFrame > thres*self.nFramesForInit
           fish.helper.verbose(['nfish setting might be wrong or some fish are lost\r'])
@@ -2505,7 +2504,7 @@ classdef Tracker < handle;
       def.opts.tracks.probThresForFish = 0.1; 
       doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
 
-      def.opts.tracks.useDagResults = 1;
+      def.opts.tracks.useDagResults = 0;
       doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
       
       def.opts.tracks.kalmanFilterPredcition = false; 
@@ -2718,44 +2717,6 @@ classdef Tracker < handle;
       self.handleTracks();
     end
 
-    
-    function [postrace,trackIdxMat] = getPosFromDag(self,assignedFishId,force)
-
-      if nargin>1 && ~isempty(assignedFishId)
-        predFishIds = assignedFishId;
-      else
-        predFishIds = [self.tracks.predFishId]; % use predFish. Can do Better ?!?
-      end
-      if nargin<3
-        force = 0;
-      end
-      
-      self.daGraph.checkOverlap([],1);
-      
-      %trackIdx  and trackids SHOULD be the same! (if with no deletion)
-      % at laest assert for last tracks (if 1:nfish, all previous should be too)
-      assert(all([self.tracks.id] == 1:self.nfish));
-      
-      % backtrace. 
-      [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nfish,predFishIds);
-      postrace = permute(postrace,[1,3,2]);
-      
-      mt = size(postrace,3);
-      t = self.currentFrame-mt+1:self.currentFrame;
-
-      if force
-        self.fishId2TrackId(t,:) = trackIdxMat;
-        self.pos(:,:,t) = postrace;
-      else
-        pos = self.pos(:,:,1:self.currentFrame);
-        pos(:,:,t) = postrace;
-        postrace = pos;
-
-        f2t = self.fishId2TrackId(1:self.currentFrame,:);
-        f2t(t,:) = trackIdxMat;
-        trackIdxMat = f2t;
-      end
-    end
     
     
     function track(self,trange,saveif,writefile)

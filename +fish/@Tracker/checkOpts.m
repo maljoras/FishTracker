@@ -39,8 +39,8 @@ function checkOpts(self)
   %% classifier
   if self.opts.classifier.nlfd
     if self.opts.classifier.nlfd<0
-      nlfd = self.nfish+1;
-      fish.helper.verbose('Set nlfd to nfish+1 [%d]',nlfd);
+      nlfd = max(self.nfish+1,10);
+      fish.helper.verbose('Set nlfd [%d]',nlfd);
       self.opts.classifier.nlfd = nlfd;
       self.opts.classifier.npca = max(self.opts.classifier.npca,nlfd+1);
       

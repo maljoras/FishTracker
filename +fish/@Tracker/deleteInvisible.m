@@ -1,4 +1,4 @@
-function out = deleteInvisible(self,field,timeRange)
+function out = deleteInvisible(self,field,timeRange,res)
 % X = DELETEINVISIBLE(SELF,field) returns the requested field
 % in res.tracks with deleted (NaN) the consecutive invisible
 % frames 
@@ -10,7 +10,10 @@ function out = deleteInvisible(self,field,timeRange)
     timeRange = self.timerange;
   end
   
-  res = self.getTrackingResults();
+  if nargin<4
+    res = self.getTrackingResults();
+  end
+  
   t = res.tracks.t(:,1);
   idx = t>=timeRange(1) & t<timeRange(2);
 

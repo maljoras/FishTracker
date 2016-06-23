@@ -129,14 +129,15 @@ function playVideo(self,timerange,writefile)
     %%stimulus
     if plotstm
       stmbboxes = shiftdim(self.res.stmInfo(tidx(ind),:,self.stimulusPresenter.IDX_BBOX),1);
-      foundidx = ~isnan(stmbboxes(:,1));
+      stmidx = ~isnan(stmbboxes(:,1));
+      stmbboxes(stmidx,:) = self.stimulusPresenter.fromScreenBbox( stmbboxes(stmidx,:));
       if isprop(self.stimulusPresenter,'IDX_FISHID')
         stmFishIds = squeeze(self.res.stmInfo(tidx(ind),:,self.stimulusPresenter.IDX_FISHID));
       else
         stmFishIds = self.res.stmFishId(tidx(ind),:);
       end
-      clabels = cols(stmFishIds(foundidx),:);
-      uframe = insertShape(uframe, 'Filledrectangle', stmbboxes(foundidx,:),'Color',clabels,'Opacity',0.2);
+      clabels = cols(stmFishIds(stmidx),:);
+      uframe = insertShape(uframe, 'Filledrectangle', stmbboxes(stmidx,:),'Color',clabels,'Opacity',0.2);
     end
     
     

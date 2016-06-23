@@ -2504,7 +2504,7 @@ classdef Tracker < handle;
       def.opts.tracks.probThresForFish = 0.1; 
       doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
 
-      def.opts.tracks.useDagResults = 0;
+      def.opts.tracks.useDagResults = 1;
       doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
       
       def.opts.tracks.kalmanFilterPredcition = false; 

@@ -29,7 +29,7 @@ function generateResults(self)
   fishId2TrackId = self.fishId2TrackId(1:nFrames,:)';
   self.res.swb = subGenerateTracks(fishId2TrackId);
   self.res.swb.pos = permute(self.pos(:,:,1:nFrames),[3,1,2]);      
-  self.res.t = self.res.tracks.t(:,1);
+  self.res.t = self.res.swb.tracks.t(:,1);
   self.res.tabs = self.tabs(1:nFrames,:);
 
   if isfield(self.savedTracks,'stmInfo')
@@ -67,13 +67,15 @@ function generateResults(self)
     
     % ASSUMES IDX MAT IS SAME AS ID MSK (no track deletion)
 
-    minOverlap = 21;
+    MINOVERLAP = ceil(self.videoHandler.frameRate/2); 
+    PROBTHRES = 0;%self.maxClassificationProb*self.opts.tracks.probThresForFish;
+    
     eqmsk = bsxfun(@eq,df2t,permute(df2t,[1,3,2]));
 
     n = size(eqmsk,1);
-    se = ones(minOverlap,1);
+    se = ones(MINOVERLAP,1);
     tmp = imdilate(imerode(eqmsk(:,:),se),se);
-    tmp = imerode(imdilate(eqmsk(:,:),se),se);
+    %tmp = imerode(imdilate(eqmsk(:,:),se),se);
     eqmsk = reshape(tmp,[],self.nfish,self.nfish);
 
     idx = find(tril(ones(self.nfish),-1));
@@ -85,7 +87,7 @@ function generateResults(self)
     % get the positions that were lost in DAG
     lostmsk = bsxfun(@eq,1:self.nfish,permute(df2t,[1,3,2]));
     tmp = imdilate(imerode(lostmsk(:,:),se),se);
-    tmp = imerode(imdilate(tmp,se),se);
+    %tmp = imerode(imdilate(tmp,se),se);
     lostmsk = reshape(tmp,[],self.nfish,self.nfish);
     lostmsk = all(~lostmsk,3);
 
@@ -108,12 +110,13 @@ function generateResults(self)
                    % no deletion)    
     
     % get the cl prob of the overlapping id
-    [~,idxeq] = max(ieqmsk,[],2);
+    [~,idxeq] = max(ieqmsk,[],2); % this is now fishID
     subeq = fish.helper.i2s([self.nfish,self.nfish],idxeq);
-    indo = (1:n)' + (subeq(:,1)-1)*n;
-    ido  = df2t(indo);
-    
-    
+    findo = (1:n)' + (subeq(:,1)-1)*n;
+    ido  = df2t(findo); % also idx in cl
+    indo = (1:n)' + (ido(:,1)-1)*n;
+    indo(isnan(indo)) = 1; % nan's will not enter anyway
+
     % get prob in the original TrackID(idx) order 
     f = {'classProb'};
     sz = size(self.savedTracks.(f{1}));
@@ -152,8 +155,12 @@ function generateResults(self)
       s21 = mclo2 + mcll1;
       order12 = s12(1:end-1) >= s21(1:end-1);
       order21 = ~order12;
-      %diffprob = abs(s12-s21);
-      
+      diffprob = abs(s12-s21);
+      probmsk = diffprob<PROBTHRES;
+      probmsk = probmsk | max(mcll1,mcll2)<self.maxClassificationProb*self.opts.tracks.probThresForFish;
+      order12(probmsk) = false;
+      order21(probmsk) = false;
+
       % re-order the results. Just redefine the 
       msk12 = zeros(n+1,1);
       msk12(start(order12)) = 1;

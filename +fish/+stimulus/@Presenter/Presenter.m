@@ -198,6 +198,15 @@ classdef Presenter < handle;
         xx = (normx)*self.windowSize(1); 
       end
     end
+
+    function [normx] =fromScreenX(self,xx);
+      if self.xreversed
+        normx = -xx/self.windowSize(1)+1;
+      else
+        normx = xx/self.windowSize(1); 
+      end
+    end
+
     
     function [yy] =toScreenY(self,normy);
       if self.yreversed
@@ -207,11 +216,28 @@ classdef Presenter < handle;
       end
     end
     
+    function [normy] =fromScreenY(self,yy);
+      if self.yreversed
+        normy = -yy/self.windowSize(2)+1;; 
+      else
+        normy  = yy/self.windowSize(2) ;
+      end
+    end
+    
     function [wyy] =toScreenHeight(self,wy);
       wyy = wy*self.windowSize(2); 
     end
+    
+    function [wy] =fromScreenHeight(self,wyy);
+      wy  = wyy/self.windowSize(2);
+    end
+
     function [wxx] =toScreenWidth(self,wx);
       wxx = wx*self.windowSize(1); 
+    end
+    
+    function [wx] =fromScreenWidth(self,wxx);
+      wx = wxx/self.windowSize(1); 
     end
 
     function wrect = toScreenRect(self,rect);
@@ -237,7 +263,37 @@ classdef Presenter < handle;
       end
       
     end
-    
+
+    function rect = fromScreenRect(self,wrect);
+    % converted  format of PsychToolbox to  norm coordinates 
+      
+      if size(wrect,2)==1
+        wrect = wrect';
+      end
+
+      x = wrect(:,1);
+      y = wrect(:,2);
+      wx = wrect(:,3)-x;
+      wy = wrect(:,4)-y;
+      
+      if self.xreversed
+        x = wrect(:,3);
+        wx = -wrect(:,1) + x;
+      end
+      if self.yreversed
+        y = wrect(:,4);
+        wy = -wrect(:,2) + y;
+      end
+      x = self.fromScreenX(x);
+      y = self.fromScreenY(y);
+      wx = self.fromScreenWidth(wx);
+      wy = self.fromScreenHeight(wy);
+      
+      rect = [x,y,wx,wy];
+      
+    end
+
+
     function fishIds = getFishIdsFromTracks(self,tracks)
       if self.usePredFishId
         fishIds = [tracks.predFishId];
@@ -259,6 +315,22 @@ classdef Presenter < handle;
     
       convertedbbox = self.toScreenRect(nbbox);
     end
+
+    function convertedbbox = fromScreenBbox(self,bbox)
+    % converts the bounding box from PsychToolbox coordinates to
+    % fishtracker coordinates. Reverses TOSCREENBBOX
+
+      sbbox = self.screenBoundingBox(:)'; 
+      nbbox = self.fromScreenRect(bbox);
+
+      convertedbbox = zeros(size(nbbox,1),4);
+      convertedbbox(:,3:4) = bsxfun(@times,nbbox(:,3:4),sbbox(1,3:4));
+      convertedbbox(:,1:2) =  bsxfun(@plus,bsxfun(@times,nbbox(:,1:2),sbbox(1,3:4)),sbbox(1,1:2));
+
+    end
+
+    
+    
     
     function timestamp = flip(self,force);
     % Flip to the screen

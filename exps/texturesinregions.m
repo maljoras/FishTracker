@@ -6,7 +6,7 @@ PLOT =0;
 TEST = 0;
 
 path = '/data/videos/onlinelearning';
-VIDID = 1
+VIDID = 2
 
 if LOAD && ~exist('ft','var')
 
@@ -36,7 +36,8 @@ if COMPUTE
 
   if ~exist('sbbox','var')
     %sbbox = ft.calibrateStimulusScreen();
-    sbbox =  [115,90,1550,1214];
+    %sbbox =  [115,90,1550,1214];
+    sbbox = [114,69,1557,1226];
   end
   opts = [];
   opts.avgVelocity = 5;
@@ -76,7 +77,7 @@ if COMPUTE
 
   ostm.adaptationTime = 30;
 
-  ostm.tmax = 3600*24;
+  ostm.tmax = 3600*3;
   
   opts.stimulus = ostm;
   ft.setOpts(opts);
@@ -91,6 +92,7 @@ if COMPUTE
     ft.save();
   end
   
+  clear ft;
   
 
 end

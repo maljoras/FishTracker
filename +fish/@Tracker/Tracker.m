@@ -868,7 +868,7 @@ classdef Tracker < handle;
         
         
         self.classProb = predict(self.fishClassifier,self.idfeatures(:,:));
-        self.classProbNoise = cat(1,segm.bendingStdValue);
+        self.classProbNoise = double(cat(1,segm.bendingStdValue));
       
       else
         self.centroids = [];

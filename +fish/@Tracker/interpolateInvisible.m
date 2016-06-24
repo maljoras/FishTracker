@@ -1,5 +1,5 @@
 function out = interpolateInvisible(self,field,kwidth)
-% X = INTERPOLATEINVISIBLE(SELF,FIELD) returns the requested field
+% X = INTERPOLATEINVISIBLE(SELF,FIELD/MAT) returns the requested field
 % in res.tracks with interpolated the consecutive invisible
 % frames. INTERPOLATEINVISIBLE(..,kwidth) smothes the data along
 % the frame dimension with running average  kernel.
@@ -8,20 +8,29 @@ function out = interpolateInvisible(self,field,kwidth)
     return;
   end
   msk = self.getInvisibleMsk();
-  if strcmp(field,'pos')
-    out = self.res.pos;
-    out(find(permute(cat(3,msk,msk),[1,3,2]))) = NaN;
-    out = reshape(out,size(self.res.pos));
+
+  handled = 0;
+  if ischar(field)
+    if strcmp(field,'pos')
+      out = self.res.pos;
+      out(find(permute(cat(3,msk,msk),[1,3,2]))) = NaN;
+      out = reshape(out,size(self.res.pos));
+      handled = 1;
+    elseif isfield(self.res.tracks,field)
+      % always nFrames x nFish x nOther
+      out = double(self.res.tracks.(field));
+    else
+      error(sprintf('Field %s does not exist in res.tracks.',field));
+    end
+  else
+    out = field;
+  end
   
-  elseif isfield(self.res.tracks,field)
-    % always nFrames x nFish x nOther
-    out = double(self.res.tracks.(field));
+  if ~handled
     sz = size(out);
     out = reshape(out,numel(msk),[]);
     out(msk,:) = NaN;
     out = reshape(out,sz);
-  else
-    error(sprintf('Field %s does not exist in res.tracks.',field));
   end
 
   sz = size(out);

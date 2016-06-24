@@ -1,7 +1,7 @@
 function out = getBendingLaplace(self,fishIds, plotTimeRange,res)
 
   if nargin<3 || isempty(plotTimeRange)
-    plotTimeRange = self.timerange;
+    plotTimeRange = [-inf,inf];
   end
   
   if nargin<2 || isempty(fishIds)

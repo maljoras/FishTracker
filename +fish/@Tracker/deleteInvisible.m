@@ -7,18 +7,19 @@ function out = deleteInvisible(self,field,timeRange,res)
     return;
   end
   if ~exist('timeRange','var') || isempty(timeRange)
-    timeRange = self.timerange;
+    timeRange = [-inf,inf];
   end
   
   if nargin<4
     res = self.getTrackingResults();
   end
   
-  t = res.tracks.t(:,1);
+  t = res.t;
   idx = t>=timeRange(1) & t<timeRange(2);
 
   msk = self.getInvisibleMsk(res);
   msk = msk(idx,:);
+
   
   if strcmp(field,'pos')
     out = res.pos(idx,:,:);

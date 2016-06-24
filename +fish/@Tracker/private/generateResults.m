@@ -31,7 +31,8 @@ function generateResults(self)
   self.res.swb.pos = subGeneratePos(self.res.swb);
   self.res.t = self.res.swb.tracks.t(:,1);
   self.res.tabs = self.tabs(1:nFrames,:);
-
+  self.res.swb.tracks = rmfield(self.res.swb.tracks,'t');
+  
   if isfield(self.savedTracks,'stmInfo')
     sz = size(self.savedTracks.stmInfo);
     d = length(sz);
@@ -57,7 +58,7 @@ function generateResults(self)
     %need to do again
     self.res.dag = subGenerateTracks(dagf2t'); 
     self.res.dag.pos = subGeneratePos(self.res.dag);
-    
+    self.res.dag.tracks = rmfield(self.res.dag.tracks,'t');
   end
   
   

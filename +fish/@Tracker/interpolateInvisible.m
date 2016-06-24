@@ -1,28 +1,35 @@
-function out = interpolateInvisible(self,field,kwidth)
+function out = interpolateInvisible(self,field,kwidth,res)
 % X = INTERPOLATEINVISIBLE(SELF,FIELD/MAT) returns the requested field
 % in res.tracks with interpolated the consecutive invisible
 % frames. INTERPOLATEINVISIBLE(..,kwidth) smothes the data along
 % the frame dimension with running average  kernel.
   
-  if isempty(self.res)
-    return;
+  if nargin<4
+    res = getTrackingResults(0,0);
   end
-  msk = self.getInvisibleMsk();
+  
+  msk = self.getInvisibleMsk(res);
 
+
+  
   handled = 0;
   if ischar(field)
     if strcmp(field,'pos')
-      out = self.res.pos;
+      out = res.pos;
       out(find(permute(cat(3,msk,msk),[1,3,2]))) = NaN;
-      out = reshape(out,size(self.res.pos));
+      out = reshape(out,size(res.pos));
       handled = 1;
-    elseif isfield(self.res.tracks,field)
+    elseif isfield(res.tracks,field)
       % always nFrames x nFish x nOther
-      out = double(self.res.tracks.(field));
+      out = double(res.tracks.(field));
+
     else
       error(sprintf('Field %s does not exist in res.tracks.',field));
     end
   else
+    if size(msk,1)~=size(field,1)
+      error('Dimension mismatch');
+    end
     out = field;
   end
   
@@ -47,7 +54,7 @@ function out = interpolateInvisible(self,field,kwidth)
   
 
   % maybe better change to gaussian kernel !
-  if nargin>2 && kwidth>0
+  if nargin>2 && ~isempty(kwidth) && kwidth>0
     sz = size(out);
     out = convn(out,ones(kwidth,1)/kwidth,'same');
   end

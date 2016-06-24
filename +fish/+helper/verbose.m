@@ -35,7 +35,7 @@ function verbose(str,varargin)
   if ispc()
     persistent LASTDISPLENGTH
     if LASTDISPLENGTH
-      for i = 1:length(LASTDISPLENGTH)
+      for i = 1:100+LASTDISPLENGTH
         fprintf('\b');
       end
     end

@@ -3,6 +3,7 @@ function verbose(str,varargin)
   global VERBOSELEVEL
   global VERBOSEDIARY  
 
+  
   if ~VERBOSELEVEL
     return
   end
@@ -29,6 +30,23 @@ function verbose(str,varargin)
 
   if fid~=1
     str(findstr(str,'\r')+1) = 'n';
+  end
+  
+  if ispc()
+    persistent LASTDISPLENGTH
+    if LASTDISPLENGTH
+      for i = 1:length(LASTDISPLENGTH)
+        fprintf('\b');
+      end
+    end
+    
+    idx = findstr(str,'\r');
+    if ~isempty(idx)
+      LASTDISPLENGTH = idx(end);
+    else
+      LASTDISPLENGTH = 0;
+    end
+    str([idx(end),idx(end)+1]) = [];
   end
   
   d = dbstack;

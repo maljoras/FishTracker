@@ -35,14 +35,14 @@ function verbose(str,varargin)
   if ispc()
     persistent LASTDISPLENGTH
     if LASTDISPLENGTH
-      for i = 1:100+LASTDISPLENGTH
+      for i = 1:LASTDISPLENGTH
         fprintf('\b');
       end
     end
     
     idx = findstr(str,'\r');
     if ~isempty(idx)
-      LASTDISPLENGTH = idx(end);
+      LASTDISPLENGTH = 1;
       str([idx(end),idx(end)+1]) = [];
     else
       LASTDISPLENGTH = 0;
@@ -51,9 +51,15 @@ function verbose(str,varargin)
   
   d = dbstack;
   if length(d)==1 || nostack
-    fprintf(fid,['[%s]:  ' str ],datestr(now),varargin{:});
+    strout = sprintf(['[%s]:  ' str ],datestr(now),varargin{:})
+    fprintf(fid,strout);
   else
-    fprintf(fid,['[%s,%s]:  ' str],datestr(now),d(2).name,varargin{:});
+    strout = sprintf(['[%s,%s]:  ' str],datestr(now),d(2).name,varargin{:});
+    fprintf(fid,strout);
+  end
+  
+  if ispc() && LASTDISPLENGTH
+    LASTDISPLENGTH = length(strout);
   end
   
   if any(VERBOSEDIARY)

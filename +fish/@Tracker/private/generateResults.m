@@ -28,7 +28,7 @@ function generateResults(self)
 
   fishId2TrackId = self.fishId2TrackId(1:nFrames,:)';
   self.res.swb = subGenerateTracks(fishId2TrackId);
-  self.res.swb.pos = permute(self.pos(:,:,1:nFrames),[3,1,2]);      
+  self.res.swb.pos = subGeneratePos(self.res.swb);
   self.res.t = self.res.swb.tracks.t(:,1);
   self.res.tabs = self.tabs(1:nFrames,:);
 
@@ -56,11 +56,21 @@ function generateResults(self)
 
     %need to do again
     self.res.dag = subGenerateTracks(dagf2t'); 
-    pos = self.res.dag.tracks.centroid;
-    self.res.dag.pos = permute(pos,[1,3,2]);      
+    self.res.dag.pos = subGeneratePos(self.res.dag);
     
   end
   
+  
+  function pos = subGeneratePos(res)
+  % gets a new pos from the re-ordered tracks. Do not use the original
+  % pos (which might contain Kalman predictions) but centerLine if available
+  
+    pos = 
+  
+  end
+  
+    
+    
   
   function df2t = subCorrectDagOverlaps(df2t)
   

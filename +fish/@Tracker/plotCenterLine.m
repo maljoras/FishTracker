@@ -16,13 +16,13 @@ function plotCenterLine(self,fishIds,plotTimeRange)
 
 
   res = self.getTrackingResults();
-  t = res.tracks.t(:,1);
+  t = res.tabs;
   plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
 
   if  ~isfield(res.tracks,'centerLine') || isempty(res.tracks.centerLine)
     error('No centerLine data');
   end
-  b = getBendingLaplace(self,fishIds,plotTimeRange);
+  b = getBendingLaplace(self,fishIds,plotTimeRange,res);
 
 
   mx = nanmean(b.clx(:,:,:),1);

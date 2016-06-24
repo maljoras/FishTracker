@@ -1,4 +1,4 @@
-function out = getBendingLaplace(self,fishIds, plotTimeRange)
+function out = getBendingLaplace(self,fishIds, plotTimeRange,res)
 
   if nargin<3 || isempty(plotTimeRange)
     plotTimeRange = self.timerange;
@@ -7,8 +7,11 @@ function out = getBendingLaplace(self,fishIds, plotTimeRange)
   if nargin<2 || isempty(fishIds)
     fishIds = 1:self.nfish;
   end
-
-  res = self.getTrackingResults();
+  
+  if nargin<4 || isempty(res)
+    res = self.getTrackingResults();
+  end
+  
   t = res.t;
   plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
 
@@ -16,7 +19,7 @@ function out = getBendingLaplace(self,fishIds, plotTimeRange)
     error('No centerLine data');
   end
 
-  centerLine = self.deleteInvisible('centerLine');
+  centerLine = self.deleteInvisible('centerLine',[],res);
   clx = permute(centerLine(plotidx,fishIds,1,:),[4,1,2,3]);
   cly = permute(centerLine(plotidx,fishIds,2,:),[4,1,2,3]);
 
@@ -33,7 +36,7 @@ function out = getBendingLaplace(self,fishIds, plotTimeRange)
   
   
   % direction of movement 
-  vel =  permute(self.deleteInvisible('velocity'),[3,1,2]);
+  vel =  permute(self.deleteInvisible('velocity',[],res),[3,1,2]);
   vel = vel(:,plotidx,fishIds);
   vori = atan2(vel(1,:,:),vel(2,:,:));
 

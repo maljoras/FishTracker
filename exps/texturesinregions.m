@@ -1,18 +1,18 @@
 
-LOAD = 0
-COMPUTE =0
+LOAD = 1
+COMPUTE =1
 
-PLOT =1
+PLOT =0
 TEST = 0;
 
 path = '/data/videos/onlinelearning';
-VIDID = 2
+VIDID = 
 
 if LOAD && ~exist('ft','var')
 
 
   opts = [];
-  opts.nfish = 4;
+  opts.nfish = 3;
   
   videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nfish,VIDID)];
 
@@ -75,9 +75,11 @@ if COMPUTE
   ostm.colBorder = [1,1,1];
   ostm.borderWidth = 0.05;
 
-  ostm.adaptationTime = 30;
 
-  ostm.tmax = 3600*3;
+  ostm.adaptationTime = 30;
+  ostm.tmax = 3600*2;
+  
+  
   
   opts.stimulus = ostm;
   ft.setOpts(opts);

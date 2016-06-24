@@ -66,7 +66,7 @@ endif
 # file extensions
 OBJEXT     = o
 LIBEXT     = a
-ifeq ($(wildcard $(MATLABDIR)/bin/mexext.bat),)
+ifneq ($(wildcard $(MATLABDIR)/bin/mexext.bat),)
   MEXEXT     = $(shell $(MATLABDIR)/bin/mexext.bat)
   MEX        = $(MATLABDIR)/bin/mex.bat
 else

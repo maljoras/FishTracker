@@ -16,8 +16,8 @@ function tracks = step(self,tracks,framesize,t)
   y = nan(length(tracks),1);
 
   for i =1:length(tracks)
-    x(i) = (tracks(i).centroid(1)-sbbox(1))/sbbox(3);
-    y(i) = (tracks(i).centroid(2)-sbbox(2))/sbbox(4);
+    x(i) = (tracks(i).location(1)-sbbox(1))/sbbox(3);
+    y(i) = (tracks(i).location(2)-sbbox(2))/sbbox(4);
   end
 
   fishIds = self.getFishIdsFromTracks(tracks);

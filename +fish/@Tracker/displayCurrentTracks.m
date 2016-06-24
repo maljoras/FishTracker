@@ -75,7 +75,7 @@ function varargout = displayCurrentTracks(self)
         uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color', uint8([0.5,0.5,0.5]*255));
       end
       
-      center = cat(1, reliableTracks.centroid);
+      center = cat(1, reliableTracks.location);
       center = cat(2,center,max(self.fishlength/2,self.fishwidth)*ones(size(center,1),1));
       
       crossedTrackIdStrs = arrayfun(@(x)num2str(sort(x.crossedTrackIds)), reliableTracks,'uni',0);
@@ -107,7 +107,7 @@ function varargout = displayCurrentTracks(self)
               uframe = insertMarker(uframe, pos, '*', 'color', uint8(cols(id,:)*255), 'size', 4);
             end
           end
-          pos = reliableTracks(i).centroid;
+          pos = reliableTracks(i).location;
           uframe = insertMarker(uframe, pos, 'o', 'color', uint8(cols(id,:)*255), 'size', 5);
           
           if ~isempty(reliableTracks(i).centerLine) && ~any(isnan(reliableTracks(i).centerLine(:)))

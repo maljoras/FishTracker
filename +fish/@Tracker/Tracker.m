@@ -59,7 +59,9 @@ classdef Tracker < handle;
     centerLine = [];
     thickness = [];
     bboxes = [];
+    
     centroids = [];
+    locations = [];
     idfeatures = [];
     features = [];
     cost = [];
@@ -715,6 +717,7 @@ classdef Tracker < handle;
       self.segments = [];
       self.bboxes = [];
       self.centroids = [];
+      self.locations = [];
       self.idfeatures = [];
       self.centerLine = [];
       self.thickness = [];
@@ -831,25 +834,31 @@ classdef Tracker < handle;
             end
           end
           
+          
         else
           self.centerLine = [];
           self.thickness = [];
         end
         
-
-
+        % update location information
+        self.locations = self.centroids;
         if ~self.useMex
           for i = 1:length(segm)
             % better take MSER regions if existent
             if ~isempty(segm(i).MSERregions)
-              self.centroids(i,:) = double(segm(i).MSERregionsOffset + segm(i).MSERregions(1).Location);
+              self.locations(i,:) = double(segm(i).MSERregionsOffset + segm(i).MSERregions(1).Location);
             end
           end
+        else
+        
+          % use the mean of center line as centroid instead
+          mcl = permute(mean(self.centerLine,1),[3,2,1]);
+          ncl = ~isnan(mcl(:,1));
+          self.locations(ncl,:) = mcl(ncl,:);
         end
         
         
-
-        % MAYBE TAKE DCT2 !???
+        % features
         idfeat = permute(cat(4,segm.FishFeature),[4,1,2,3]);
         self.idfeatures =  idfeat;
         
@@ -859,10 +868,11 @@ classdef Tracker < handle;
         
         
         self.classProb = predict(self.fishClassifier,self.idfeatures(:,:));
-        %self.classProbNoise = cat(1,segm.MinorAxisLength)./cat(1,segm.MajorAxisLength);
         self.classProbNoise = cat(1,segm.bendingStdValue);
+      
       else
         self.centroids = [];
+        self.locations = [];
         self.bboxes = [];
         self.idfeatures = [];
         self.features = [];
@@ -1035,7 +1045,7 @@ classdef Tracker < handle;
       fishIds = cat(2,tracks.fishId);      
       trackIds = cat(2,tracks.id);      
       self.fishId2TrackId(t,fishIds) = trackIds;
-      self.pos(1:2,fishIds,t) = cat(1,tracks.centroid)';
+      self.pos(1:2,fishIds,t) = cat(1,tracks.location)';
       
     end
     
@@ -1473,6 +1483,7 @@ classdef Tracker < handle;
         'predFishId', {}, ...
         'bbox', {}, ...
         'centroid',{},...
+        'location',{},...
         'velocity',{},...
         'centerLine',{},...
         'thickness',{},...
@@ -1500,23 +1511,41 @@ classdef Tracker < handle;
     
     function predictNewLocationsOfTracks(self)
 
-      szFrame = self.videoHandler.frameSize;
-      for i = 1:length(self.tracks)
-        bbox = self.tracks(i).bbox;
+      if self.opts.tracks.kalmanFilterPredcition
+        szFrame = self.videoHandler.frameSize;
+        for i = 1:length(self.tracks)
+          bbox = self.tracks(i).bbox;
+          
+          % Predict the current location of the track.
+          predictedCentroid = predict(self.tracks(i).predictor);
+          
+          % Shift the bounding box so that its center is at
+          % the predicted location.
+          predictedCentroid(1:2) = predictedCentroid(1:2) - bbox(3:4) / 2;
+          % no prediction outside of the video:
+          
+          predictedCentroid(1) = max(min(predictedCentroid(1),szFrame(2)),1);
+          predictedCentroid(2) = max(min(predictedCentroid(2),szFrame(1)),1);
+          
+          self.tracks(i).bbox = [predictedCentroid(1:2), bbox(3:4)];
+          self.tracks(i).location = predictedCentroid;
+        end
+      elseif self.useMex && self.opts.tracks.centerLinePrediction
+        % use centerLine head position
+        vel = cat(1,self.tracks.velocity);
+        if size(vel,1)~=self.nfish
+          return;
+        end
+        cl = cat(3,self.tracks.centerLine);
+        d = squeeze(sqrt((cl(1,1,:)-cl(end,1,:)).^2 + (cl(1,2,:)-cl(end,2,:)).^2)); % better integrate along line in MEX?
+        advancedClIdx = round(sqrt(vel(:,1).^2 + vel(:,2).^2)./d*size(cl,1));
+        nextIdx =  min(max(floor(size(cl,1)/2)-advancedClIdx,1),size(cl,1));
+        for i = find(advancedClIdx)'
+          if ~isnan(cl(1,1,i))
+            self.tracks(i).location = cl(nextIdx(i),:,i);
+          end
+        end
         
-        % Predict the current location of the track.
-        predictedCentroid = predict(self.tracks(i).predictor);
-        
-        % Shift the bounding box so that its center is at
-        % the predicted location.
-        predictedCentroid(1:2) = predictedCentroid(1:2) - bbox(3:4) / 2;
-        % no prediction outside of the video:
-
-        predictedCentroid(1) = max(min(predictedCentroid(1),szFrame(2)),1);
-        predictedCentroid(2) = max(min(predictedCentroid(2),szFrame(1)),1);
-
-        self.tracks(i).bbox = [predictedCentroid(1:2), bbox(3:4)];
-        self.tracks(i).centroid = predictedCentroid;
       end
     end
     
@@ -1524,13 +1553,12 @@ classdef Tracker < handle;
     function fcost = computeCostMatrix(self)
       
       nTracks = length(self.tracks);
-      nDetections = size(self.centroids, 1);
+      nDetections = size(self.locations, 1);
       fcost = zeros(nTracks, nDetections,length(self.costinfo));
       highCost = 5;
       somewhatCostly = 2;
       
       if nDetections>0
-        %mdist = min(pdist(double(centroids)));
         maxDist = self.maxVelocity*(self.timeStamp-self.lastTimeStamp)*self.fishlength; % dist per frame
     % $$$         minDist = 2;
     % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
@@ -1546,8 +1574,8 @@ classdef Tracker < handle;
             case {'location','centroid'}
 
               %% center position 
-              centers = cat(1,self.tracks.centroid);
-              dst = fish.helper.pdist2Euclidean(centers,self.centroids);
+              centers = cat(1,self.tracks.location);
+              dst = fish.helper.pdist2Euclidean(centers,self.locations);
               %dst = bsxfun(@rdivide,dst,thresDist).^2;
 
               dst = (dst/thresDist);%.^2;
@@ -1621,7 +1649,7 @@ classdef Tracker < handle;
     
     function detectionToTrackAssignment(self)
 
-      nDetections = size(self.centroids, 1);
+      nDetections = size(self.locations, 1);
 
       self.cost = [];
       self.assignments= [];
@@ -1681,10 +1709,10 @@ classdef Tracker < handle;
         % check max velocity of the assignments
         if ~isempty(self.assignments)
           detectionIdx = self.assignments(:, 2);
-          centroids = self.centroids(detectionIdx, :);
+          locations = self.locations(detectionIdx, :);
           trackIdx = self.assignments(:, 1);
-          latestCentroids = cat(1,self.tracks(trackIdx).centroid);
-          velocity = sqrt(sum((centroids - latestCentroids).^2,2))./(nvis(trackIdx) +1);
+          latestLocations = cat(1,self.tracks(trackIdx).location);
+          velocity = sqrt(sum((locations - latestLocations).^2,2))./(nvis(trackIdx) +1);
           
           dt = (self.timeStamp-self.lastTimeStamp);
           idx = find(velocity>self.maxVelocity*dt*self.fishlength);
@@ -1758,16 +1786,18 @@ classdef Tracker < handle;
       for i = 1:numAssignedTracks
         trackIdx = assignments(i, 1);
         detectionIdx = assignments(i, 2);
+        location = self.locations(detectionIdx, :);
         centroid = self.centroids(detectionIdx, :);
 
         %% Correct the estimate of the object's location  using the new detection.
         if trackopts.kalmanFilterPredcition
-          correct(self.tracks(trackIdx).predictor, [centroid]);
+          correct(self.tracks(trackIdx).predictor, [location]); 
         end
+        
 
         tau = trackopts.tauVelocity*self.avgTimeScale;
         self.tracks(trackIdx).velocity = self.tracks(trackIdx).velocity*(1-1/tau) ...
-            + 1/tau*(self.tracks(trackIdx).centroid-centroid);
+            + 1/tau*(self.tracks(trackIdx).location-location);
         
         %% detect whether the fish feature might be reversed
         reversed = 0;
@@ -1814,6 +1844,8 @@ classdef Tracker < handle;
         self.tracks(trackIdx).thickness = thickness;
         self.segments(detectionIdx).reversed = reversed;
 
+        
+        
         %% update classifier 
         if ~isempty(self.classProb)
           classprob = self.classProb(detectionIdx,:);
@@ -1874,8 +1906,12 @@ classdef Tracker < handle;
           self.tracks(trackIdx).nIdFeaturesLeftOut = self.tracks(trackIdx).nIdFeaturesLeftOut +1;
         end
         
-        self.tracks(trackIdx).centroid = centroid;
         self.tracks(trackIdx).assignmentCost =  self.cost(detectionIdx);
+        
+        %update locations
+        self.tracks(trackIdx).centroid = centroid;
+        self.tracks(trackIdx).location = location;
+
         
         %% Update visibility.
         self.tracks(trackIdx).totalVisibleCount =  self.tracks(trackIdx).totalVisibleCount + 1;
@@ -2020,7 +2056,7 @@ classdef Tracker < handle;
         end
         
         if self.opts.tracks.kalmanFilterPredcition
-          pred = self.newPredictor(self.centroids(i,:));
+          pred = self.newPredictor(self.pos(i,:));
         else
           pred = [];
         end
@@ -2045,7 +2081,7 @@ classdef Tracker < handle;
           centerLine = [];
           thickness = [];
         end
-
+        
         feat = [];
         for ct = self.featurecosttypes
           feat.(ct{1}) = self.features.(ct{1})(i,:);
@@ -2068,6 +2104,7 @@ classdef Tracker < handle;
           'predFishId',   newfishid,...
           'bbox',      self.bboxes(i,:),  ...
           'centroid',  self.centroids(i,:),  ...
+          'location',  self.locations(i,:),  ...
           'velocity', [0,0], ...
           'centerLine',  centerLine,...
           'thickness',  thickness,...
@@ -2113,8 +2150,8 @@ classdef Tracker < handle;
 
       crossmat = false(length(self.tracks),length(self.tracks));
       bbox = cat(1,self.tracks.bbox);
-      centroids = cat(1,self.tracks.centroid);
-      msk = fish.helper.pdist2Euclidean(centroids,centroids)<self.currentCrossBoxLengthScale*self.fishlength;
+      locations = cat(1,self.tracks.location);
+      msk = fish.helper.pdist2Euclidean(locations,locations)<self.currentCrossBoxLengthScale*self.fishlength;
 
       bBoxXOverlap = bsxfun(@ge,bbox(:,1) + bbox(:,3), bbox(:,1)') & bsxfun(@lt,bbox(:,1), bbox(:,1)');
       bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
@@ -2187,9 +2224,8 @@ classdef Tracker < handle;
     function handleTracks(self)
     % handles the assignment of the tracks etc
       
-      if self.opts.tracks.kalmanFilterPredcition
-        self.predictNewLocationsOfTracks();
-      end
+
+      self.predictNewLocationsOfTracks();
       
       self.detectionToTrackAssignment();
       
@@ -2404,7 +2440,7 @@ classdef Tracker < handle;
 
       % 0 turns off cost
       def.opts.cost.Location = 10;
-      doc.cost.Location = {'Centroid comparison','Relative cost weighting. 0 turns cost type off.'};
+      doc.cost.Location = {'Location comparison','Relative cost weighting. 0 turns cost type off.'};
       
       def.opts.cost.Overlap = 5;
       doc.cost.Overlap = {'BBox overlap'};
@@ -2508,7 +2544,11 @@ classdef Tracker < handle;
       doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
       
       def.opts.tracks.kalmanFilterPredcition = false; 
-      doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter'};
+      doc.tracks.kalmanFilterPredcition = {'Whether to use Kalman filter (overwrites CL prediction)'};
+
+      def.opts.tracks.centerLinePrediction = true; 
+      doc.tracks.centerLinePrediction = {'Whether to use prediction along center line'};
+
       
       def.opts.classifier.timeToInit = 20;  
       doc.classifier.timeToInit = {'Time to initialize the classifier [avgBLC]'};

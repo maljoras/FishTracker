@@ -65,8 +65,16 @@ function generateResults(self)
   % gets a new pos from the re-ordered tracks. Do not use the original
   % pos (which might contain Kalman predictions) but centerLine if available
   
-    pos = 
-  
+    if isfield(res.tracks,'centerLine')
+      cl = mean(res.tracks.centerLine,4);
+      ce = res.tracks.centroid;
+      idx = find(isnan(cl));
+      cl(idx) = ce(idx);
+      pos = permute(cl,[1,3,2]);
+    else
+      ce = res.tracks.centroid;
+      pos = permute(ce,[1,3,2]);
+    end
   end
   
     

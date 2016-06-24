@@ -43,10 +43,10 @@ function verbose(str,varargin)
     idx = findstr(str,'\r');
     if ~isempty(idx)
       LASTDISPLENGTH = idx(end);
+      str([idx(end),idx(end)+1]) = [];
     else
       LASTDISPLENGTH = 0;
     end
-    str([idx(end),idx(end)+1]) = [];
   end
   
   d = dbstack;

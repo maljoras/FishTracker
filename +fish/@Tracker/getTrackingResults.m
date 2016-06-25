@@ -20,10 +20,10 @@ function res = getTrackingResults(self,delinvif,forceif,dagif)
   else
     if dagif 
       fish.helper.verbose('Getting DAGraph tracking results')
-      res = subGetCleanPos(self.res.dag,delinvif);
+      res = self.res.dag;
     else
       fish.helper.verbose('Getting Switch-based tracking results')
-      res = subGetCleanPos(self.res.swb,delinvif);
+      res = self.res.swb;
     end
   
     for f = fieldnames(self.res)'
@@ -32,6 +32,8 @@ function res = getTrackingResults(self,delinvif,forceif,dagif)
       end
       res.(f{1}) = self.res.(f{1});
     end
+    res = subGetCleanPos(res,delinvif);
+  
   end
 
 

@@ -257,7 +257,7 @@ classdef Tracker < handle;
       ftposnan = ftresnan.pos;
       idpos = idres.pos(1:end-offs,:,assignments(assignments(:,1),2));
  
-      t = ftres.tracks.t(:,1);
+      t = ftres.t(:,1);
       d = sqrt(sum((ftpos(:,:,:) - idpos(:,:,:)).^2,2))/ft.fishlength;
       
       success = mean(nanmax(d,[],3)>1)<0.05;

@@ -23,7 +23,7 @@ if PLOT
   a(end+1) = subplot(r1,r2,s,'align');
 
   iframe = [15000];
-  t = ft.res.tracks.t(:,1);
+  t = ft.res.t(:,1);
   frame = [];
   reader.setCurrentTime(t(iframe));
   frame = reader.readFrame();

@@ -51,7 +51,7 @@ if PLOT
   s = s+1;
   a(end+1) = subplot(r1,r2,s,'align');
   
-  t = ftres.tracks.t(:,1);
+  t = ftres.t(:,1);
   d = sqrt(sum((ftpos(:,:,:) - idpos(:,:,:)).^2,2))/ft.fishlength;
   
   MAXDISTANCE = 0;

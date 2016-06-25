@@ -14,7 +14,7 @@ function plotClassProb(self,plotTimeRange,fishIds);
 
   clf;
   res = self.getTrackingResults();
-  t = res.tracks.t(:,1);
+  t = res.t(:,1);
   plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
 
   if ~isfield(res.tracks,'classProb') || isempty(res.tracks.classProb)

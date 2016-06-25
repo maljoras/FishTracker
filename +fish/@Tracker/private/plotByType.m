@@ -24,7 +24,7 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
 
   cla;
   res = self.getTrackingResults();
-  t = res.tracks.t(:,1);
+  t = res.t(:,1);
   plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
 
   centroid = res.tracks.centroid;

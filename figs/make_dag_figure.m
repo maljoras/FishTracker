@@ -48,7 +48,7 @@ if PLOT
   T = T1(:,crossedIds);
   msk = msk1(:,crossedIds);
   
-  t = ft1.res.tracks.t(startframe:endframe,1);
+  t = ft1.res.t(startframe:endframe,1);
   iframe =  t*ft1.videoHandler.frameRate + 1;
   crossframe = find(msk(:,1),1,'first');
 

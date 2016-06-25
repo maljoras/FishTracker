@@ -57,7 +57,7 @@ function trainMotionModel(self,fishIds,timeRange);
   
   
   res = self.getTrackingResults();
-  t = res.tracks.t(:,1);
+  t = res.t(:,1);
   ptr = [10,20];
   idx = find(t>=ptr(1) & t<ptr(2));
   idx = idx(1:end);

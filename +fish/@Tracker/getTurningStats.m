@@ -1,0 +1,77 @@
+function turn = getTurningStats(self,fishIds, plotTimeRange,res)
+
+
+  if nargin<3 || isempty(plotTimeRange)
+    plotTimeRange = [-inf,inf];
+  end
+  
+  if nargin<2 || isempty(fishIds)
+    fishIds = 1:self.nfish;
+  end
+  
+  if nargin<4 || isempty(res)
+    res = self.getTrackingResults();
+  end
+
+  deltat = max(floor(self.avgTimeScale),1); % frames/BL
+  deltat = deltat + mod(deltat-1,2);
+  
+  turn = self.getTurningPoints(fishIds,plotTimeRange,res);
+  velocity = self.deleteInvisible('velocity',plotTimeRange,res);
+  vel = sqrt(sum(velocity.^2,3));
+  vel = vel(:,fishIds);
+  
+  pos = self.deleteInvisible('pos',plotTimeRange,res);
+  pos = pos(:,:,fishIds);
+  locvel = permute(sqrt(sum(diff(pos).^2,2)),[1,3,2]);
+  locvel(end+1,:) = NaN;
+
+
+  
+  locvel = fish.helper.movavg(locvel,max(round(deltat/2),1));
+  
+
+  mxt = deltat*3;
+  for i = 1:length(fishIds)
+    tidx = turn(i).tidx;
+
+    turn(i).vel0 = vel(tidx,i);
+    turn(i).vel1 = vel(min(tidx+deltat,end),i);
+    turn(i).vel2 = vel(min(tidx+2*deltat,end),i);
+    turn(i).acc1 = turn(i).vel1-turn(i).vel0;
+    turn(i).acc2 = turn(i).vel2-turn(i).vel1;
+    
+    turn(i).locvel0 = locvel(tidx,i);
+    turn(i).locvel1 = locvel(min(tidx+deltat,end),i);
+    turn(i).locvel2 = locvel(min(tidx+2*deltat,end),i);
+
+    
+    turn(i).len = sqrt(diff(turn(i).x).^2 + diff(turn(i).y).^2);
+    turn(i).len(end+1) = NaN;
+    turn(i).dori = angle(exp(1i*diff(turn(i).ori)));
+    turn(i).dori(end+1) = NaN;
+  
+  
+
+    accmsk = ones(size(vel,1),1);
+    accmsk(1:tidx(1)-1) = 0;
+    accmsk(tidx(2:end)) = -diff(tidx)+1;
+    accmsk = cumsum(accmsk);
+    
+    accmsk(~accmsk | accmsk>mxt) = mxt+1;
+    
+    % avg turn-triggered veocity
+    turn(i).attv = accumarray(accmsk,vel(:,i),[mxt+1,1],@nanmean);
+    turn(i).attv = turn(i).attv(1:end-1);
+    turn(i).sattv = accumarray(accmsk,vel(:,i),[mxt+1,1],@fish.helper.stderr);
+    turn(i).sattv = turn(i).sattv(1:end-1);
+    
+    
+    
+    turn(i).attlocv = accumarray(accmsk,locvel(:,i),[mxt+1,1],@nanmean);
+    turn(i).attlocv = turn(i).attlocv(1:end-1);
+    turn(i).sattlocv = accumarray(accmsk,locvel(:,i),[mxt+1,1],@fish.helper.stderr);
+    turn(i).sattlocv = turn(i).sattlocv(1:end-1);
+
+  end
+  

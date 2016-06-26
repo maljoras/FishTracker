@@ -2,7 +2,6 @@ function [w,resx,u,resy] =contLinearRegression(y,x,nconv)
 % [W,U] =CONTLINEARREGRESSION(X,Y) continous linear regression
 % y=w_1*x + w_2 and x=u_1*y + u_2 with local kernel size N
 
- 
 
   x = x(:);
   y = y(:);

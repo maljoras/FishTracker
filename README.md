@@ -102,8 +102,9 @@ For example:
 Each of the field as the dimensions [nFrames x nFish x nDims] where nDims are additional dimensions dependent on the field. For instance, to plot the x-velocity for each from and fish after tracking:
 
 ~~~~
->> res = ft.getTrackingResults();  
->> vx = res.tracks.velocity(:,:,1);  
+>> res = ft.getTrackingResults([0,20]);  
+>> v = ft.getResField(res,'velocity',1); % 1 means delete "invisible" frames 
+>> vx = squeeze(v(:,:,1)); % second dim is number fishId
 >> plot(res.t,vx);  
 ~~~~
 
@@ -118,7 +119,7 @@ To plot the traces
 Or in 3D (the centroid positions versus time), one can do the following:
 ~~~~
 >> res = ft.getTrackingResults();
->> pos = ft.interpolateInvisible('pos',5); % interpolate lost detections and smooth Gaussian with std=5 frames
+>> pos = ft.interpolateInvisible(res,'pos',5); % interpolate lost detections and Boxcar smooth with n=5 frames
 >> plot3(res.t,squeeze(p(:,1,:)),squeeze(p(:,2,:)));
 >> xlabel('Time [s]'); ylabel('x-position [px]');zlabel('y-position [px]');
 ~~~~
@@ -128,7 +129,7 @@ Or in 3D (the centroid positions versus time), one can do the following:
 Or a more fancy plot of the "centerline" the body-axis of the fish for each frame. Moments of large amount of "bending" of the fish's body are plotted in red. The position of the head is marked by a circle. 
 
 ~~~~
->> ft.plotCenterLine([],[10,20]) % 10 to 20 seconds for all fish   
+>> ft.plotCenterLine([10,20]) % 10 to 20 seconds for all fish   
 ~~~~
 ![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/centerline.jpg)
 
@@ -175,7 +176,7 @@ To perform the experiment:
 
 ~~~~
 >> opts = [];   
->> opts.stimulus.presenter  = 'fish.stimulus.PresenterFlash';  
+>> opts.stimulus.presenter  = 'fish.stimulus.Presenter';  
 >> opts.stmif = 1;  
 >> opts.nfish = 3;  
 >> opts.detector.inverted = 1; % tracking in IR  
@@ -195,7 +196,7 @@ simulated fish tracks without the need for calling the
 fish.Tracker.track() method:
 
 ~~~~
->> fish.helper.stimulusSimulator('fish.stimulus.PresenterFlash')
+>> fish.helper.stimulusSimulator('fish.stimulus.Presenter')
 ~~~~
 
 

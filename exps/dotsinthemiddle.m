@@ -93,15 +93,15 @@ end
 if PLOT
   dagresults = 1;
   ft.setDefaultResultType(dagresults);
-  res = ft.getTrackingResults(1);
+  res = ft.getTrackingResults();
   
   info = res.tracks.stmInfo;
   stmmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS_LR;
   nonmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS_RL;
 
 
-  pos = res.pos;
-  velocity = ft.deleteInvisible('velocity');
+  pos = ft.deleteInvisible(res,'pos');;
+  velocity = ft.deleteInvisible(res,'velocity');
   vel = sqrt(res.tracks.velocity(:,:,1).^2+res.tracks.velocity(:,:,2).^2);
   
   mpos1 = squeeze(nanmean(pos(stmmsk,:,:),1));
@@ -129,7 +129,7 @@ if PLOT
   
   figure;
   a = subplot(2,1,1);
-  vel = ft.deleteInvisible('velocity');
+  vel = ft.deleteInvisible(res,'velocity');
   vabs = sqrt(res.tracks.velocity(:,:,1).^2 + res.tracks.velocity(:,:,2).^2);
   vabs(vabs>100) = NaN;
   

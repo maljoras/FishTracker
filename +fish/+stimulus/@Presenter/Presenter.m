@@ -34,7 +34,11 @@ classdef Presenter < handle;
     windowRect = [];
     window = []; 
     textureIdx =  [];
-
+  end
+  
+  properties(SetAccess=protected);
+    IDX_FISHID = 3;
+    IDX_XY = 1:2;
   end
 
   properties(SetAccess=private,GetAccess=private);

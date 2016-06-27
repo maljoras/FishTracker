@@ -31,13 +31,11 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
 
   end
 
-  properties(SetAccess=private)
+  properties(SetAccess=protected)
     ID_ADAPTATION = 0;
     ID_STIMULUS = 1;
 
     IDX_STMIDX = 1;
-    IDX_XY = 2:3;
-    IDX_FISHID = 4;
     IDX_T = 5;
     IDX_STATE = 6;
     IDX_MSK = 7;
@@ -90,6 +88,14 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
   
   
   methods
+    
+    function self = PresenterTrackTextures(varargin)
+
+      self = self@fish.stimulus.Presenter();
+      self.IDX_XY = 2:3;
+      self.IDX_FISHID = 4;
+    end
+
     
     function init(self,varargin)
       init@fish.stimulus.Presenter(self,varargin{:});

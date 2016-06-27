@@ -240,8 +240,9 @@ classdef Tracker < handle;
       
       nfish = ft.nfish;
       ftres = ft.getTrackingResults();
-      ftresnan = ft.getTrackingResults(1);
-
+      ftresnan = ftres;
+      ftresnan.pos = ft.deleteInvisible(ftres,'pos');
+      
       dist = zeros(nfish);
       offs = size(idres.pos,1) - size(ftres.pos,1);
       
@@ -415,9 +416,11 @@ classdef Tracker < handle;
       % start detecting
       ft.track(); % track the markings
       ft.stimulusPresenter.flip(); % turn stim off
-
-      pos = ft.deleteInvisible('pos');
-      bbox = ft.deleteInvisible('bbox');
+      
+      res = ft.getTrackingResults();
+      
+      pos = ft.deleteInvisible(res,'pos');
+      bbox = ft.deleteInvisible(res,'bbox');
 
       [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,ft.videoHandler.frameSize);
       
@@ -977,7 +980,7 @@ classdef Tracker < handle;
       
       %we here also check whether some unaccounted switching occurred (maybe outside of
       %a crossing)
-      if length(same)>1 && ~all(same) && ~self.opts.classifier.onlyDAGMethod
+      if length(same)>1 && ~all(same) 
         % we have some mixed classes 
 
         % might be some NaNs...
@@ -1398,35 +1401,29 @@ classdef Tracker < handle;
         end
       end
 
-      if ~self.opts.classifier.onlyDAGMethod
-        
-        %% handle previous crossings
-        self.handlePreviouslyCrossedTracks();
-        
-        handled = self.testHandled();
-        allhandled = all(handled);
-        
-        
-        %% update the current crossings
-        self.updateTrackCrossings(); % updates the self.tracks fields
-        
-        
-        %% test whether tracks might be misaligned
-        if sum(handled)>1
-          handledIndices = find(handled);
-          [misif,pdiff] = self.testTrackMisalignment(handledIndices);
-          if misif 
-            
-            fish.helper.verbose('Probably misaligned (%1.2f)..\r',pdiff);
-            self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
-            
-          end
-        end
 
-      else
-        % only DAG
-        allhandled = true ; 
-        handled = true;
+        
+      %% handle previous crossings
+      self.handlePreviouslyCrossedTracks();
+      
+      handled = self.testHandled();
+      allhandled = all(handled);
+      
+      
+      %% update the current crossings
+      self.updateTrackCrossings(); % updates the self.tracks fields
+      
+      
+      %% test whether tracks might be misaligned
+      if sum(handled)>1
+        handledIndices = find(handled);
+        [misif,pdiff] = self.testTrackMisalignment(handledIndices);
+        if misif 
+          
+          fish.helper.verbose('Probably misaligned (%1.2f)..\r',pdiff);
+          self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
+          
+        end
       end
       
           
@@ -1864,13 +1861,9 @@ classdef Tracker < handle;
           self.tracks(trackIdx).classProb =  classprob; % only update classprob in tracks if not reversed
         end
 
-        if self.opts.classifier.onlyDAGMethod
-          w = ~isnan(probNoise); % ignore noise
-          reasonable = ~~w;
-        else
-          % always update history, though (weight will be zero for NaN)
-          [reasonable w]  = self.tracks(trackIdx).classProbHistory.update(classprob, probNoise);
-        end
+        % always update history, though (weight will be zero for NaN)
+        [reasonable w]  = self.tracks(trackIdx).classProbHistory.update(classprob, probNoise);
+
         
         if w>0
           %update moving average
@@ -1935,10 +1928,9 @@ classdef Tracker < handle;
         % do not update the tracks with nan, but use clp average instead
         self.tracks(ind).classProb = self.tracks(ind).clpMovAvg;
         
-        if ~self.opts.classifier.onlyDAGMethod
-          % only nan into history:
-          self.tracks(ind).classProbHistory.update(nan(1,self.nfish),NaN);
-        end
+
+        % only nan into history:
+        self.tracks(ind).classProbHistory.update(nan(1,self.nfish),NaN);
         
       end
       
@@ -1962,12 +1954,6 @@ classdef Tracker < handle;
         for i = 1:length(trackIndices)
           self.tracks(trackIndices(i)).predFishId = predFishIds(trackIndices(i));
         end
-        if self.opts.classifier.onlyDAGMethod
-          for i = 1:length(self.tracks)
-            self.tracks(i).fishId = predFishIds(i);
-          end
-        end
-
       end
       
       
@@ -2087,15 +2073,11 @@ classdef Tracker < handle;
           feat.(ct{1}) = self.features.(ct{1})(i,:);
         end
         
-        if self.opts.classifier.onlyDAGMethod
-          history = [];
-          w = ~isnan(clprobnoise);
-        else
-          history = fish.core.FishClassProbHistory(self.nfish);
-          % update the classprobhistory and set the parameters
-          history.lambda = self.fishlength/self.fishwidth;
-          [~,w] = history.update(clprob,clprobnoise);
-        end
+        history = fish.core.FishClassProbHistory(self.nfish);
+        % update the classprobhistory and set the parameters
+        history.lambda = self.fishlength/self.fishwidth;
+        [~,w] = history.update(clprob,clprobnoise);
+
         
         % Create a new track.
         newTrack = struct(...
@@ -2684,10 +2666,6 @@ classdef Tracker < handle;
       opts.tracks.ageThreshold = 10; % [nFrames]
       opts.tracks.withTrackDeletion = false; % BUG !!! TURN OFF. maybe needed later 
       
-      opts.classifier.onlyDAGMethod = 0;
-      if opts.classifier.onlyDAGMethod
-        fish.helper.verbose('Switch method: DAG');
-      end
       
       %% parameter checking
 

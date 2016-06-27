@@ -4,8 +4,8 @@ function playVideo(self,timerange,writefile)
 % color is based in the DAG results. Small dots at the bottom show the current fram
 % probability of being a particular fish identity (based in the classifier).
   
-  res_dag = self.getTrackingResults(1,0,1);
-  res_swb = self.getTrackingResults(1,0,0);
+  res_dag = self.getDagTrackingResults();
+  res_swb = self.getSwitchBasedTrackingResults();
 
   if ~iscell(self.videoFile)
     videoFile = self.videoFile;

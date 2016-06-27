@@ -1,5 +1,5 @@
-function plotCenterLine(self,fishIds,plotTimeRange)
-%   PLOTCENTERLINE(SELF,FISHIDS,PLOTTIMERANGE) plots the traces
+function plotCenterLine(self,plotTimeRange,fishIds)
+%   PLOTCENTERLINE(SELF,PLOTTIMERANGE,FISHIDS) plots the traces
 %   with center line information. 
   
   if ~exist('fishIds','var') || isempty(fishIds)
@@ -15,18 +15,18 @@ function plotCenterLine(self,fishIds,plotTimeRange)
   end
 
 
-  res = self.getTrackingResults();
+  res = self.getTrackingResults(plotTimeRange);
+  res = self.selectedFishIds(res,fishIds);
   t = res.tabs;
-  plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
 
   if  ~isfield(res.tracks,'centerLine') || isempty(res.tracks.centerLine)
     error('No centerLine data');
   end
-  b = getBendingLaplace(self,fishIds,plotTimeRange,res);
+  b = getBendingLaplace(self,res);
 
 
-  mx = nanmean(b.clx(:,:,:),1);
-  my = nanmean(b.cly(:,:,:),1);
+  mx = squeeze(nanmean(b.clx(:,:,:),1));
+  my = squeeze(nanmean(b.cly(:,:,:),1));
 
 
   
@@ -34,14 +34,17 @@ function plotCenterLine(self,fishIds,plotTimeRange)
   cmap = jet(self.nfish);
   szFrame = self.videoHandler.frameSize;
 
-  lapthres = 0.75;
+  lapthres = 1;
 
   for i = 1:length(fishIds)
     col = cmap(fishIds(i),:);
     
-    plot(b.clx(:,:,i),b.cly(:,:,i),'color',col,'linewidth',2);
+    c = col;
+    %c = [0.5,0.5,0.5];
+    plot(b.clx(:,:,i),b.cly(:,:,i),'color',c,'linewidth',0.75);
     hold on;        
-    plot(b.clx(1,:,i),b.cly(1,:,i),'o','color',col,'linewidth',1,'markersize',4);
+    plot(mx(:,i),my(:,i),'color',col,'linewidth',2);
+    %plot(b.clx(1,:,i),b.cly(1,:,i),'o','color',[0.5,0.5,0.5],'linewidth',0.75,'markersize',4);
 
     col1 = 'rk';
     for j = 1:2
@@ -57,6 +60,7 @@ function plotCenterLine(self,fishIds,plotTimeRange)
       %x =  [b.clx(1,idx,i)', b.clx(1,idx,i)' + 10*sin(b.ori(idx,i))];
       %y =  [b.cly(1,idx,i)', b.cly(1,idx,i)' - 10*cos(b.ori(idx,i))];
       %plot(x',y','color',col1(j),'linewidth',1);
+
     end
   end
 

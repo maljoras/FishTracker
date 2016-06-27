@@ -105,8 +105,8 @@ end
 if PLOT
   dagresults = 1;
   ft.setDefaultResultType(dagresults);
-  res = ft.getTrackingResults(1);
-  pos = ft.interpolateInvisible('pos');
+  res = ft.getTrackingResults();
+  pos = ft.interpolateInvisible(res,'pos');
   
   info = res.tracks.stmInfo;
   stmmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS;
@@ -118,8 +118,8 @@ if PLOT
   return
   
   pos = res.pos;
-  velocity = ft.deleteInvisible('velocity');
-  vel = sqrt(res.tracks.velocity(:,:,1).^2+res.tracks.velocity(:,:,2).^2);
+  velocity = ft.deleteInvisible(res,'velocity');
+  vel = sqrt(velocity(:,:,1).^2+velocity(:,:,2).^2);
   
   mpos1 = squeeze(nanmean(pos(stmmsk,:,:),1));
   mpos2 = squeeze(nanmean(pos(nonmsk,:,:),1));
@@ -146,8 +146,8 @@ if PLOT
   
   figure;
   a = subplot(2,1,1);
-  vel = ft.deleteInvisible('velocity');
-  vabs = sqrt(res.tracks.velocity(:,:,1).^2 + res.tracks.velocity(:,:,2).^2);
+  vel = ft.deleteInvisible(res,'velocity');
+  vabs = sqrt(vel(:,:,1).^2 + vel(:,:,2).^2);
   vabs(vabs>100) = NaN;
   
   acc = [diff(vabs);zeros(1,size(vabs,2))];

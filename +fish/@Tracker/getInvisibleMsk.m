@@ -1,12 +1,13 @@
 function msk = getInvisibleMsk(self,res)
-% MSK = GETINVISIBLEMSK(SELF,RES) gets the msk to delete consecutive
+% MSK = GETINVISIBLEMSK(SELF,RES/CIC) gets the msk to delete consecutive
 % invisible frames from the results
   
-  if nargin<2
-    res = getTrackingResults(0,0);
+  if isstruct(res)
+    c = res.tracks.consecutiveInvisibleCount;
+  else
+    c = res;
   end
   
-  c = res.tracks.consecutiveInvisibleCount;
   msk = c>0;
   %also delete the last visible (often noise detection)
   dmsk = diff(msk)==1;

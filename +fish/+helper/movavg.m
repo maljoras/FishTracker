@@ -20,4 +20,4 @@ function xm = movavg(x,nconv,dim)
   xm(idx) = 0;
   n(idx) = 1;
   xm = xm./n;
-  
+  xm(idx) = NaN;

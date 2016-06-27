@@ -21,45 +21,52 @@ function generateResults(self)
              'tracking?)'],self.currentFrame-nFrames);
   end
   self.currentFrame = nFrames;
+  self.res = [];
   
-  if self.opts.classifier.onlyDAGMethod
-    subGetPosFromDag([],1); % overwrites pos
-  end
-
   fishId2TrackId = self.fishId2TrackId(1:nFrames,:)';
   self.res.swb = subGenerateTracks(fishId2TrackId);
   self.res.swb.pos = subGeneratePos(self.res.swb);
   self.res.t = self.res.swb.tracks.t(:,1);
   self.res.tabs = self.tabs(1:nFrames,:);
   self.res.swb.tracks = rmfield(self.res.swb.tracks,'t');
+% $$$   
+% $$$   if isfield(self.savedTracks,'stmInfo')
+% $$$     sz = size(self.savedTracks.stmInfo);
+% $$$     d = length(sz);
+% $$$     self.res.stmInfo = permute(reshape(self.savedTracks.stmInfo,[sz(1:end-1),self.nfish,nFrames]),[d+1,d,2:d-1,1]);
+% $$$     
+% $$$     if self.stimulusPresenter.usePredFishId && isfield(self.savedTracks,'predFishId')
+% $$$       self.res.stmFishId = reshape(self.savedTracks.predFishId, [self.nfish,nFrames]);
+% $$$     elseif ~self.stimulusPresenter.usePredFishId && isfield(self.savedTracks,'fishId')
+% $$$       self.res.stmFishId = reshape(self.savedTracks.fishId,[self.nfish,nFrames]);
+% $$$     end
+% $$$ 
+% $$$   end
+
+  % also generate dag
+  clear fishId2TrackId
+  [pos,dagf2t] = subGetPosFromDag();
   
-  if isfield(self.savedTracks,'stmInfo')
-    sz = size(self.savedTracks.stmInfo);
-    d = length(sz);
-    self.res.stmInfo = permute(reshape(self.savedTracks.stmInfo,[sz(1:end-1),self.nfish,nFrames]),[d+1,d,2:d-1,1]);
-    
-    if self.stimulusPresenter.usePredFishId && isfield(self.savedTracks,'predFishId')
-      self.res.stmFishId = reshape(self.savedTracks.predFishId, [self.nfish,nFrames]);
-    elseif ~self.stimulusPresenter.usePredFishId && isfield(self.savedTracks,'fishId')
-      self.res.stmFishId = reshape(self.savedTracks.fishId,[self.nfish,nFrames]);
+  % check for big overlaps and correct them with switch-based
+  dagf2t = subCorrectDagOverlaps(dagf2t);
+
+  %need to do again
+  self.res.dag = subGenerateTracks(dagf2t'); 
+  self.res.dag.pos = subGeneratePos(self.res.dag);
+  self.res.dag.tracks = rmfield(self.res.dag.tracks,'t');
+
+
+  % copy 
+  for f = fieldnames(self.res)'
+    if any(strcmp(f{1},{'swb','dag'}))
+      continue;
     end
-
+    self.res.swb.(f{1}) = self.res.(f{1});
+    self.res.dag.(f{1}) = self.res.(f{1});
   end
 
-
-  if ~self.opts.classifier.onlyDAGMethod
-    % also generate dag
-    clear fishId2TrackId
-    [pos,dagf2t] = subGetPosFromDag();
-
-    % check for big overlaps and correct them with switch-based
-    dagf2t = subCorrectDagOverlaps(dagf2t);
-
-    %need to do again
-    self.res.dag = subGenerateTracks(dagf2t'); 
-    self.res.dag.pos = subGeneratePos(self.res.dag);
-    self.res.dag.tracks = rmfield(self.res.dag.tracks,'t');
-  end
+  
+  
   
   
   function pos = subGeneratePos(res)
@@ -76,6 +83,18 @@ function generateResults(self)
       ce = res.tracks.centroid;
       pos = permute(ce,[1,3,2]);
     end
+  
+    % delete beyond border pixels
+    posx = squeeze(pos(:,1,:));
+    posy = squeeze(pos(:,2,:));
+
+    sz = self.videoHandler.frameSize;
+    posx(posx>sz(2) | posx<1) = NaN;
+    posy(posy>sz(1) | posy<1) = NaN;
+
+    pos(:,1,:) = posx;
+    pos(:,2,:) = posy;
+  
   end
   
     
@@ -242,9 +261,9 @@ function generateResults(self)
       if isempty(self.savedTracks.(f{1}))
         continue;
       end
-      if strcmp(f{1},'stmInfo')
-        continue;
-      end
+% $$$       if strcmp(f{1},'stmInfo')
+% $$$         continue;
+% $$$       end
       sz = size(self.savedTracks.(f{1}));
       d = length(sz); % at least 3
       trackdat = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);

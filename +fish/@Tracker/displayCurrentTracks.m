@@ -58,11 +58,8 @@ function varargout = displayCurrentTracks(self)
 
         ids = [reliableTracks(:).fishId];
 
-        if self.opts.classifier.onlyDAGMethod
-          [~,pids] = max(cat(1,reliableTracks.clpMovAvg),[],2);
-        else
-          pids = cat(1,reliableTracks.predFishId);
-        end
+        pids = cat(1,reliableTracks.predFishId);
+
         
         clabels = uint8(cols(ids,:)*255);
         pclabels = uint8(cols(pids,:)*255);

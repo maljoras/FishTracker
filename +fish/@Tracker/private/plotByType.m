@@ -23,18 +23,20 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
   end
 
   cla;
-  res = self.getTrackingResults();
+  res = self.getTrackingResults(plotTimeRange);
   t = res.t(:,1);
-  plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
 
-  centroid = res.tracks.centroid;
-  centroidx = centroid(plotidx,fishIds,1);
-  centroidy = centroid(plotidx,fishIds,2);
 
-  posx = squeeze(res.pos(plotidx,1,fishIds));
-  posy = squeeze(res.pos(plotidx,2,fishIds));
-  posx = conv2(posx,ones(5,1)/5,'same');
-  posy = conv2(posy,ones(5,1)/5,'same');
+  pos = self.getResField(res,'pos',0);
+  invmsk = squeeze(isnan(pos(:,1,fishIds))) | self.getInvisibleMsk(res);
+  centroid = self.getResField(res,'centroid',0);
+  centroidx = centroid(:,fishIds,1);
+  centroidy = centroid(:,fishIds,2);
+
+  pos = self.interpolateInvisible(res,'pos',3);
+  
+  posx = squeeze(pos(:,1,fishIds));
+  posy = squeeze(pos(:,2,fishIds));
 
   dt = 1/self.videoHandler.frameRate;
 
@@ -46,7 +48,7 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
       xlabel('x-Position [px]')
       ylabel('y-Position [px]')
       
-      msk = isnan(posx);
+      msk = invmsk;
       hold on;
       plot(centroidx(msk),centroidy(msk),'.r','linewidth',1);
       

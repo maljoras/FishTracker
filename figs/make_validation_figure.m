@@ -32,8 +32,9 @@ if PLOT
   
   nfish = ft.nfish;
   ftres = ft.getTrackingResults();
-  ftresnan = ft.getTrackingResults(1);
-
+  ftresnan = ftres;
+  ftresnan.pos = ft.deleteInvisible(ftres,'pos');
+  
   dist = zeros(nfish);
 
   for i = 1:nfish

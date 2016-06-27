@@ -1,38 +1,23 @@
-function turn = getTurningStats(self,fishIds, plotTimeRange,res)
-
-
-  if nargin<3 || isempty(plotTimeRange)
-    plotTimeRange = [-inf,inf];
-  end
-  
-  if nargin<2 || isempty(fishIds)
-    fishIds = 1:self.nfish;
-  end
-  
-  if nargin<4 || isempty(res)
-    res = self.getTrackingResults();
-  end
+function turn = getTurningStats(self,res)
+% TURNSTATS = GETTURNINGSTATS(SELF,RES) gets some stats on the
+% turnings from RES
 
   deltat = max(floor(self.avgTimeScale),1); % frames/BL
   deltat = deltat + mod(deltat-1,2);
-  
-  turn = self.getTurningPoints(fishIds,plotTimeRange,res);
-  velocity = self.deleteInvisible('velocity',plotTimeRange,res);
+
+  turn = self.getTurningPoints(res);
+  velocity = self.getResField(res,'velocity',1);
   vel = sqrt(sum(velocity.^2,3));
-  vel = vel(:,fishIds);
   
-  pos = self.deleteInvisible('pos',plotTimeRange,res);
-  pos = pos(:,:,fishIds);
+  pos = self.getResField(res,'pos',1);
   locvel = permute(sqrt(sum(diff(pos).^2,2)),[1,3,2]);
   locvel(end+1,:) = NaN;
 
-
-  
   locvel = fish.helper.movavg(locvel,max(round(deltat/2),1));
   
 
   mxt = deltat*3;
-  for i = 1:length(fishIds)
+  for i = 1:size(velocity,2)
     tidx = turn(i).tidx;
 
     turn(i).vel0 = vel(tidx,i);

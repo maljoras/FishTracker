@@ -1,18 +1,15 @@
-function res = getTrackingResults(self,delinvif,forceif,dagif)
-% RES = GETTRACKINGRESULTS(DELINVIF,FORCEIF,DAGIF) returns the current
-% results.  DELINVIF sets times in RES.POS where a track was lost to
-% NaN.  FORCIF==1 forces a re-generation of the pos/res
+function res = getTrackingResults(self,timeRange,dagif,forceif)
+% RES = GETTRACKINGRESULTS(TIMERANGE,DAGIF,FORCEIF) returns the current
+% results. FORCIF==1 forces a re-generation of the pos/res
 % structure. DAGIF==0 uses the switch-based tracks, otherwise the
 % DAG-based tracks
   
   if isempty(self.res) || (exist('forceif','var') && ~isempty(forceif) && forceif)
     generateResults(self); % maybe not done yet
   end
-  if ~exist('delinvif','var') || isempty(delinvif)
-    delinvif = 0;
-  end
+
   if ~exist('dagif','var') || isempty(dagif)
-    dagif = self.opts.tracks.useDagResults;
+    dagif = self.getDefaultResultType();
   end
   
   if isempty(self.res)
@@ -25,44 +22,30 @@ function res = getTrackingResults(self,delinvif,forceif,dagif)
       fish.helper.verbose('Getting Switch-based tracking results')
       res = self.res.swb;
     end
-  
-    for f = fieldnames(self.res)'
-      if any(strcmp(f{1},{'swb','dag'}))
-        continue;
+  end
+
+  if exist('timeRange','var') && ~isempty(timeRange)
+    n = length(res.tabs);
+    idx = find(res.tabs>=timeRange(1) & res.tabs<timeRange(2));
+    S.type = '()';
+    for f = fieldnames(res)'
+      sz= size(res.(f{1}));
+      if sz(1)==n
+        S.subs = cell(1,length(sz));
+        [S.subs{:}] = deal(':');
+        S.subs{1} = idx;
+        res.(f{1}) = subsref(res.(f{1}),S);
       end
-      res.(f{1}) = self.res.(f{1});
     end
-    res = subGetCleanPos(res,delinvif);
-  
-  end
-
-
-  function res = subGetCleanPos(res,dif);
-  
-  
-    % delete beyond border pixels
-    posx = squeeze(res.pos(:,1,:));
-    posy = squeeze(res.pos(:,2,:));
-
-    sz = self.videoHandler.frameSize;
-    posx(posx>sz(2) | posx<1) = NaN;
-    posy(posy>sz(1) | posy<1) = NaN;
-
-    res.pos(:,1,:) = posx;
-    res.pos(:,2,:) = posy;
-    
-
-    if dif
-      p = self.deleteInvisible('pos',[],res);
-      res.pos(isnan(p)) = NaN;
+    for f = fieldnames(res.tracks)'
+      sz= size(res.tracks.(f{1}));
+      if sz(1)==n
+        S.subs = cell(1,length(sz));
+        [S.subs{:}] = deal(':');
+        S.subs{1} = idx;
+        res.tracks.(f{1}) = subsref(res.tracks.(f{1}),S);
+      end
     end
-    % could add an interpolation for NaN here
-    % could also add some smoothening of the track pos
-  
   end
-  
-  
-
-
 end
 

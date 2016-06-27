@@ -1,38 +1,26 @@
-function out = deleteInvisible(self,field,timeRange,res)
-% X = DELETEINVISIBLE(SELF,field) returns the requested field
+function out = deleteInvisible(self,res,field)
+% X = DELETEINVISIBLE(SELF,RES/MAT,FIELD/CIC) returns the requested field
 % in res.tracks with deleted (NaN) the consecutive invisible
 % frames 
   
-  if isempty(self.res)
-    return;
-  end
-  if ~exist('timeRange','var') || isempty(timeRange)
-    timeRange = [-inf,inf];
-  end
-  
-  if nargin<4
-    res = self.getTrackingResults();
+  if ~ischar(field)
+    out = res;
+    msk = self.getInvisibleMsk(field);
+  else
+    out = self.getResField(res,field,0);
+    msk = self.getInvisibleMsk(res);
   end
   
-  t = res.t;
-  idx = t>=timeRange(1) & t<timeRange(2);
-
-  msk = self.getInvisibleMsk(res);
-  msk = msk(idx,:);
-
-  
-  if strcmp(field,'pos')
-    out = res.pos(idx,:,:);
+  if ischar(field) && strcmp(field,'pos')
     out(permute(cat(3,msk,msk),[1,3,2])) = NaN;
-  elseif isfield(res.tracks,field)
+  elseif (size(out,1)==size(msk,1)) && (size(out,2)==size(msk,2))
     % always nFrames x nFish x nOther
-    out = double(res.tracks.(field)(idx,:,:,:,:,:));
     sz = size(out);
     out = reshape(out,numel(msk),[]);
     out(msk,:) = NaN;
     out = reshape(out,sz);
   else
-    error(sprintf('Field %s does not exist in res.tracks.',field));
+    error('dimension mismatch');
   end
   
 end

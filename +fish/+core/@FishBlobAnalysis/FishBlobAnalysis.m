@@ -817,6 +817,16 @@ classdef FishBlobAnalysis < handle;
       if ~exist('verboseif','var')
         verboseif = 1;
       end
+      if isempty(self.fishwidth)
+        self.fishwidth = 20; % random guess. Can be set afterwords;
+      end
+      if isempty(self.fishlength)
+        self.fishlength = 100; % random guess. Can be set afterwords;
+      end
+      if isempty(self.headprop)
+        self.headprop = 0.6; % random guess. Can be set afterwords;
+      end
+      
       setFishSize(self,self.fishlength,self.fishwidth,self.headprop,verboseif);
     end
     

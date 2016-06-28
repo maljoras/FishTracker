@@ -619,11 +619,62 @@ classdef Tracker < handle;
       end
       
       %% set all options
+      self.initBackgroundAndObjects();
       self.checkOpts();
       self.setOpts();
       
     end
+ 
+    
+    function initBackgroundAndObjects(self)
 
+      %% look for objects 
+      if isempty(self.nfish) || isempty(self.fishlength) || isempty(self.fishwidth) || self.useScaledFormat  
+
+        [nfish,fishSize] = self.findObjectSizes();
+        
+        
+        if (nfish>25 || ~nfish) && isempty(self.nfish)% too many... something wrong
+          fish.helper.verbose('WARNING: The fish size and number cannot be determined')
+          if self.displayif && self.opts.display.fishSearchResults
+            self.nfish = fish.helper.chooseNFish(vid,1); % only if interactively
+            fishSize = [100,20]; % wild guess;
+            close(gcf);
+          else
+            error('Please manual provide fishlength, fishwidth and nfish');
+          end
+        end
+        
+        
+        if isempty(self.opts.fishlength) % otherwise already set by hand
+          self.fishlength = fishSize(1);
+        end
+        if isempty(self.opts.fishwidth) 
+          self.fishwidth = fishSize(2); 
+        end
+        if isempty(self.opts.nfish) 
+          self.nfish = nfish;
+        end
+        
+      else
+        % init background  
+        n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
+        n = min(n,500);
+        self.videoHandler.initialize(0);
+        self.videoHandler.computeSegments = false;
+        nskip = self.videoHandler.nskip;
+        self.videoHandler.nskip = 1;
+        for i = 1:n
+          self.videoHandler.step();
+          fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
+        end
+        self.videoHandler.computeSegments = true;
+        self.videoHandler.nskip = nskip;
+        self.videoHandler.reset();
+
+      end
+    end
+    
     
     function initTracking(self)
     % Inits the objects to make it ready to start the tracking

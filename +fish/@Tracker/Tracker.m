@@ -809,7 +809,7 @@ classdef Tracker < handle;
       self.clpMovAvgTau = max(ceil(self.opts.classifier.clpMovAvgTau*self.avgTimeScale),1);
 
       self.minBatchN = min(max(ceil(self.nFramesAfterCrossing*0.75),4),50);  
-      self.nFramesForSingleUpdate = min(3*self.nFramesForUniqueUpdate,1000); 
+      self.nFramesForSingleUpdate = min(3* self.nFramesForUniqueUpdate,1000); 
       self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
 
       if ~isinf(self.opts.classifier.timeToInit)

@@ -68,7 +68,7 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
         error('Cannot find mex file. Forgot to run make ?');
       end
       self@fish.core.FishVideoReader(vidname);       
-      self@fish.core.FishBlobAnalysis();       
+      self@fish.core.FishBlobAnalysis(opts);       
       
       self.frameFormat = 'RGBU'; % default
       self.knnMethod = global_knnMethod;
@@ -464,7 +464,7 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
     function a_init(self);
     % pass all  the properties to the C-core
           
-      %a_init@fish.core.FishBlobAnalysis(self);
+    %a_init@fish.core.FishBlobAnalysis(self);
       
       FishVideoHandler_(self.id, 'set','minArea',self.minArea);
       FishVideoHandler_(self.id, 'set','maxArea',self.maxArea);
@@ -474,7 +474,7 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
       FishVideoHandler_(self.id, 'set','minWidth',self.minWidth);
       FishVideoHandler_(self.id, 'set','featureheight',self.featureheight);
       FishVideoHandler_(self.id, 'set','featurewidth',self.featurewidth);
-    
+
     end
     
 

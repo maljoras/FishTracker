@@ -4,8 +4,8 @@
 //#define DEBUG
 //#define PLOTSEGMENTS
 
-#define MAXCONTOUR 100
-#define MAXVALIDCONTOUR 25
+#define MAXCONTOUR 300
+#define MAXVALIDCONTOUR 200
 #define MAXOTSU 25
 #define MINBACKTHRESSTEP 20
 
@@ -91,7 +91,7 @@ void VideoHandler::initPars() {
 	  
   minWidth = 2 ;
   minExtent = 2;
-  minArea = 2;
+  minArea = 4;
   maxArea = 10000;
   maxExtent = 10000;
   featureheight = 100;
@@ -108,8 +108,9 @@ void VideoHandler::initPars() {
 bool VideoHandler::testValid(Segment * pSeg) {
 
   double  extent = pSeg->MajorAxisLength + pSeg->MinorAxisLength;
-  if ((extent<minExtent) || (extent>maxExtent) || (pSeg->Area<minArea)|| (pSeg->Area>maxArea) || (pSeg->MinorAxisLength<minWidth)) 
+  if ((extent<minExtent) || (extent>maxExtent) || (pSeg->Area<minArea)|| (pSeg->Area>maxArea) || (pSeg->MinorAxisLength<minWidth)) { 
     return false;
+  }
   else 
     return true;
 }
@@ -598,8 +599,7 @@ void VideoHandler::segmentThread()
 	  if (ii>=MAXVALIDCONTOUR)
 	    break;
 	}
-	
-	
+
 	Debug(cout << m_NextSegments.size() << endl;
 	  cout << "segments: " <<  timer.elapsed() << endl;);
 	
@@ -624,7 +624,7 @@ void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * ne
 
   vector<bool>valid(contours.size());
   for (int i=0;i<contours.size();i++) {
-    if ((contours[i].size()>10) && (contours[i].size()<maxArea)) // at least ten pixels
+    if ((contours[i].size()>minArea) && (contours[i].size()<maxArea)) // at least ten pixels
       valid[i] = true;
     else
       valid[i] = false;
@@ -640,7 +640,7 @@ void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * ne
     
     Rect bbox = boundingRect(contours[i]);
     double wh = bbox.width*bbox.height;
-    if ((wh > mx) && (bbox.width+bbox.height<maxExtent) ){
+    if ((wh > mx) && (bbox.width+bbox.height<maxExtent && featurewidth>10) ){
       //try to split regions
       Mat roi;
       inBwImg(bbox).copyTo(roi); // make a true copy
@@ -656,7 +656,7 @@ void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * ne
       dilate(roi,roi,srel,Point(-1,-1),1,BORDER_CONSTANT,0);
       erode(roi,roi,srel,Point(-1,-1),3,BORDER_CONSTANT,0);
       dilate(roi,roi,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
-
+      
       // namedWindow("after",WINDOW_AUTOSIZE);
       // imshow("after", roi>0);
       // waitKey(200);
@@ -743,14 +743,17 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     Mat img ;
     copyMakeBorder(segm->Image,img,nborder,nborder,nborder,nborder,BORDER_CONSTANT,0);
 
-    //opening and closing
-    dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
-    erode(img,img,srel,Point(-1,-1),4,BORDER_CONSTANT,0);
-    dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
-
+    if ((segm->MinorAxisLength)>5) {
+      //opening and closing
+      dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
+      erode(img,img,srel,Point(-1,-1),4,BORDER_CONSTANT,0);
+      dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
+    }
+    
     Mat F,L;
     distanceTransform(img,F,CV_DIST_L2, 3);
-    Laplacian(F, L, -1, 5, 1, 0, BORDER_DEFAULT);//ksize 5
+    
+    Laplacian(F, L, -1, 5 , 1, 0, BORDER_DEFAULT);//ksize 5
 
     // Threshold to get the center line points
     double minThres=0.66;
@@ -758,7 +761,6 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     minMaxIdx(L, &minVal, &maxVal, NULL, NULL, noArray());
 
     if ((minVal==0) && (minVal==0)) {
-      // delete detection (see goodmsk)
       segm->MajorAxisLength = 0.;
       segm->MinorAxisLength = 0.;
       return;
@@ -824,7 +826,7 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     segm->CenterLine = centerLine;
     segm->Thickness = thickness;
 
-
+    
     Point2f v(probe[0]-probe[2]);
     if (probe[0]==probe[2]) {  // could happen. Take the ellipse orientation instead
       v = pvec;
@@ -1105,6 +1107,7 @@ int VideoHandler::set(const string prop, double value){
   }
   else if (prop=="minArea") {
     minArea = (int) value;
+    minArea = minArea<4?4:minArea;
   }
   else if (prop=="computeSegments") {
     computeSegments = (bool) value!=0;

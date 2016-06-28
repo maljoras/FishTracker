@@ -35,7 +35,7 @@ classdef FishVideoHandler < handle & fish.core.FishVideoReader & fish.core.FishB
                               % open cv
       end
 
-      self@fish.core.FishBlobAnalysis(); 
+      self@fish.core.FishBlobAnalysis(opts); 
       self@fish.core.FishVideoReader(vidname,timerange); 
 
       if exist('knnMethod','var') && ~isempty(knnMethod)

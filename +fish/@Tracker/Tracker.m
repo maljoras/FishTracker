@@ -641,7 +641,8 @@ classdef Tracker < handle;
       self.videoHandler.setCurrentTime(self.timerange(1));
       self.videoHandler.fishlength = self.fishlength;
       self.videoHandler.fishwidth = self.fishwidth;
-      
+      self.videoHandler.headprop = self.opts.blob.headprop;
+
       self.timeStamp = self.videoHandler.getCurrentTime();
       
       if isempty(self.maxVelocity)
@@ -777,13 +778,13 @@ classdef Tracker < handle;
 
       segm = self.segments;
       
-      
+
       if ~isempty(segm)
 
         % check for minimal distance. 
         self.centroids = cat(1,segm.Centroid);
         self.bboxes = double(cat(1,segm.BoundingBox));
-        
+
         
         overlap = getBBoxOverlap(self.bboxes,self.bboxes,2);
         overlap(1:length(segm)+1:end) = 0;
@@ -1700,6 +1701,7 @@ classdef Tracker < handle;
                               self.unassignedDetections(assignments(:,2))]];
           self.unassignedDetections = self.unassignedDetections(unassignedDetections);
           self.unassignedTracks = [self.unassignedTracks;invisibleIdx(unassignedTracks)];
+        
         end
         
 
@@ -1782,6 +1784,7 @@ classdef Tracker < handle;
       
       for i = 1:numAssignedTracks
         trackIdx = assignments(i, 1);
+        
         detectionIdx = assignments(i, 2);
         location = self.locations(detectionIdx, :);
         centroid = self.centroids(detectionIdx, :);

@@ -14,7 +14,6 @@ function out = getTurningPoints(self, res, plotif)
 
   
   centerLine = self.getResField(res,'centerLine',0);
-
   clx = permute(centerLine(:,:,1,:),[4,1,2,3]);
   cly = permute(centerLine(:,:,2,:),[4,1,2,3]);
   

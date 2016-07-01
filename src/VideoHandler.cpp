@@ -12,6 +12,8 @@
 using namespace std;
 using namespace cv;
 
+//#define MAX(x,y) x>y?x:y
+
 #ifdef DEBUG
 #define Debug(x) do { x } while(0)
 #else
@@ -624,7 +626,7 @@ void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * ne
 
   vector<bool>valid(contours.size());
   for (int i=0;i<contours.size();i++) {
-    if ((contours[i].size()>minArea) && (contours[i].size()<maxArea)) // at least ten pixels
+    if ((contours[i].size()>5) && (contours[i].size()<maxArea)) // at least 5 pixels
       valid[i] = true;
     else
       valid[i] = false;
@@ -633,14 +635,14 @@ void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * ne
   Mat srel = getStructuringElement(MORPH_ELLIPSE,Size(3,3));
 
   // get the bounding boxes and erode 
-  double mx =featureheight*featurewidth*3;
+  double mx =MAX(featureheight,15)*MAX(featurewidth,10)*4;
   for (int i=0;i<contours.size();i++) {
     if (!valid[i])
       continue;
     
     Rect bbox = boundingRect(contours[i]);
     double wh = bbox.width*bbox.height;
-    if ((wh > mx) && (bbox.width+bbox.height<maxExtent && featurewidth>10) ){
+    if ((wh > mx) && (bbox.width+bbox.height<maxExtent) ){
       //try to split regions
       Mat roi;
       inBwImg(bbox).copyTo(roi); // make a true copy

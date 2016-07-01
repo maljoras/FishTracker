@@ -28,7 +28,8 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
 
 
   pos = self.getResField(res,'pos',0);
-  invmsk = squeeze(isnan(pos(:,1,fishIds))) | self.getInvisibleMsk(res);
+  msk = self.getInvisibleMsk(res);
+  invmsk = squeeze(isnan(pos(:,1,fishIds))) | msk(:,fishIds);
   centroid = self.getResField(res,'centroid',0);
   centroidx = centroid(:,fishIds,1);
   centroidy = centroid(:,fishIds,2);

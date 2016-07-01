@@ -10,13 +10,13 @@ function turn = getTurningStats(self,res)
   vel = sqrt(sum(velocity.^2,3));
   
   pos = self.getResField(res,'pos',1);
-  locvel = permute(sqrt(sum(diff(pos).^2,2)),[1,3,2]);
+  locvel = permute(bsxfun(@rdivide,sqrt(sum(diff(pos).^2,2)),diff(res.tabs)),[1,3,2]);
   locvel(end+1,:) = NaN;
-
+  locvel(locvel>quantile(locvel(:),0.99))=NaN;
   locvel = fish.helper.movavg(locvel,max(round(deltat/2),1));
   
 
-  mxt = deltat*3;
+  mxt = deltat*10;
   for i = 1:size(velocity,2)
     tidx = turn(i).tidx;
 

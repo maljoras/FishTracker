@@ -111,7 +111,9 @@ classdef Tracker < handle;
     
     timeStamp = [];
     lastTimeStamp = [];
+    dt = [];
     
+    MAXCROSSFISH = 10; % MAX number of cross for many fish....DEVELOPMENTAL
   end
 
   
@@ -240,6 +242,7 @@ classdef Tracker < handle;
       
       nfish = ft.nfish;
       ftres = ft.getTrackingResults();
+      ftres.pos(end,:,:) = NaN; % why ? 
       ftresnan = ftres;
       ftresnan.pos = ft.deleteInvisible(ftres,'pos');
       
@@ -634,7 +637,7 @@ classdef Tracker < handle;
         [nfish,fishSize] = self.findObjectSizes();
         
         
-        if (nfish>25 || ~nfish) && isempty(self.nfish)% too many... something wrong
+        if (nfish>100 || ~nfish) && isempty(self.nfish)% too many... something wrong
           fish.helper.verbose('WARNING: The fish size and number cannot be determined')
           if self.displayif && self.opts.display.fishSearchResults
             self.nfish = fish.helper.chooseNFish(vid,1); % only if interactively
@@ -657,21 +660,21 @@ classdef Tracker < handle;
         end
         
       else
-        % init background  
-        n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
-        n = min(n,500);
-        self.videoHandler.initialize(0);
-        self.videoHandler.computeSegments = false;
-        nskip = self.videoHandler.nskip;
-        self.videoHandler.nskip = 1;
-        for i = 1:n
-          self.videoHandler.step();
-          fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
-        end
-        self.videoHandler.computeSegments = true;
-        self.videoHandler.nskip = nskip;
-        self.videoHandler.reset();
-
+% $$$         % init background  
+% $$$         n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
+% $$$         n = min(n,500);
+% $$$         self.videoHandler.initialize(0);
+% $$$         self.videoHandler.computeSegments = false;
+% $$$         nskip = self.videoHandler.nskip;
+% $$$         self.videoHandler.nskip = 1;
+% $$$         for i = 1:n
+% $$$           self.videoHandler.step();
+% $$$           fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
+% $$$         end
+% $$$         self.videoHandler.computeSegments = true;
+% $$$         self.videoHandler.nskip = nskip;
+% $$$         self.videoHandler.reset();
+% $$$ 
       end
     end
     
@@ -809,7 +812,7 @@ classdef Tracker < handle;
       self.clpMovAvgTau = max(ceil(self.opts.classifier.clpMovAvgTau*self.avgTimeScale),1);
 
       self.minBatchN = min(max(ceil(self.nFramesAfterCrossing*0.75),4),50);  
-      self.nFramesForSingleUpdate = min(3* self.nFramesForUniqueUpdate,1000); 
+      self.nFramesForSingleUpdate = floor(1.5* self.nFramesForUniqueUpdate);
       self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
 
       if ~isinf(self.opts.classifier.timeToInit)
@@ -1207,8 +1210,10 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForForcedUpdate(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) || length(prob)~=self.nfish
+      if any(isnan(probdiag)) || (length(prob)<self.nfish && length(prob)>1)
         bool = false;
+      elseif length(prob)==1 && self.nfish>self.MAXCROSSFISH
+        bool = true; % single update;
       else
         bool = min(steps) >= self.nFramesAfterCrossing;
         bool = bool && max(prob)<=self.opts.classifier.forcedReassignProbThres*self.maxClassificationProb;
@@ -1221,7 +1226,7 @@ classdef Tracker < handle;
       else
         bool = (min(prob)>self.maxClassificationProb*self.opts.classifier.handledProbThres ...
                 && min(steps)>=self.nFramesAfterCrossing) ... 
-               || max(steps)>=self.nFramesForUniqueUpdate; % to avoid very long crossings
+               || max(steps)>=self.nFramesForUniqueUpdate;
       end
     end
     
@@ -1248,7 +1253,7 @@ classdef Tracker < handle;
       
       crossedTrackIdStrs = arrayfun(@(x)num2str(sort(x.crossedTrackIds)), self.tracks(trackIndices),'uni',0);
       [u,idxct,idxu] = unique(crossedTrackIdStrs);
-      
+
       
       % we should distinguish the following cases
       % 1)  only one trackindex. (numel(trackIndices)==1)
@@ -1286,7 +1291,7 @@ classdef Tracker < handle;
         crossedFishIds = unique(crossedFishIds)';
 
         assumedFishIds = fishIds(thisTrackIndices);
-
+        
         %this should no happen because fishIDs swapping should be blocked during crossing
         assert(all(ismember(assumedFishIds,crossedFishIds)));
         
@@ -1294,6 +1299,12 @@ classdef Tracker < handle;
         % we force the permutation to be in the valid fish only (otherwise too many errors for many fish)
         [assignedFishIds prob steps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,...
                                                           self.nFramesForUniqueUpdate); 
+
+        if length(assumedFishIds)>self.MAXCROSSFISH && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
+          % cannot deal with large crossings
+          subDeleteCrossedTrackIds(thisTrackIndices); 
+          continue;
+        end
 
         if  all(ismember(assignedFishIds,assumedFishIds)) 
           % we have a valid assignment (note that it is always a permutation inside
@@ -1336,8 +1347,10 @@ classdef Tracker < handle;
                 switchFish(self,thisTrackIndices,assignedFishIds,true)
                 subDeleteCrossedTrackIds(thisTrackIndices); % always handle;
                 
+                % elseif self.enoughEvidenceForBeingHandled(prob,steps,probdiag) % might need to be handled because too long
+                % subDeleteCrossedTrackIds(thisTrackIndices);
               end
-            
+              
             else
               if  self.enoughEvidenceForBeingHandled(prob,steps,probdiag)
                 subDeleteCrossedTrackIds(thisTrackIndices);
@@ -1422,15 +1435,23 @@ classdef Tracker < handle;
     end
     
     function [bool,pdiff] = testTrackMisalignment(self,trackIndices);
-      fishIds = cat(1,self.tracks(trackIndices).fishId);
-      clp = cat(1,self.tracks(trackIndices).clpMovAvg);
-      idx = fish.helper.s2i(size(clp),[(1:size(clp,1))',fishIds]);
-      prob_correct = mean(clp(idx));
-      clp(idx) = 0;
-      prob_notcorrect = mean(max(clp,[],2)); % might be Nan
-      pdiff = prob_notcorrect - prob_correct ;
-      bool = pdiff > self.opts.classifier.reassignProbThres; % will be zero if pdiff should be NaN
+
+      if length(trackIndices)<self.MAXCROSSFISH
+        fishIds = cat(1,self.tracks(trackIndices).fishId);
+        clp = cat(1,self.tracks(trackIndices).clpMovAvg);
+        idx = fish.helper.s2i(size(clp),[(1:size(clp,1))',fishIds]);
+        prob_correct = mean(clp(idx));
+        clp(idx) = 0;
+        prob_notcorrect = mean(max(clp,[],2)); % might be Nan
+        pdiff = prob_notcorrect - prob_correct ;
+        bool = pdiff > self.opts.classifier.reassignProbThres; % will be zero if pdiff should be NaN
+      else
+        bool = false;
+        pdiff = 0;
+      end
+      
     end
+    
     
     
     function updateClassifier(self)
@@ -1439,6 +1460,7 @@ classdef Tracker < handle;
       
       self.crossings = self.detectTrackCrossings(); % only detects crossings
 
+      
       % update unique frames
       crossif = ~isempty(self.crossings);
       if ~crossif && length(self.tracks)==self.nfish
@@ -1533,7 +1555,7 @@ classdef Tracker < handle;
         'bbox', {}, ...
         'centroid',{},...
         'location',{},...
-        'velocity',{},...
+        'velocity',{},... % in px/sec
         'centerLine',{},...
         'thickness',{},...
         'segment', {},...
@@ -1581,7 +1603,7 @@ classdef Tracker < handle;
         end
       elseif self.useMex && self.opts.tracks.centerLinePrediction
         % use centerLine head position
-        vel = cat(1,self.tracks.velocity);
+        vel = cat(1,self.tracks.velocity)*self.dt;
         if size(vel,1)~=self.nfish
           return;
         end
@@ -1608,7 +1630,7 @@ classdef Tracker < handle;
       somewhatCostly = 2;
       
       if nDetections>0
-        maxDist = self.maxVelocity*(self.timeStamp-self.lastTimeStamp)*self.fishlength; % dist per frame
+        maxDist = self.maxVelocity*self.dt*self.fishlength; % dist per frame
     % $$$         minDist = 2;
     % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
     % $$$         %nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
@@ -1762,10 +1784,9 @@ classdef Tracker < handle;
           locations = self.locations(detectionIdx, :);
           trackIdx = self.assignments(:, 1);
           latestLocations = cat(1,self.tracks(trackIdx).location);
-          velocity = sqrt(sum((locations - latestLocations).^2,2))./(nvis(trackIdx) +1);
+          velocity = sqrt(sum((locations - latestLocations).^2,2))./(nvis(trackIdx) +1)/self.dt;
           
-          dt = (self.timeStamp-self.lastTimeStamp);
-          idx = find(velocity>self.maxVelocity*dt*self.fishlength);
+          idx = find(velocity>self.maxVelocity*self.fishlength);
 
           if ~isempty(idx) && dt
             self.unassignedTracks = [self.unassignedTracks; trackIdx(idx)];
@@ -1848,7 +1869,7 @@ classdef Tracker < handle;
 
         tau = trackopts.tauVelocity*self.avgTimeScale;
         self.tracks(trackIdx).velocity = self.tracks(trackIdx).velocity*(1-1/tau) ...
-            + 1/tau*(self.tracks(trackIdx).location-location);
+            + 1/tau*(self.tracks(trackIdx).location-location)/self.dt;
         
         %% detect whether the fish feature might be reversed
         reversed = 0;
@@ -1857,8 +1878,8 @@ classdef Tracker < handle;
           centerLine = self.centerLine(:,:,detectionIdx);
           n2 = ceil(size(centerLine,1)/2);
           centeredCenterLine = bsxfun(@minus,centerLine,centerLine(n2,:));
-          vel = self.tracks(trackIdx).velocity; % already updated velocity 
-                                                % check whether centerLIne is in the right direction
+          vel = self.tracks(trackIdx).velocity*self.dt; % already updated velocity 
+                                                        % check whether centerLIne is in the right direction
           p = centeredCenterLine * vel';
           if sum(p(1:n2))>sum(p(n2:end))
             
@@ -2192,13 +2213,15 @@ classdef Tracker < handle;
       bBoxXOverlap = bsxfun(@ge,bbox(:,1) + bbox(:,3), bbox(:,1)') & bsxfun(@lt,bbox(:,1), bbox(:,1)');
       bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
       bBoxOverlap = bBoxXOverlap & bBoxYOverlap;
-
+      pthres =self.opts.tracks.probThresForFish;
       costThres = self.maxAssignmentCost + self.opts.classifier.crossCostThres*self.meanAssignmentCost;
       for i = 1:length(self.tracks)
 
         if sum(msk(i,:))>1  || sum(bBoxOverlap(i,:))>1  
           if self.tracks(i).consecutiveInvisibleCount>0 || self.tracks(i).assignmentCost>costThres 
-            crossmat(i,:) =  msk(i,:)  | bBoxOverlap(i,:);
+            if ~isempty(self.tracks(i).clpMovAvg) && self.tracks(i).clpMovAvg(self.tracks(i).fishId)>pthres
+              crossmat(i,:) =  msk(i,:)  | bBoxOverlap(i,:);
+            end
           end
         end
       end
@@ -2861,7 +2884,8 @@ classdef Tracker < handle;
         else
           [self.segments,self.timeStamp] = self.videoHandler.step(); % faster..
         end
-        
+        self.dt = self.timeStamp -self.lastTimeStamp;
+
         self.detectObjects();
         self.handleTracks();
 

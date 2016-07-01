@@ -863,11 +863,10 @@ classdef FishBlobAnalysis < handle;
       self.featureheight = floor(self.fishlength*headprop);
 
       self.maxextent = 5*(self.fishlength+self.fishwidth);
-      self.minextent = 0.1*(self.fishlength+self.fishwidth);
-      self.minWidth = 0.1*self.fishwidth;
-      self.minArea  = 0.1*self.fishlength*self.fishwidth;
+      self.minextent = 0.05*(self.fishlength+self.fishwidth);
+      self.minWidth = 0.05*self.fishwidth;
+      self.minArea  = 0.05*self.fishlength*self.fishwidth;
       self.maxArea  = 5*self.fishlength*self.fishwidth;
-
       self.a_init();
     end
       

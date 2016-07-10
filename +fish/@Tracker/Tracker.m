@@ -1788,7 +1788,7 @@ classdef Tracker < handle;
           
           idx = find(velocity>self.maxVelocity*self.fishlength);
 
-          if ~isempty(idx) && dt
+          if ~isempty(idx) && self.dt
             self.unassignedTracks = [self.unassignedTracks; trackIdx(idx)];
             self.unassignedDetections = [self.unassignedDetections; detectionIdx(idx)];
             self.assignments(idx,:) = [];

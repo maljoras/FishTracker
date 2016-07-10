@@ -29,8 +29,16 @@ if COMPUTE
   avelocity = squeeze(sqrt(sum(velocity.^2,2)));
   dlmsk = avelocity>quantile(avelocity(:),0.99);
   avelocity(dlmsk) = NaN;
-  pos(delmsk) = NaN;
+  pos(dlmsk) = NaN;
   
+  pos = ft.interpolateInvisible(res,'pos',3);
+
+  
+  % we need to raw data to reconstruct the velocity at stimulus
+  % onset
+  rawres = getRawTrackData(self);
+  velfishid = sqrt(sum(ft.getResField(res,'velocity').^2,3));
+  trackid  = ft.getResField(res,'id');
   
   % msk includes boundary off (same as ~isnan(bbox(1)))'
   stmmsk = stmInfo(:,:,ft.stimulusPresenter.IDX_MSK); 
@@ -73,6 +81,8 @@ if COMPUTE
     turn(i).stm.stoptidx = stmtidx_stop;
     turn(i).stm.tlen =res.tabs(stmtidx_stop)- res.tabs(stmtidx_start);
     
+    
+    
     accummsk = zeros(size(stmstate,1),1);
     accummsk(stmtidx_start) = 1;
     accummsk = cumsum(accummsk);
@@ -93,6 +103,11 @@ if COMPUTE
     end
     turn(i).stm.acc_fishId = accumarray(accummsk,stmFishId(:,i)==i,[nstm+1,1],@mean);
     turn(i).stm.acc_len = accumarray(accummsk,1,[nstm+1,1],@sum);
+
+    
+    v = velfishid(turn(i).stm.tidx,:);
+    turn(i).stm.fishid;
+    turn(i).stm.velid = 
 
     
     turnmsk = zeros(size(accummsk));
@@ -142,7 +157,7 @@ if PLOT
   tend = res.tabs(istop);
 
   trange = [tstart tend];
-  rest = ft.getTrackingResults(trange);
+  rest = ft.getTrackingResults(trange,dagif);
   centerLine = ft.getResField(rest,'centerLine',0);
   clx = permute(centerLine(:,:,1,:),[4,1,2,3]);
   cly = permute(centerLine(:,:,2,:),[4,1,2,3]);

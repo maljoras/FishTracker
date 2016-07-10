@@ -35,7 +35,7 @@ end
 if COMPUTE
 
   if ~exist('sbbox','var')
-    %sbbox = ft.calibrateStimulusScreen();
+    %sbbox = fish.Tracker.calibrateStimulusScreen();
     %sbbox =  [115,90,1550,1214];
     sbbox = [114,69,1557,1226];
   end
@@ -51,19 +51,19 @@ if COMPUTE
   ostm.usePredFishId = false;
 
   ostm.stmCol= parula(ft.nfish);
-  ostm.stmSwitchInt= 1; % in sec
-  ostm.stmSwitchIntCV= 0.1; 
+  ostm.stmSwitchInt= 3; % in sec
+  ostm.stmSwitchIntCV= 0.5; 
   
   ostm.stmSize = ft.fishlength;  
-  ostm.regSizeFactorScale = [0,1,2];
+  ostm.regSizeFactorScale = [0,0.5,1.5];
   ostm.stmSizeFactor = 1;  
   ostm.xRegions = [1/3,2/3];
 
-  ostm.stmShift = ft.fishlength/2; % in px of fish.tracker frame
+  ostm.stmShift = ft.fishlength/4; % in px of fish.tracker frame
   ostm.stmShiftOri = 0;
 
   ostm.stmShiftOriSTD = -1; % random;
-  ostm.stmShiftCV = 0.5;  
+  ostm.stmShiftCV = 2;  
   ostm.stmSizeFactorCV = 0.5;
   
   ostm.stmVelThres = [2];
@@ -73,7 +73,7 @@ if COMPUTE
 
   ostm.colBackground = [0,0,0];
   ostm.colBorder = [1,1,1];
-  ostm.borderWidth = 0.05;
+  ostm.borderWidth = 0.0;
 
 
   ostm.adaptationTime = 30;

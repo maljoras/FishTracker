@@ -660,21 +660,21 @@ classdef Tracker < handle;
         end
         
       else
-% $$$         % init background  
-% $$$         n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
-% $$$         n = min(n,500);
-% $$$         self.videoHandler.initialize(0);
-% $$$         self.videoHandler.computeSegments = false;
-% $$$         nskip = self.videoHandler.nskip;
-% $$$         self.videoHandler.nskip = 1;
-% $$$         for i = 1:n
-% $$$           self.videoHandler.step();
-% $$$           fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
-% $$$         end
-% $$$         self.videoHandler.computeSegments = true;
-% $$$         self.videoHandler.nskip = nskip;
-% $$$         self.videoHandler.reset();
-% $$$ 
+        % init background  
+        n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
+        n = min(n,500);
+        self.videoHandler.reset(); % resets reader to timerange(1)
+        self.videoHandler.resetBkg();
+        self.videoHandler.initialize(0);
+        self.videoHandler.computeSegments = false;
+        
+        for i = 1:n
+          self.videoHandler.step();
+          fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
+        end
+        self.videoHandler.computeSegments = true;
+        self.videoHandler.reset();
+
       end
     end
     
@@ -2472,6 +2472,9 @@ classdef Tracker < handle;
       
       def.opts.useScaledFormat = false;
       doc.useScaledFormat = {'Use adaptive scaled gray format (EXPERIMENTAL)'};
+
+      def.opts.timerange  = [];
+      doc.timerange = {'Restrict tracking to time range [in seconds].'};
       
       def.opts.stmif = false;
       doc.stmif = 'Use online visual stimulation';
@@ -2842,7 +2845,7 @@ classdef Tracker < handle;
       if exist('trange','var') 
         self.timerange = trange;
       else
-        self.timerange = []; % take all
+        self.timerange = self.videoHandler.timeRange; % take all
       end
 
       if saveif

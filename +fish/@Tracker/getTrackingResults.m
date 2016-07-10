@@ -1,4 +1,4 @@
-function res = getTrackingResults(self,timeRange,dagif,forceif)
+function [res idx] = getTrackingResults(self,timeRange,dagif,forceif)
 % RES = GETTRACKINGRESULTS(TIMERANGE,DAGIF,FORCEIF) returns the current
 % results. FORCIF==1 forces a re-generation of the pos/res
 % structure. DAGIF==0 uses the switch-based tracks, otherwise the
@@ -45,6 +45,10 @@ function res = getTrackingResults(self,timeRange,dagif,forceif)
         S.subs{1} = idx;
         res.tracks.(f{1}) = subsref(res.tracks.(f{1}),S);
       end
+    end
+  else
+    if nargout>1
+      idx = (1:length(res.tabs))';
     end
   end
 end

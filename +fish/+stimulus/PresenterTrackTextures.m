@@ -168,7 +168,7 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
       end
 
       if any(self.stmVelThres)
-        v = self.trackVelocity;
+        v = sqrt(sum(self.trackVelocity.^2,2));
         stmmsk = stmmsk &  v>self.stmVelThres(1);
         if length(self.stmVelThres)>1
           stmmsk = stmmsk &  v<self.stmVelThres(2);

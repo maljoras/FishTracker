@@ -14,34 +14,27 @@ function generateResults(self)
   end
 
   
+  for f = fieldnames(self.savedTracks)'
+    if iscell(self.savedTracks.(f{1}))
+      d =  length(size(self.savedTracks.(f{1}){1}));% at least 3
+      self.savedTracks.(f{1}) = cat(d,self.savedTracks.(f{1}){:});
+    end
+  end
   
   nFrames = size(self.savedTracks.id,3)/self.nfish;
   if self.currentFrame~=nFrames
     fish.helper.verbose(['WARNING: %d frames got lost (premature abort while ' ...
              'tracking?)'],self.currentFrame-nFrames);
   end
+  
   self.currentFrame = nFrames;
   self.res = [];
   
   fishId2TrackId = self.fishId2TrackId(1:nFrames,:)';
   self.res.swb = subGenerateTracks(fishId2TrackId);
   self.res.swb.pos = subGeneratePos(self.res.swb);
-  self.res.t = self.res.swb.tracks.t(:,1);
-  self.res.tabs = self.tabs(1:nFrames,:);
-  self.res.swb.tracks = rmfield(self.res.swb.tracks,'t');
-% $$$   
-% $$$   if isfield(self.savedTracks,'stmInfo')
-% $$$     sz = size(self.savedTracks.stmInfo);
-% $$$     d = length(sz);
-% $$$     self.res.stmInfo = permute(reshape(self.savedTracks.stmInfo,[sz(1:end-1),self.nfish,nFrames]),[d+1,d,2:d-1,1]);
-% $$$     
-% $$$     if self.stimulusPresenter.usePredFishId && isfield(self.savedTracks,'predFishId')
-% $$$       self.res.stmFishId = reshape(self.savedTracks.predFishId, [self.nfish,nFrames]);
-% $$$     elseif ~self.stimulusPresenter.usePredFishId && isfield(self.savedTracks,'fishId')
-% $$$       self.res.stmFishId = reshape(self.savedTracks.fishId,[self.nfish,nFrames]);
-% $$$     end
-% $$$ 
-% $$$   end
+  tabs = self.tabs(1:nFrames,:);
+
 
   % also generate dag
   clear fishId2TrackId
@@ -53,19 +46,37 @@ function generateResults(self)
   %need to do again
   self.res.dag = subGenerateTracks(dagf2t'); 
   self.res.dag.pos = subGeneratePos(self.res.dag);
-  self.res.dag.tracks = rmfield(self.res.dag.tracks,'t');
 
 
-  % copy 
-  for f = fieldnames(self.res)'
-    if any(strcmp(f{1},{'swb','dag'}))
-      continue;
+  % correct the time for unique distance dt
+  dt = 1/self.videoHandler.frameRate;
+  tidx = round((tabs-tabs(1))/dt)+1;
+  frames = (1:nFrames)';
+  t = (0:tidx(end)-1)'*dt;
+  for f = {'swb','dag'}
+    for f2 = fieldnames(self.res.(f{1}).tracks)'
+      field = self.res.(f{1}).tracks.(f2{1});
+      sz = size(field);
+      sz(1) = length(t);
+      tmp = nan(sz);
+      assert(length(sz)<7)
+      tmp(tidx,:,:,:,:,:) = field; 
+      self.res.(f{1}).tracks.(f2{1}) = tmp;
     end
-    self.res.swb.(f{1}) = self.res.(f{1});
-    self.res.dag.(f{1}) = self.res.(f{1});
-  end
+    self.res.(f{1}).tracks = rmfield(self.res.(f{1}).tracks,'t');
 
-  
+    self.res.(f{1}).t = t;
+    self.res.(f{1}).tabs = nan(size(t));
+    self.res.(f{1}).tabs(tidx) = tabs;
+
+    self.res.(f{1}).iframe = nan(size(t));
+    self.res.(f{1}).iframe(tidx) = frames;
+    
+    pos = self.res.(f{1}).pos;
+    tmp = nan(size(pos));
+    tmp(tidx,:,:) = pos;
+    self.res.(f{1}).pos = tmp;
+  end
   
   
   
@@ -96,13 +107,11 @@ function generateResults(self)
     pos(:,2,:) = posy;
   
   end
-  
     
     
   
   function df2t = subCorrectDagOverlaps(df2t)
   
-    
     % ASSUMES IDX MAT IS SAME AS ID MSK (no track deletion)
 
     MINOVERLAP = ceil(self.videoHandler.frameRate/2); 

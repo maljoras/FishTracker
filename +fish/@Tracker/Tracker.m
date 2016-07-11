@@ -89,7 +89,7 @@ classdef Tracker < handle;
     currentCrossBoxLengthScale = 1; 
     
     % constants
-    nFramesExtendMemory = 250;
+    nFramesExtendMemory = 100000;
     nFramesAppendSavedTracks = 100;
     nStepsSaveProgress = 250; % times nFramesAppendSavedTracks
     nFramesVerbose = 40;
@@ -2318,14 +2318,19 @@ classdef Tracker < handle;
       end
       
       s2mat = fish.helper.strucarr2strucmat(savedTracks);
+     
+      % no CAT yet !! too slow for large vectors (memory is copied). Use
+      % cell temporarily, then memory block does not have to be continous
       if isempty(self.savedTracks)
-        self.savedTracks = s2mat;
-        savedTracks(:) =  [];
-        return
-      end
-      for f = fieldnames(s2mat)'
-        d = length(size(s2mat.(f{1})));% at least 3
-        self.savedTracks.(f{1}) = cat(d,self.savedTracks.(f{1}),s2mat.(f{1}));
+        for f = fieldnames(s2mat)'
+          self.savedTracks(1).(f{1}) = {};
+          self.savedTracks.(f{1}){1} = s2mat.(f{1});
+        end
+      else
+        for f = fieldnames(s2mat)'
+          
+          self.savedTracks.(f{1}){end+1} = s2mat.(f{1});
+        end
       end
       savedTracks(:) =  [];
     end
@@ -2373,8 +2378,6 @@ classdef Tracker < handle;
       % copy with mex
       trackinfo = getCurrentTracks_(self.nfish,self.tracks,self.saveFieldsIn,self.saveFieldsOut,self.saveFieldSegIf);
 
-      % update time
-      [trackinfo.t] = deal(self.timeStamp);
     end
     
     

@@ -63,10 +63,11 @@ function stimulusSimulator(stmObj,varargin)
     tracks = [];
     for i = 1:opts.nfish
       tracks(i).centroid = trace(iframe,:,i).*opts.frameSize([2,1]);
+      tracks(i).location = tracks(i).centroid;
       tracks(i).bbox = [tracks(i).centroid-[fl,fl]/2,fl,fl];
       tracks(i).fishId = i;
       tracks(i).predFishId = i;
-      tracks(i).velocity = tracks(i).centroid-trace(max(iframe-1,1),:,i).*opts.frameSize([2,1]);
+      tracks(i).velocity = (tracks(i).centroid-trace(max(iframe-1,1),:,i))./opts.dt/opts.timeFactor;
       tracks(i).segment.Image = ones(fl,fl);
       tracks(i).segment.Orientation = -atan2(tracks(i).velocity(1), ...
                                             tracks(i).velocity(2))/pi*180 +90;

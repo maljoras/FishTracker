@@ -11,3 +11,6 @@ function plotTurns(self,fishIds,plotTimeRange)
   end
 
   
+  res = self.getTrackingResults(plotTimeRange);
+  self.getTurningPoints(res,1);
+  

@@ -51,8 +51,11 @@ if COMPUTE
   ostm.usePredFishId = false;
 
   ostm.stmCol= parula(ft.nfish);
-  ostm.stmSwitchInt= 3; % in sec
-  ostm.stmSwitchIntCV= 0.5; 
+  ostm.stmOnInt= 1; % in sec
+  ostm.stmOnIntCV= 0.1;   
+
+  ostm.stmOffInt= 5; % in sec
+  ostm.stmOffIntCV= 0.5; 
   
   ostm.stmSize = ft.fishlength;  
   ostm.regSizeFactorScale = [0,0.5,1.5];
@@ -77,7 +80,7 @@ if COMPUTE
 
 
   ostm.adaptationTime = 30;
-  ostm.tmax = 3600*2;
+  ostm.tmax = 3600*5;
   
   
   

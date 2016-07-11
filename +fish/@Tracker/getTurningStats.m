@@ -30,29 +30,25 @@ function turn = getTurningStats(self,res)
     turn(i).locvel1 = locvel(min(tidx+deltat,end),i);
     turn(i).locvel2 = locvel(min(tidx+2*deltat,end),i);
 
-    
     turn(i).len = sqrt(diff(turn(i).x).^2 + diff(turn(i).y).^2);
     turn(i).len(end+1) = NaN;
     turn(i).dori = angle(exp(1i*diff(turn(i).ori)));
     turn(i).dori(end+1) = NaN;
-  
-  
-
+      
     accmsk = ones(size(vel,1),1);
     accmsk(1:tidx(1)-1) = 0;
     accmsk(tidx(2:end)) = -diff(tidx)+1;
     accmsk = cumsum(accmsk);
-    
     accmsk(~accmsk | accmsk>mxt) = mxt+1;
     
-    % avg turn-triggered veocity
+    
+    % avg turn-triggered veocity % WRONG ! HAVE TO ACCOUNT FOR NON-EQUAL DT!!
     turn(i).attv = accumarray(accmsk,vel(:,i),[mxt+1,1],@nanmean);
     turn(i).attv = turn(i).attv(1:end-1);
     turn(i).sattv = accumarray(accmsk,vel(:,i),[mxt+1,1],@fish.helper.stderr);
     turn(i).sattv = turn(i).sattv(1:end-1);
     
-    
-    
+     
     turn(i).attlocv = accumarray(accmsk,locvel(:,i),[mxt+1,1],@nanmean);
     turn(i).attlocv = turn(i).attlocv(1:end-1);
     turn(i).sattlocv = accumarray(accmsk,locvel(:,i),[mxt+1,1],@fish.helper.stderr);

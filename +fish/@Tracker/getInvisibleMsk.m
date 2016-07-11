@@ -8,7 +8,7 @@ function msk = getInvisibleMsk(self,res)
     c = res;
   end
   
-  msk = c>0;
+  msk = c>0 | isnan(c);
   %also delete the last visible (often noise detection)
   dmsk = diff(msk)==1;
   msk(1:end-1,:) = msk(1:end-1,:) | dmsk;

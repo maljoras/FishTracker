@@ -5,9 +5,11 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
     adaptationTime = 0;
 
     
-    stmSwitchInt = 1; % this means average  switch interval in sec;
-    stmSwitchIntCV = 0.1; % needs to be >0. near 0 means almost not randomness
+    stmOnInt = 0.5; % this means average  switch interval in sec;
+    stmOnIntCV = 0.1; % needs to be >0. near 0 means almost not randomness
                       % and regular intervals.
+    stmOffInt = 2; % this means average  switch interval in sec;
+    stmOffIntCV = 0.1; % needs to be >0. near 0 means almost not randomness
     
     stmSize =100;
     stmCol = [1,1,1]; % stimulus color (RGB [1,1,1] for white)    
@@ -44,6 +46,9 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
     IDX_SIZEFACTOR = 10;
     IDX_COL = 11:13;
     IDX_BBOX = 14:17;
+    IDX_VELXY = 18:19;
+    
+    NIDX = 19;
   end
   
   
@@ -127,15 +132,22 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
       oldState = self.stmState;
       
 
-      if self.stmSwitchInt>0
-        stateChanges = self.nextStateChange<=t;
+      if self.stmOnInt>0
+        stateChanges = find(self.nextStateChange<=t);
 
-        if any(stateChanges)
+        if ~isempty(stateChanges)
           self.stmState(stateChanges) = ~self.stmState(stateChanges);
-          self.nextStateChange(stateChanges) = ...
-              self.nextStateChange(stateChanges) + gamrnd( ...
-                self.stmSwitchInt*ones(size(find(stateChanges)))/ ...
-                self.stmSwitchIntCV,self.stmSwitchIntCV);
+
+          offChange = ~self.stmState(stateChanges);
+          onChange = ~offChange;
+
+          % currently on 
+          idx = stateChanges(onChange);
+          self.nextStateChange(idx) = self.nextStateChange(idx) + ...
+              gamrnd(self.stmOnInt*ones(size(idx))/self.stmOnIntCV,self.stmOnIntCV);
+          idx = stateChanges(offChange);
+          self.nextStateChange(idx) = self.nextStateChange(idx) + ...
+              gamrnd(self.stmOffInt*ones(size(idx))/self.stmOffIntCV,self.stmOffIntCV);
         end
       end
 
@@ -156,7 +168,7 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
       end
 
       if any(self.stmVelThres)
-        v = sqrt(self.trackVelocity(:,1).^2 + self.trackVelocity(:,2).^2);
+        v = self.trackVelocity;
         stmmsk = stmmsk &  v>self.stmVelThres(1);
         if length(self.stmVelThres)>1
           stmmsk = stmmsk &  v<self.stmVelThres(2);
@@ -280,12 +292,13 @@ classdef PresenterTrackTextures < fish.stimulus.Presenter;
       end
       
       % save stm info
-      stmInfo = NaN(length(fishIds),17);
+      stmInfo = NaN(length(fishIds),self.NIDX);
       stmInfo(:,self.IDX_STMIDX) = self.stmIdx;
       stmInfo(:,self.IDX_XY) = [x,y];
       stmInfo(:,self.IDX_T) = t;
       stmInfo(:,self.IDX_BBOX) = stmbbox;
       stmInfo(:,self.IDX_FISHID) = fishIds;
+      stmInfo(:,self.IDX_VELXY) = self.trackVelocity;
 
       if self.stmIdx == self.ID_STIMULUS
         stmInfo(:,self.IDX_MSK) = stmmsk(fishIds);

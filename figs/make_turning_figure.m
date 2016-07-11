@@ -3,6 +3,7 @@
 LOAD = 0;
 COMPUTE = 1;
 PLOT = 1;
+SAVEIF = 0;
 
 if LOAD 
  load ~/data/zebra/videos/textures/texturesinregionsF4-1-1.mat
@@ -12,7 +13,7 @@ end
 
 if COMPUTE
 
-  timeRange = [30, 20*3600];  
+  timeRange = [ft.stimulusPresenter.adaptationTime, 20*3600];  
   dagif = 1;
 
   res = ft.getTrackingResults(timeRange,dagif);
@@ -27,18 +28,21 @@ if COMPUTE
   pos = ft.interpolateInvisible(res,'pos',3);
   velocity = [zeros(1,2,ft.nfish);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
   avelocity = squeeze(sqrt(sum(velocity.^2,2)));
-  dlmsk = avelocity>quantile(avelocity(:),0.99);
+  maxvel = quantile(avelocity(:),0.99);
+  dlmsk = avelocity>maxvel;
   avelocity(dlmsk) = NaN;
   pos(dlmsk) = NaN;
   
-  pos = ft.interpolateInvisible(res,'pos',3);
 
-  
   % we need to raw data to reconstruct the velocity at stimulus
   % onset
-  rawres = getRawTrackData(self);
+  rawres = ft.getRawTrackData();
+  
   velfishid = sqrt(sum(ft.getResField(res,'velocity').^2,3));
   trackid  = ft.getResField(res,'id');
+
+  rawfishid  = rawres.stmInfo(:,:,ft.stimulusPresenter.IDX_FISHID);
+  velfishraw = sqrt(sum(rawres.velocity.^2,3));
   
   % msk includes boundary off (same as ~isnan(bbox(1)))'
   stmmsk = stmInfo(:,:,ft.stimulusPresenter.IDX_MSK); 
@@ -56,9 +60,26 @@ if COMPUTE
   stmshiftori = stmInfo(:,:,ft.stimulusPresenter.IDX_SHIFTORI);
   theory_stmdx = cat(3,sin(stmshiftori).*stmshift,cos(stmshiftori).*stmshift);
 
+  avelregion = []; 
+  xreg = ft.stimulusPresenter.xRegions;
+  for j = 1:length(xreg)
+    msk = stmxy(:,:,1)>b & stmxy(:,:,1)<=xreg(j);
+    tmp = avelocity;
+    tmp(~msk) = NaN;
+    avelregion(:,j) = nanmedian(tmp);
+  end
+  tmp = avelocity;
+  msk = stmxy(:,:,1)<1-b & stmxy(:,:,1)>xreg(end);
+  tmp(msk) = NaN;
+  avelregion(:,j+1) = nanmedian(tmp);
+  avelregion =  avelregion/ft.fishlength;
   
   stmstate = stmInfo(:,:,ft.stimulusPresenter.IDX_STATE); 
+  tt  = 1:size(stmstate,1);
+  msk = isnan(res.tabs);
+  stmstate(msk,:) = interp1(tt(~msk),stmstate(~msk,:),tt(msk),'nearest');
   stmstate(isnan(stmstate)) = 0;
+  
   %sf = stmInfo(:,:,ft.stimulusPresenter.IDX_SIZEFACTOR);
   %stmstate = stmstate.*(sf>0); % stmmsk sets sf to zero
 
@@ -75,11 +96,16 @@ if COMPUTE
     
     stmtidx_start = find(diff([0;stmstatei])==1);
     stmtidx_stop = find(diff([stmstatei;0])==-1);
+
+    delmsk =  isnan(res.iframe(stmtidx_start)) | isnan(res.iframe(stmtidx_stop));
+    stmtidx_start(delmsk) = [];
+    stmtidx_stop(delmsk) = [];
+    
     turn(i).stm.tidx = stmtidx_start;
 
     nstm = length(stmtidx_start);
     turn(i).stm.stoptidx = stmtidx_stop;
-    turn(i).stm.tlen =res.tabs(stmtidx_stop)- res.tabs(stmtidx_start);
+    turn(i).stm.tlen =res.t(stmtidx_stop)- res.t(stmtidx_start);
     
     
     
@@ -101,13 +127,14 @@ if COMPUTE
     for f = {'IDX_SIZEFACTOR','IDX_SHIFTORI','IDX_SHIFT','IDX_XY','IDX_FISHID'}
       turn(i).stm.(lower(f{1}(5:end))) = stmInfo(stmtidx_start,i,ft.stimulusPresenter.(f{1}));
     end
-    turn(i).stm.acc_fishId = accumarray(accummsk,stmFishId(:,i)==i,[nstm+1,1],@mean);
+    turn(i).stm.acc_fishId = accumarray(accummsk,stmFishId(:,i)==i,[nstm+1,1],@nanmean);
     turn(i).stm.acc_len = accumarray(accummsk,1,[nstm+1,1],@sum);
 
     
-    v = velfishid(turn(i).stm.tidx,:);
-    turn(i).stm.fishid;
-    turn(i).stm.velid = 
+    ind = res.iframe(turn(i).stm.tidx);
+    v = velfishraw(ind,:)';
+    fidx = find(bsxfun(@eq,rawfishid(ind,:),turn(i).stm.fishid)');
+    turn(i).stm.velid = v(fidx);
 
     
     turnmsk = zeros(size(accummsk));
@@ -141,7 +168,6 @@ if PLOT
   
   
   %% turning
-  plotIdx = 400:500;
   %subplot(r1,r2,1);
   clf;
   
@@ -152,9 +178,9 @@ if PLOT
   idx = find(turn(ifish).stm.sizefactor>1 & turn(ifish).stm.sizefactor<1.3);
 
   istart = -toffs + turn(ifish).stm.tidx(idx(iidx));
-  tstart = res.tabs(istart);
+  tstart = res.t(istart);
   istop = turn(ifish).stm.stoptidx(idx(iidx))+toffs;
-  tend = res.tabs(istop);
+  tend = res.t(istop);
 
   trange = [tstart tend];
   rest = ft.getTrackingResults(trange,dagif);
@@ -165,7 +191,7 @@ if PLOT
   mclx = ft.interpolateInvisible(shiftdim(mean(clx,1),1),cic);
   mcly =  ft.interpolateInvisible(shiftdim(mean(cly,1),1),cic);
   turnt = ft.getTurningPoints(rest);
-  
+
   col = jet(4);
   for i = 1:ft.nfish
     g  =[0.5,0.5,0.5];
@@ -209,7 +235,7 @@ if PLOT
   border = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([bw,bw,1-bw*2,1-bw*2]));
   rectangle('position',border,'edgecolor','r','linestyle',':')
 
-  xreg = ft.stimulusPresenter.xRegions;
+ xreg = ft.stimulusPresenter.xRegions;
   l1 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(1),bw,1-bw*2,1-bw*2]));
   plot([l1(1),l1(1)],[l1(2),l1(2)+l1(4)],'r--')
   l2 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(2),bw,1-bw*2,1-bw*2]));
@@ -246,8 +272,10 @@ if PLOT
   box on;
   set(a,'fontsize',8)
   %shiftaxes(a,[0,-0.35])
-  exportfig(gcf,'~/work/projects/zebra/turning0.eps','Color','rgb')
-
+  if SAVEIF
+    exportfig(gcf,'~/work/projects/zebra/turning0.eps','Color','rgb')
+  end
+  
   figure;
   r1 = 2;
   r2 = ft.nfish;
@@ -270,7 +298,8 @@ if PLOT
     shift = turn(i).stm.shift(ind,:);
     shiftori = turn(i).stm.shiftori(ind,:);
 
-
+    stmstatei = stmstate(:,i);
+    
     nbins = 20;
     clu = 1.5;
     cl = [-clu-0.1,clu];
@@ -288,8 +317,8 @@ if PLOT
 
     len(len>500) = NaN;
     z = vel0/ft.fishlength;
-
-    z( xy(:,1)<0.05 | xy(:,1)>0.95) = NaN;
+    b = ft.stimulusPresenter.borderWidth;
+    z( xy(:,1)<b | xy(:,1)>1-b) = NaN;
     
     imori0 = accumarray(ibin_sf0,z,[nbins,nbins],@nanmedian,NaN);
     imori1 = accumarray(ibin_sf1,z,[nbins,nbins],@nanmedian,NaN);
@@ -336,39 +365,63 @@ if PLOT
 
     sfthres = 1;
     vel = avelocity(:,i)/ft.fishlength;
+
+    % interpolate
+    dt = 1/ft.videoHandler.frameRate;
+    msk = ~isnan(vel);
+    %ivel = interp1(res.tabs(msk),vel(msk),(res.tabs(1):dt:res.tabs(end))','next');
+    %istmx = interp1(res.tabs(msk),stmxy(msk,i,1),(res.tabs(1):dt:res.tabs(end))','next');
+    
     sf = turn(i).stm.sizefactor;
-    mxt = 35;
+    mxt = 50;
     tidx =   turn(i).stm.tidx;
     tidx_stop =   turn(i).stm.stoptidx;
-    xy = turn(i).stm.xy;
-    toffs = 4;
+    xy = turn(i).stm.xy(:,:);
+    velid = turn(i).stm.velid;
+    toffs = -10;
     mvel = [];svel = [];
+    tlen = turn(i).stm.tlen;
     s = 0;
+    b = ft.stimulusPresenter.borderWidth;
     for indmsk = {sf==0,sf>0 & sf<sfthres, sf>=sfthres}
       s = s+1;
-      msk = indmsk{1} & ~(xy(:,1)<0.05 | xy(:,1)>0.95);
+      
+      msk = indmsk{1} & ~(xy(:,1)<b | xy(:,1)>1-b | velid< ...
+                          ft.stimulusPresenter.stmVelThres| tlen<0.5);
+      
       tidx1 = tidx(msk)+toffs;
       tidx1_stop = tidx_stop(msk)+toffs;
 
-      accmsk = ones(size(stmInfo,1),1);      
+      % convert to interp1 idx
+      %itidx1 = floor((res.t(tidx1)-res.t(1))/dt)+1;
+      %itidx1_stop = floor((res.t(tidx1_stop)-res.t(1))/dt)+1;
+
+      accmsk = ones(size(vel,1),1);      
       accmsk(1:tidx1(1)-1) = 0;
       accmsk(tidx1_stop(1:end-1)+1) = -(tidx1(2:end)-tidx1(1:end-1))+1;
       accmsk = cumsum(accmsk);
     
-      accmsk(accmsk<=0 | accmsk>mxt | ~stmstatei) = mxt+1;
+      accmsk(accmsk<=0 | accmsk>mxt ) = mxt+1;
     
-      % avg turn-triggered veocity
-      mvel(:,s) = accumarray(accmsk,vel,[mxt+1,1],@nanmean);
+      % avg turn-triggered velocity
+      mvel(:,s) = accumarray(accmsk,vel,[mxt+1,1],@nanmedian);
       svel(:,s) = accumarray(accmsk,vel,[mxt+1,1],@fish.helper.stderr);
-    end
     
-    h = fish.helper.errorbarpatch(res.t(1+toffs:mxt+toffs)-res.t(1),mvel(1:end-1,:),svel(1:end-1,:));
+      %mposx(:,s) = accumarray(accmsk,istmx,[mxt+1,1],@nanmedian);
+    end
+% $$$     xreg = [0,ft.stimulusPresenter.xRegions,1];
+% $$$     for j = 1:length(xreg)-1
+% $$$       msk1 = (accmsk==mxt+1 & istmx>xreg(j) & istmx<=xreg(j+1) & istmx>b & istmx<1-b);
+% $$$       mvel(:,j) = mvel(:,j) - nanmedian(ivel(msk1));
+% $$$     end
+    
+    h = fish.helper.errorbarpatch((0:mxt-1)*dt,mvel(1:end-1,:),svel(1:end-1,:));
     xlabel('Rel time [s]','fontsize',10)
     if i==1
       ylabel('Avg. velocity [BL/s]','fontsize',10);
     end
-    xlim([0,1.5])
-    ylim([0,5])
+    %xlim([0,1.5])
+    %ylim([0,5])
     box off;
     if i==2
       legend('size factor = 0',sprintf('size factor < %1.1f', sfthres),sprintf(['size factor ' '> %1.1f'],sfthres))
@@ -376,6 +429,8 @@ if PLOT
     
   end
 
-  exportfig(gcf,'~/work/projects/zebra/turning1.pdf','Color','rgb')
-
+  if SAVEIF
+    exportfig(gcf,'~/work/projects/zebra/turning1.pdf','Color','rgb')
+  end
+  
 end

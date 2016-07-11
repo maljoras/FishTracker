@@ -25,8 +25,8 @@ function [res idx] = getTrackingResults(self,timeRange,dagif,forceif)
   end
 
   if exist('timeRange','var') && ~isempty(timeRange)
-    n = length(res.tabs);
-    idx = find(res.tabs>=timeRange(1) & res.tabs<timeRange(2));
+    n = length(res.t);
+    idx = find(res.t>=timeRange(1) & res.t<timeRange(2));
     S.type = '()';
     for f = fieldnames(res)'
       sz= size(res.(f{1}));
@@ -48,7 +48,7 @@ function [res idx] = getTrackingResults(self,timeRange,dagif,forceif)
     end
   else
     if nargout>1
-      idx = (1:length(res.tabs))';
+      idx = (1:length(res.t))';
     end
   end
 end

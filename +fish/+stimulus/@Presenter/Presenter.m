@@ -85,7 +85,10 @@ classdef Presenter < handle;
                                     'Name',sprintf('%s progress..',class(self)));
       
         set(self.progressBarH,'CloseRequestFcn',@closereqfun);
+      else
+        self.closeProgressBar();
       end
+      
     end
     
     

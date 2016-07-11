@@ -384,13 +384,14 @@ classdef Tracker < handle;
       opts = [];
       opts.nfish = 4;
       opts.fishlength = 100;
-      opts.fishwidth = 30;
+      opts.fishwidth = 50;
       opts.stmif = 1;
       opts.stimulus.presenter = 'fish.stimulus.PresenterCalibration';
       opts.stimulus.screen =   screenIdx;
       opts.classifier.timeToInit = Inf; 
       opts.detector.inverted = 1;
       opts.tracks.useDagResults = 0;
+      opts.tracks.initBackground = 0;
       
       ft = fish.Tracker({camIdx,''},opts);
 
@@ -400,7 +401,7 @@ classdef Tracker < handle;
       
       if plotif>1
         ft.setDisplay(1);
-        ft.setDisplay('tracks',1);      
+        ft.setDisplay('tracks',1,'stimulusProgress',0);      
       else
         ft.setDisplay(0);
       end
@@ -410,6 +411,7 @@ classdef Tracker < handle;
       ft.stimulusPresenter.width = 50; % maybe needs to be adjusted
       ft.stimulusPresenter.tmax = 30;
       ft.stimulusPresenter.freq = 0.2;
+
       
       fish.helper.verbose(['\n\n****** \tStarting calibration. ' ...
                           'Make sure that the IR filter is NOT ' ...
@@ -422,9 +424,8 @@ classdef Tracker < handle;
       
       res = ft.getTrackingResults();
       
-      pos = ft.deleteInvisible(res,'pos');
-      bbox = ft.deleteInvisible(res,'bbox');
-
+      pos = permute(ft.interpolateInvisible(res,'centroid'),[1,3,2]);
+      bbox = ft.interpolateInvisible(res,'bbox');
       [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,ft.videoHandler.frameSize);
       
       if plotif
@@ -661,20 +662,22 @@ classdef Tracker < handle;
         
       else
         % init background  
-        n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
-        n = min(n,500);
-        self.videoHandler.reset(); % resets reader to timerange(1)
-        self.videoHandler.resetBkg();
-        self.videoHandler.initialize(0);
-        self.videoHandler.computeSegments = false;
-        
-        for i = 1:n
-          self.videoHandler.step();
-          fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
+        if self.opts.tracks.initBackground
+          n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
+          n = min(n,500);
+          self.videoHandler.reset(); % resets reader to timerange(1)
+          self.videoHandler.resetBkg();
+          self.videoHandler.initialize(0);
+          self.videoHandler.computeSegments = false;
+          
+          for i = 1:n
+            self.videoHandler.step();
+            fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
+          end
+          self.videoHandler.computeSegments = true;
+          self.videoHandler.reset();
         end
-        self.videoHandler.computeSegments = true;
-        self.videoHandler.reset();
-
+        
       end
     end
     
@@ -815,12 +818,21 @@ classdef Tracker < handle;
       self.nFramesForSingleUpdate = floor(1.5* self.nFramesForUniqueUpdate);
       self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
 
+      
       if ~isinf(self.opts.classifier.timeToInit)
         self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),200);
       else
         self.nFramesForInit = Inf; % disables the classifier
       end
-      
+
+      fish.helper.verbose('nFramesForInit: %d',self.nFramesForInit);
+      fish.helper.verbose('nFramesAfterCrossing: %d',self.nFramesAfterCrossing);
+      fish.helper.verbose('nFramesForUniqueUpdate: %d',self.nFramesForUniqueUpdate);
+      fish.helper.verbose('nFramesForSingleUpdate: %d',self.nFramesForSingleUpdate);
+
+      fish.helper.verbose('clpMovAvgTau: %d',self.clpMovAvgTau);
+      fish.helper.verbose('minBatchN: %d',self.minBatchN );
+
     end
     
     
@@ -2535,7 +2547,7 @@ classdef Tracker < handle;
       
       def.opts.detector.adjustThresScale = 0.95;   
       doc.detector.adjustThresScale = {'0.8..1 : reduce when detections too noisy (useKNN=0)',''};
-      
+
 
       %% reader
       def.opts.reader(1).resizeif = false;
@@ -2632,7 +2644,7 @@ classdef Tracker < handle;
       def.opts.tracks.tauVelocity = 1; 
       doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [avgBLC]'};
 
-
+      def.opts.tracks.initBackground = 1;
       
       %% dag
       def.opts.dag.probScale = 0.5;

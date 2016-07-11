@@ -6,7 +6,10 @@ function [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,fsize)
   offset = ceil(size(pos,1)/10); 
   pos = pos(offset+1:end-offset,:,:);
   bbox = bbox(offset+1:end-offset,:,:);
-
+  dmsk = isnan(pos(:,1));
+  pos(dmsk,:,:) = [];
+  bbox(dmsk,:,:) = [];
+  
   mpos = squeeze(nanmean(pos,1));
 
   % NOTE: For simplicity we assume that the screen is rectangular and

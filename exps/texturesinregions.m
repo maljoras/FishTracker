@@ -5,8 +5,8 @@ COMPUTE =1
 PLOT =0
 TEST = 0;
 
-path = '/data/videos/onlinelearning';
-VIDID = 
+path = '/data/videos/onlinelearning/new';
+VIDID = 2;
 
 if LOAD && ~exist('ft','var')
 
@@ -24,9 +24,9 @@ if LOAD && ~exist('ft','var')
   opts.stimulus.presenter = 'fish.stimulus.PresenterTrackTextureRegions';
   opts.detector.adjustThresScale = 1.05;
   
-  opts.fishwidth = 25;
-  opts.fishlength =  90;
-  
+  opts.fishwidth = 35;
+  opts.fishlength = 150;
+  opts.detector.history = 5000;
   
   ft = fish.Tracker({0,videoFile},opts);
 end
@@ -35,9 +35,9 @@ end
 if COMPUTE
 
   if ~exist('sbbox','var')
-    %sbbox = fish.Tracker.calibrateStimulusScreen();
+    %sbbox = fish.Tracker.calibrateStimulusScreen(0,1);
     %sbbox =  [115,90,1550,1214];
-    sbbox = [114,69,1557,1226];
+    sbbox = [147,71,1555,1237];
   end
   opts = [];
   opts.avgVelocity = 5;
@@ -51,14 +51,14 @@ if COMPUTE
   ostm.usePredFishId = false;
 
   ostm.stmCol= parula(ft.nfish);
-  ostm.stmOnInt= 1; % in sec
+  ostm.stmOnInt= 2; % in sec
   ostm.stmOnIntCV= 0.1;   
 
-  ostm.stmOffInt= 5; % in sec
+  ostm.stmOffInt= 4; % in sec
   ostm.stmOffIntCV= 0.5; 
   
   ostm.stmSize = ft.fishlength;  
-  ostm.regSizeFactorScale = [0,0.5,1.5];
+  ostm.regSizeFactorScale = [0,1,2];
   ostm.stmSizeFactor = 1;  
   ostm.xRegions = [1/3,2/3];
 
@@ -67,7 +67,7 @@ if COMPUTE
 
   ostm.stmShiftOriSTD = -1; % random;
   ostm.stmShiftCV = 2;  
-  ostm.stmSizeFactorCV = 0.5;
+  ostm.stmSizeFactorCV = 0.25;
   
   ostm.stmVelThres = [2];
   ostm.stmBorderThres = 0.05;
@@ -76,11 +76,11 @@ if COMPUTE
 
   ostm.colBackground = [0,0,0];
   ostm.colBorder = [1,1,1];
-  ostm.borderWidth = 0.0;
+  ostm.borderWidth = 0.00;
 
 
   ostm.adaptationTime = 30;
-  ostm.tmax = 3600*5;
+  ostm.tmax = 3600*2;
   
   
   

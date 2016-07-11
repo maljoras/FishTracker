@@ -63,7 +63,6 @@ function generateResults(self)
       tmp(tidx,:,:,:,:,:) = field; 
       self.res.(f{1}).tracks.(f2{1}) = tmp;
     end
-    self.res.(f{1}).tracks = rmfield(self.res.(f{1}).tracks,'t');
 
     self.res.(f{1}).t = t;
     self.res.(f{1}).tabs = nan(size(t));

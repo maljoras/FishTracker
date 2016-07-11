@@ -5,8 +5,8 @@ function compareTrackingResults(self);
 
   eqmsks = self.daGraph.checkOverlap();
   
-  r = self.getTrackingResults([],[],0);
-  rdag = self.getTrackingResults([],[],1);
+  r = self.getSwitchBasedTrackingResults();
+  rdag = self.getDagTrackingResults();
   n = size(eqmsks,2);
   
   [r1,r2] = fish.helper.getsubplotnumber(n);

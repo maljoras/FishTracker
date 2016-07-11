@@ -32,8 +32,9 @@ if PLOT
   
   nfish = ft.nfish;
   ftres = ft.getTrackingResults();
-  ftresnan = ft.getTrackingResults(1);
-
+  ftresnan = ftres;
+  ftresnan.pos = ft.deleteInvisible(ftres,'pos');
+  
   dist = zeros(nfish);
 
   for i = 1:nfish
@@ -51,7 +52,7 @@ if PLOT
   s = s+1;
   a(end+1) = subplot(r1,r2,s,'align');
   
-  t = ftres.tracks.t(:,1);
+  t = ftres.t(:,1);
   d = sqrt(sum((ftpos(:,:,:) - idpos(:,:,:)).^2,2))/ft.fishlength;
   
   MAXDISTANCE = 0;

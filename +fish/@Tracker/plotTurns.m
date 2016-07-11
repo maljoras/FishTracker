@@ -10,21 +10,7 @@ function plotTurns(self,fishIds,plotTimeRange)
     fishIds = 1:self.nfish;
   end
 
-  if  ~isfield(res.tracks,'centerLine') || isempty(res.tracks.centerLine)
-    error('No centerLine data');
-  end
-
-
-  %res = self.getTrackingResults();
-  %plotidx = res.t>=plotTimeRange(1) & res.t<plotTimeRange(2);
-
-
-  b = getBendingLaplace(self,fishIds,plotTimeRange);
   
-  mx = nanmean(b.clx(:,:,:),1);
-  my = nanmean(b.cly(:,:,:),1);
-
-
+  res = self.getTrackingResults(plotTimeRange);
+  self.getTurningPoints(res,1);
   
-  
-  keyboard

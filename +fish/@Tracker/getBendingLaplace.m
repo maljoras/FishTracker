@@ -1,24 +1,13 @@
-function out = getBendingLaplace(self,fishIds, plotTimeRange)
+function out = getBendingLaplace(self,res)
 
-  if nargin<3 || isempty(plotTimeRange)
-    plotTimeRange = self.timerange;
-  end
   
-  if nargin<2 || isempty(fishIds)
-    fishIds = 1:self.nfish;
-  end
-
-  res = self.getTrackingResults();
-  t = res.t;
-  plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
-
   if  ~isfield(res.tracks,'centerLine') || isempty(res.tracks.centerLine)
     error('No centerLine data');
   end
 
-  centerLine = self.deleteInvisible('centerLine');
-  clx = permute(centerLine(plotidx,fishIds,1,:),[4,1,2,3]);
-  cly = permute(centerLine(plotidx,fishIds,2,:),[4,1,2,3]);
+  centerLine = self.deleteInvisible(res,'centerLine');
+  clx = permute(centerLine(:,:,1,:),[4,1,2,3]);
+  cly = permute(centerLine(:,:,2,:),[4,1,2,3]);
 
   mclx = bsxfun(@minus,clx,nanmean(clx,1));
   mcly = bsxfun(@minus,cly,nanmean(cly,1));
@@ -33,8 +22,7 @@ function out = getBendingLaplace(self,fishIds, plotTimeRange)
   
   
   % direction of movement 
-  vel =  permute(self.deleteInvisible('velocity'),[3,1,2]);
-  vel = vel(:,plotidx,fishIds);
+  vel =  permute(self.deleteInvisible(res,'velocity'),[3,1,2]);
   vori = atan2(vel(1,:,:),vel(2,:,:));
 
   %project onto normal of body axis
@@ -45,7 +33,7 @@ function out = getBendingLaplace(self,fishIds, plotTimeRange)
   olap = nanmean(diff(ocly,2,1));
   
   
-  out.t = t(plotidx);
+  out.t = res.t;
   out.lap = shiftdim(olap,1);
   out.clx = clx;
   out.cly = cly;

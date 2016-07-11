@@ -17,9 +17,9 @@ function [d,ddag] = parameterfun(opts1,parname,parvalue,tmax,dfname);
 
   
   ddag = squeeze(sqrt(sum((ftposdag - idpos).^2,2)));
-  r = ft.getTrackingResults(0,[],0);
+  r = ft.getSwitchBasedTrackingResults();
   ftpos = r.pos;
-  d = squeeze(sqrt(sum((ftpos - idpos).^2,2)));
+  d = squeeze(sqrt(nansum((ftpos - idpos).^2,2)));
   
   if nargin>4 && ~isempty(dfname)
     VERBOSEDIARY = 0;

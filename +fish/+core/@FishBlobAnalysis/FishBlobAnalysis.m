@@ -747,7 +747,8 @@ classdef FishBlobAnalysis < handle;
       rp = self.a_getRegions(bwimg,Iframe,[self.rprops,{'Image'}]);
       
       goodmsk = self.getGoodMsk(rp);
-
+      
+      %fprintf('%d/%d\r',sum(goodmsk),length(goodmsk));
       % compute more features
       rp = self.getMoreFeatures(rp(goodmsk),Iframe, Cframe);
       rp = self.splitRegions(rp,Iframe, Cframe);
@@ -755,6 +756,7 @@ classdef FishBlobAnalysis < handle;
       %rp = rp(goodmsk);
       rp = self.getFishFeatures(rp);
 
+      
       segm = rp;
     end
     
@@ -768,16 +770,37 @@ classdef FishBlobAnalysis < handle;
       self = self@handle();
      
       nargs = length(varargin);
-      if nargs>0 && mod(nargs,2)
+      if nargs==1 && isstruct(varargin{1})
+
+        for f = fieldnames(varargin{1})'
+          if isprop(self,f{1})
+            try
+              self.(f{1}) = varargin{1}.(f{1});
+            end
+            
+          end
+        end
+        if isfield(varargin{1},'blob')
+          for f = fieldnames(varargin{1}.blob)'
+            if isprop(self,f{1})
+              try
+                self.(f{1}) = varargin{1}.blob.(f{1});
+              end
+            end
+          end
+        end
+      elseif nargs>0 && mod(nargs,2)
         error('expected arguments of the type ("PropName",pvalue)');
-      end
-      for i = 1:2:nargs
-        if ~ischar(varargin{i})
-          error('expected arguments of the type ("PropName",pvalue)');
-        else
-          self.(varargin{i}) = varargin{i+1};
+      else
+        for i = 1:2:nargs
+          if ~isprop(self,varargin{i})
+            error('expected arguments of the type ("PropName",pvalue)');
+          else
+            self.(varargin{i}) = varargin{i+1};
+          end
         end
       end
+      
       
       if isempty(self.se)
         self.se = strel('disk',1);
@@ -794,6 +817,16 @@ classdef FishBlobAnalysis < handle;
       if ~exist('verboseif','var')
         verboseif = 1;
       end
+      if isempty(self.fishwidth)
+        self.fishwidth = 20; % random guess. Can be set afterwords;
+      end
+      if isempty(self.fishlength)
+        self.fishlength = 100; % random guess. Can be set afterwords;
+      end
+      if isempty(self.headprop)
+        self.headprop = 0.6; % random guess. Can be set afterwords;
+      end
+      
       setFishSize(self,self.fishlength,self.fishwidth,self.headprop,verboseif);
     end
     
@@ -805,8 +838,9 @@ classdef FishBlobAnalysis < handle;
         verboseif = 1;
       end
       if ~exist('headprop','var')
-        headprop = 0.6;
+        headprop = self.headprob;
       end
+      self.headprop = headprop;
 
       if ~isempty(fishlength)
         self.fishlength = fishlength;
@@ -824,16 +858,15 @@ classdef FishBlobAnalysis < handle;
         error('Provide valid fishsizes');
       end
 
-      
+
       self.featurewidth = self.fishwidth;
       self.featureheight = floor(self.fishlength*headprop);
 
       self.maxextent = 5*(self.fishlength+self.fishwidth);
-      self.minextent = 0.1*(self.fishlength+self.fishwidth);
-      self.minWidth = 0.1*self.fishwidth;
-      self.minArea  = 0.1*self.fishlength*self.fishwidth;
+      self.minextent = 0.05*(self.fishlength+self.fishwidth);
+      self.minWidth = 0.05*self.fishwidth;
+      self.minArea  = 0.05*self.fishlength*self.fishwidth;
       self.maxArea  = 5*self.fishlength*self.fishwidth;
-
       self.a_init();
     end
       

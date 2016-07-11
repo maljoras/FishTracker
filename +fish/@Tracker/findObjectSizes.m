@@ -1,7 +1,7 @@
 function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
 
   if nargin==1
-    minAxisWidth = 4;
+    minAxisWidth = 3;
   end
 
   fish.helper.verbose('Detect approx fish sizes (minAxisWidth=%g)...',minAxisWidth);
@@ -25,8 +25,8 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
     error('useScaledFormat: Either provide scale RGB + delta values or set to true/false');
   end
 
-  n = min(self.videoHandler.history,floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
-  n = min(n,500);
+  n = min(floor(self.videoHandler.history/2),floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
+  n = max(min(n,500),10);
   self.videoHandler.initialize(0);
   s = 0;
   for i = 1:n
@@ -34,7 +34,6 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
     [segm] = self.videoHandler.step();
     fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
 
-    
     if isempty(segm)
       continue;
     end

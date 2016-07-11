@@ -86,8 +86,11 @@ classdef FishBatchClassifier < handle;
         cl = cat(1,cl{:});
         [self.pcapc,~,proj,self.pcamu] = fish.helper.pca1(Z(goodidx,:),max(self.nlfd,self.npca));
         self.npca = max(self.nlfd,self.npca);
-
-        if self.nlfd>0 && self.npca>self.nlfd
+        if size(Z,2) < self.nlfd % too many very small fish 
+          self.nlfd = 0; % do not do any lfd
+        end
+        
+        if self.nlfd>0 && self.npca>self.nlfd 
           [self.lfdpc,~,proj] = fish.helper.lfd(proj,cl(goodidx),self.nlfd,0);
         end
           

@@ -1,17 +1,18 @@
-function res = getDagTrackingResults(self,delinvif,forceif)
-% RES = GETDAGTRACKINGRESULTS( ) returns the current DAG results.  
-% GETDAGTRACKINGRESULTS(DELINVIF) sets times in RES.POS where a track was
-% lost to NaN.
-% GETTRACKINGRESULTS(..,FORCIF) forces a regeneration of the
-% pos/res structure. 
+function res = getDagTrackingResults(self,timeRange,delinvif)
+% RES = GETDAGTRACKINGRESULTS(TIMERANGE) returns the current DAG
+% results in timerange. GETDAGTRACKINGRESULTS(...,DELINVIF) sets times in
+% RES.POS where a track was lost to NaN.
 
   if nargin<3
-    forceif = [];
-  end
-  if nargin<2
     delinvif = [];
   end
-    
-  res = self.getTrackingResults(delinvif,forceif,1);
+  if nargin<2
+    timeRange = [];
+  end
 
+  res = self.getTrackingResults(timeRange,1);
+  if delinvif
+    res.pos = self.deleteInvisible(res,'pos');
+  end
+  
 end

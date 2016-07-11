@@ -13,15 +13,14 @@ function plotClassProb(self,plotTimeRange,fishIds);
   end
 
   clf;
-  res = self.getTrackingResults();
-  t = res.tracks.t(:,1);
-  plotidx = t>=plotTimeRange(1) & t<plotTimeRange(2);
+  res = self.getTrackingResults(plotTimeRange);
+  t = res.t(:,1);
 
   if ~isfield(res.tracks,'classProb') || isempty(res.tracks.classProb)
     error('No classprob data');
   end
 
-  prob = res.tracks.classProb(plotidx,fishIds,fishIds);
+  prob = res.tracks.classProb(:,fishIds,fishIds);
   probid = nanmean(prob(:,1:length(fishIds)+1:end),2);
   if self.nfish<=5
     p = perms(1:self.nfish);
@@ -45,11 +44,11 @@ function plotClassProb(self,plotTimeRange,fishIds);
   plot([probid,probmax]);
 
   a(2) = subplot(3,1,2);
-  seq = res.tracks.consecutiveInvisibleCount(plotidx,fishIds);
+  seq = res.tracks.consecutiveInvisibleCount(:,fishIds);
   plot(seq);
 
   a(3) = subplot(3,1,3);
-  x = res.pos(plotidx,:,fishIds);
+  x = res.pos(:,:,fishIds);
   v2 = squeeze(sum(abs(diff(x,1,1)),2)); 
   plot(v2);
   linkaxes(a,'x');

@@ -32,7 +32,7 @@ classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fis
         error('knn method not supported in Matlab');
       end
       
-      self@fish.core.FishBlobAnalysisMatlab(); 
+      self@fish.core.FishBlobAnalysisMatlab(opts); 
       self@fish.core.FishVideoReaderMatlab(vidname,timerange);  %%% SOMEHOW
                                                   %%% MATALB READER
                                                   %%% DOES

@@ -2,17 +2,17 @@
 LOAD = 1
 COMPUTE =1
 
-PLOT =0;
+PLOT =0
 TEST = 0;
 
 path = '/data/videos/onlinelearning';
-VIDID = 1
+VIDID = 
 
 if LOAD && ~exist('ft','var')
 
 
   opts = [];
-  opts.nfish = 4;
+  opts.nfish = 3;
   
   videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nfish,VIDID)];
 
@@ -35,8 +35,9 @@ end
 if COMPUTE
 
   if ~exist('sbbox','var')
-    %sbbox = ft.calibrateStimulusScreen();
-    sbbox =  [115,90,1550,1214];
+    %sbbox = fish.Tracker.calibrateStimulusScreen();
+    %sbbox =  [115,90,1550,1214];
+    sbbox = [114,69,1557,1226];
   end
   opts = [];
   opts.avgVelocity = 5;
@@ -50,19 +51,22 @@ if COMPUTE
   ostm.usePredFishId = false;
 
   ostm.stmCol= parula(ft.nfish);
-  ostm.stmSwitchInt= 1; % in sec
-  ostm.stmSwitchIntCV= 0.1; 
+  ostm.stmOnInt= 1; % in sec
+  ostm.stmOnIntCV= 0.1;   
+
+  ostm.stmOffInt= 5; % in sec
+  ostm.stmOffIntCV= 0.5; 
   
   ostm.stmSize = ft.fishlength;  
-  ostm.regSizeFactorScale = [0,1,2];
+  ostm.regSizeFactorScale = [0,0.5,1.5];
   ostm.stmSizeFactor = 1;  
   ostm.xRegions = [1/3,2/3];
 
-  ostm.stmShift = ft.fishlength/2; % in px of fish.tracker frame
+  ostm.stmShift = ft.fishlength/4; % in px of fish.tracker frame
   ostm.stmShiftOri = 0;
 
   ostm.stmShiftOriSTD = -1; % random;
-  ostm.stmShiftCV = 0.5;  
+  ostm.stmShiftCV = 2;  
   ostm.stmSizeFactorCV = 0.5;
   
   ostm.stmVelThres = [2];
@@ -72,11 +76,13 @@ if COMPUTE
 
   ostm.colBackground = [0,0,0];
   ostm.colBorder = [1,1,1];
-  ostm.borderWidth = 0.05;
+  ostm.borderWidth = 0.0;
+
 
   ostm.adaptationTime = 30;
-
-  ostm.tmax = 3600*24;
+  ostm.tmax = 3600*5;
+  
+  
   
   opts.stimulus = ostm;
   ft.setOpts(opts);
@@ -91,6 +97,7 @@ if COMPUTE
     ft.save();
   end
   
+  clear ft;
   
 
 end
@@ -101,14 +108,21 @@ end
 if PLOT
   dagresults = 1;
   ft.setDefaultResultType(dagresults);
-  res = ft.getTrackingResults(1);
+  res = ft.getTrackingResults();
+  pos = ft.interpolateInvisible(res,'pos');
   
   info = res.tracks.stmInfo;
   stmmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS;
 
+
+  som = nanmean(pos,3);
+  ssom = nanstd(sqrt(sum(bsxfun(@minus,pos,som).^2,2)),[],3);
+  
+  return
+  
   pos = res.pos;
-  velocity = ft.deleteInvisible('velocity');
-  vel = sqrt(res.tracks.velocity(:,:,1).^2+res.tracks.velocity(:,:,2).^2);
+  velocity = ft.deleteInvisible(res,'velocity');
+  vel = sqrt(velocity(:,:,1).^2+velocity(:,:,2).^2);
   
   mpos1 = squeeze(nanmean(pos(stmmsk,:,:),1));
   mpos2 = squeeze(nanmean(pos(nonmsk,:,:),1));
@@ -135,8 +149,8 @@ if PLOT
   
   figure;
   a = subplot(2,1,1);
-  vel = ft.deleteInvisible('velocity');
-  vabs = sqrt(res.tracks.velocity(:,:,1).^2 + res.tracks.velocity(:,:,2).^2);
+  vel = ft.deleteInvisible(res,'velocity');
+  vabs = sqrt(vel(:,:,1).^2 + vel(:,:,2).^2);
   vabs(vabs>100) = NaN;
   
   acc = [diff(vabs);zeros(1,size(vabs,2))];

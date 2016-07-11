@@ -14,36 +14,224 @@ function generateResults(self)
   end
 
   
+  for f = fieldnames(self.savedTracks)'
+    if iscell(self.savedTracks.(f{1}))
+      d =  length(size(self.savedTracks.(f{1}){1}));% at least 3
+      self.savedTracks.(f{1}) = cat(d,self.savedTracks.(f{1}){:});
+    end
+  end
   
   nFrames = size(self.savedTracks.id,3)/self.nfish;
   if self.currentFrame~=nFrames
     fish.helper.verbose(['WARNING: %d frames got lost (premature abort while ' ...
              'tracking?)'],self.currentFrame-nFrames);
   end
+  
   self.currentFrame = nFrames;
+  self.res = [];
   
-  if self.opts.classifier.onlyDAGMethod
-    self.getPosFromDag([],1); % overwrites pos
-  end
-
   fishId2TrackId = self.fishId2TrackId(1:nFrames,:)';
-  self.res = subGenerateTracks(fishId2TrackId);
-  self.res.pos = permute(self.pos(:,:,1:nFrames),[3,1,2]);      
-  self.res.t = self.res.tracks.t(:,1);
-  self.res.tabs = self.tabs(1:nFrames,:);
+  self.res.swb = subGenerateTracks(fishId2TrackId);
+  self.res.swb.pos = subGeneratePos(self.res.swb);
+  tabs = self.tabs(1:nFrames,:);
 
-  if ~self.opts.classifier.onlyDAGMethod
-    % also generate dag
-    clear fishId2TrackId
-    [pos,fishId2TrackId] = self.getPosFromDag();
-    self.res.dag = subGenerateTracks(fishId2TrackId');
+
+  % also generate dag
+  clear fishId2TrackId
+  [pos,dagf2t] = subGetPosFromDag();
+  
+  % check for big overlaps and correct them with switch-based
+  dagf2t = subCorrectDagOverlaps(dagf2t);
+
+  %need to do again
+  self.res.dag = subGenerateTracks(dagf2t'); 
+  self.res.dag.pos = subGeneratePos(self.res.dag);
+
+
+  % correct the time for unique distance dt
+  dt = 1/self.videoHandler.frameRate;
+  tidx = round((tabs-tabs(1))/dt)+1;
+  frames = (1:nFrames)';
+  t = (0:tidx(end)-1)'*dt;
+  for f = {'swb','dag'}
+    for f2 = fieldnames(self.res.(f{1}).tracks)'
+      field = self.res.(f{1}).tracks.(f2{1});
+      sz = size(field);
+      sz(1) = length(t);
+      tmp = nan(sz);
+      assert(length(sz)<7)
+      tmp(tidx,:,:,:,:,:) = field; 
+      self.res.(f{1}).tracks.(f2{1}) = tmp;
+    end
+    self.res.(f{1}).tracks = rmfield(self.res.(f{1}).tracks,'t');
+
+    self.res.(f{1}).t = t;
+    self.res.(f{1}).tabs = nan(size(t));
+    self.res.(f{1}).tabs(tidx) = tabs;
+
+    self.res.(f{1}).iframe = nan(size(t));
+    self.res.(f{1}).iframe(tidx) = frames;
     
-    self.res.dag.pos = permute(pos(:,:,1:nFrames),[3,1,2]);      
-    self.res.dag.t = self.res.dag.tracks.t(:,1);
-    self.res.dag.tabs = self.tabs(1:nFrames,:);
-
+    pos = self.res.(f{1}).pos;
+    tmp = nan(size(pos));
+    tmp(tidx,:,:) = pos;
+    self.res.(f{1}).pos = tmp;
   end
   
+  
+  
+  function pos = subGeneratePos(res)
+  % gets a new pos from the re-ordered tracks. Do not use the original
+  % pos (which might contain Kalman predictions) but centerLine if available
+  
+    if isfield(res.tracks,'centerLine')
+      cl = mean(res.tracks.centerLine,4);
+      ce = res.tracks.centroid;
+      idx = find(isnan(cl));
+      cl(idx) = ce(idx);
+      pos = permute(cl,[1,3,2]);
+    else
+      ce = res.tracks.centroid;
+      pos = permute(ce,[1,3,2]);
+    end
+  
+    % delete beyond border pixels
+    posx = squeeze(pos(:,1,:));
+    posy = squeeze(pos(:,2,:));
+
+    sz = self.videoHandler.frameSize;
+    posx(posx>sz(2) | posx<1) = NaN;
+    posy(posy>sz(1) | posy<1) = NaN;
+
+    pos(:,1,:) = posx;
+    pos(:,2,:) = posy;
+  
+  end
+    
+    
+  
+  function df2t = subCorrectDagOverlaps(df2t)
+  
+    % ASSUMES IDX MAT IS SAME AS ID MSK (no track deletion)
+
+    MINOVERLAP = ceil(self.videoHandler.frameRate/2); 
+    PROBTHRES = 0;%self.maxClassificationProb*self.opts.tracks.probThresForFish;
+    
+    eqmsk = bsxfun(@eq,df2t,permute(df2t,[1,3,2]));
+
+    n = size(eqmsk,1);
+    se = ones(MINOVERLAP,1);
+    tmp = imdilate(imerode(eqmsk(:,:),se),se);
+    %tmp = imerode(imdilate(eqmsk(:,:),se),se);
+    eqmsk = reshape(tmp,[],self.nfish,self.nfish);
+
+    idx = find(tril(ones(self.nfish),-1));
+    ieqmsk = eqmsk(:,idx);
+    noverlap = sum(ieqmsk,2);    
+    doverlap = sum(eqmsk,3)>2; % double overlaps    
+    
+
+    % get the positions that were lost in DAG
+    lostmsk = bsxfun(@eq,1:self.nfish,permute(df2t,[1,3,2]));
+    tmp = imdilate(imerode(lostmsk(:,:),se),se);
+    %tmp = imerode(imdilate(tmp,se),se);
+    lostmsk = reshape(tmp,[],self.nfish,self.nfish);
+    lostmsk = all(~lostmsk,3);
+
+    
+    % note that their might be overlaps in DAG too because we used
+    % the DAG switching methods... however, they should not be too
+    % long (except for fishupdate type of corrections...)
+    
+
+    % ignore double and strange losses (more than 1) for now. 
+    onelost = sum(lostmsk,2)==1;
+    [~,idxlost] = max(lostmsk,[],2);
+    %idxlost(~onelost) = self.nfish+1; % no need. only between start:stop
+    
+    msk = bsxfun(@and,ieqmsk,onelost & all(~doverlap,2));
+
+    % get the cl prob of the lost id
+    indl = (1:n)' + (idxlost-1)*n;
+    idl = idxlost; % assume that track ID is same as IDX (correct with
+                   % no deletion)    
+    
+    % get the cl prob of the overlapping id
+    [~,idxeq] = max(ieqmsk,[],2); % this is now fishID
+    subeq = fish.helper.i2s([self.nfish,self.nfish],idxeq);
+    findo = (1:n)' + (subeq(:,1)-1)*n;
+    ido  = df2t(findo); % also idx in cl
+    indo = (1:n)' + (ido(:,1)-1)*n;
+    indo(isnan(indo)) = 1; % nan's will not enter anyway
+
+    % get prob in the original TrackID(idx) order 
+    f = {'classProb'};
+    sz = size(self.savedTracks.(f{1}));
+    d = length(sz); % at least 3
+    tmp = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
+    tmp = reshape(tmp,[self.nfish,n,sz(2),sz(1),sz(3:d-1)]);
+    classProb = reshape(permute(tmp,[2,1,3:d+1]),[],self.nfish);
+
+    cll = classProb(indl,:);
+    %idl = res.swb.tracks.id(indl);
+
+    clo = classProb(indo,:);    
+    %ido = res.dag.tracks.id(indo);
+    
+    for i = 1:length(idx)
+      mski = msk(:,i);
+      [fid1,fid2] = ind2sub(self.nfish([1,1]),idx(i));
+      
+      % find onsets and offsets
+      d = diff([0;mski;0]);
+      stop = find(d==-1)-1;
+      start = find(d==1);
+
+      % get prob data
+      accmsk = zeros(n,1);
+      accmsk(start) = 1;
+      accmsk = cumsum(accmsk);
+      accmsk(~mski) = length(start)+1;
+      
+      mclo1 = accumarray(accmsk,clo(:,fid1),[length(start)+1,1],@mean);
+      mclo2 = accumarray(accmsk,clo(:,fid2),[length(start)+1,1],@mean);
+      mcll1 = accumarray(accmsk,cll(:,fid1),[length(start)+1,1],@mean);
+      mcll2 = accumarray(accmsk,cll(:,fid2),[length(start)+1,1],@mean);
+
+      s12 = mclo1 + mcll2;
+      s21 = mclo2 + mcll1;
+      order12 = s12(1:end-1) >= s21(1:end-1);
+      order21 = ~order12;
+      diffprob = abs(s12-s21);
+      probmsk = diffprob<PROBTHRES;
+      probmsk = probmsk | max(mcll1,mcll2)<self.maxClassificationProb*self.opts.tracks.probThresForFish;
+      order12(probmsk) = false;
+      order21(probmsk) = false;
+
+      % re-order the results. Just redefine the 
+      msk12 = zeros(n+1,1);
+      msk12(start(order12)) = 1;
+      msk12(stop(order12)+1) = -1;
+      msk12 = cumsum(msk12);
+      idx12 = find(msk12(1:end-1));
+
+      msk21 = zeros(n+1,1);
+      msk21(start(order21)) = 1;
+      msk21(stop(order21)+1) = -1;
+      msk21 = cumsum(msk21);
+      idx21 = find(msk21(1:end-1));
+
+      
+      df2t(idx12,fid1) = ido(idx12);
+      df2t(idx12,fid2) = idl(idx12);
+
+      df2t(idx21,fid1) = idl(idx21);
+      df2t(idx21,fid2) = ido(idx21);
+    end
+    
+  
+  
+  end
   
   function [res] = subGenerateTracks(f2t);
     res = [];
@@ -82,6 +270,9 @@ function generateResults(self)
       if isempty(self.savedTracks.(f{1}))
         continue;
       end
+% $$$       if strcmp(f{1},'stmInfo')
+% $$$         continue;
+% $$$       end
       sz = size(self.savedTracks.(f{1}));
       d = length(sz); % at least 3
       trackdat = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
@@ -92,15 +283,53 @@ function generateResults(self)
     fishid =  (1:self.nfish)' * ones(1,nFrames);
     fishid(msk) = NaN;
     res.tracks.fishId = fishid';
+    
+  end
+  
 
+
+  function [postrace,trackIdxMat] = subGetPosFromDag(assignedFishId,force)
+    
+    if nargin>0 && ~isempty(assignedFishId)
+      predFishIds = assignedFishId;
+    else
+      predFishIds = [self.tracks.predFishId]; % use predFish. Can do Better ?!?
+    end
+    if nargin<2
+      force = 0;
+    end
+    
+    %self.daGraph.checkOverlap([],1);
+    
+    %trackIdx  and trackids SHOULD be the same! (if with no deletion)
+    % at laest assert for last tracks (if 1:nfish, all previous should be too)
+    assert(all([self.tracks.id] == 1:self.nfish));
+    
+    % backtrace. 
+    [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nfish,predFishIds);
+    postrace = permute(postrace,[1,3,2]);
+    
+    mt = size(postrace,3);
+    t = self.currentFrame-mt+1:self.currentFrame;
+    
+    if force
+      self.fishId2TrackId(t,:) = trackIdxMat;
+      self.pos(:,:,t) = postrace;
+    else
+      pos = self.pos(:,:,1:self.currentFrame);
+      pos(:,:,t) = postrace;
+      postrace = pos;
+      
+      f2t = self.fishId2TrackId(1:self.currentFrame,:);
+      f2t(t,:) = trackIdxMat;
+      trackIdxMat = f2t;
+    end
     
     
   end
   
+
 end
   
   
-
-
-
 

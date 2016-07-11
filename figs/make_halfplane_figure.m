@@ -50,9 +50,9 @@ end
 
 if NEWTRACK && ~exist('stmres1','var')
   %% get the adjusted stminfo 
-  if ~ft.res.tracks.t(1,1)
+  if ~ft.res.t(1,1)
     tfile = dlmread([vid '.txt'])  ;
-    t = tfile(1,3) + ft.res.tracks.t(:,1);
+    t = tfile(1,3) + ft.res.t(:,1);
   else
     t =  ft.res.t(:,1);
   end
@@ -126,11 +126,11 @@ if PLOT
       else
         %res = ftstm.ft.res.tracks;
         %pos = stmpos;
-        %tt = ftstm.ft.res.tracks.t(:,1);
+        %tt = ftstm.ft.res.t(:,1);
         ftstm2 = ftstmall{5}{1};
         ftstm2.ft.videoFile
         pos = ftstm2.ft.res.pos;
-        tt = ftstm2.ft.res.tracks.t(:,1);    
+        tt = ftstm2.ft.res.t(:,1);    
         res = ftstm2.ft.res.tracks;
         tstr = 'Group size 5 fish';
 
@@ -140,7 +140,7 @@ if PLOT
         tstr = 'Group size 2 fish';
         ftstm2.ft.videoFile
         pos = ftstm2.ft.res.pos;
-        tt = ftstm2.ft.res.tracks.t(:,1);    
+        tt = ftstm2.ft.res.t(:,1);    
         res = ftstm2.ft.res.tracks;
     else
       error('Do not know what to plot');

@@ -11,5 +11,5 @@ function stmInfo = stepStimulus(self,x,y,t,fishIds);
   end
   self.plotDot(x,y,50,col);     
 
-  stmInfo = [x,y];
+  stmInfo = [x,y,fishIds(:)];
 end

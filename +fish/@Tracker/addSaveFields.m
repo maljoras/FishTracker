@@ -2,7 +2,7 @@ function addSaveFields(self,varargin);
 %  FT.ADDSAVEFIELD('FIELDNAME1','FIELDNAME2',...) adds a tracks field to the saved structure
 
   f = fieldnames(self.initializeTracks())'; 
-  forbiddenFields = {'id','fishId','segment','classProbHistory','predictor',...
+  forbiddenFields = {'id','segment','classProbHistory','predictor',...
                      'crossedTrackIds','batchFeatures','features'};
   for i = 1:length(forbiddenFields)
     f(strcmp(f,forbiddenFields{i})) = [];

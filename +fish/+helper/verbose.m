@@ -3,6 +3,7 @@ function verbose(str,varargin)
   global VERBOSELEVEL
   global VERBOSEDIARY  
 
+  
   if ~VERBOSELEVEL
     return
   end
@@ -30,6 +31,7 @@ function verbose(str,varargin)
   if fid~=1
     str(findstr(str,'\r')+1) = 'n';
   end
+  
   
   d = dbstack;
   if length(d)==1 || nostack

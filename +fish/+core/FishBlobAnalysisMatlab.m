@@ -132,7 +132,7 @@ classdef FishBlobAnalysisMatlab < fish.core.FishBlobAnalysis;
     function self = FishBlobAnalysisMatlab(varargin) % constructor
       
       self = self@fish.core.FishBlobAnalysis(varargin{:});
-      self.setFishSize([], []);
+      %self.setFishSize([], []);
     end
   
   end

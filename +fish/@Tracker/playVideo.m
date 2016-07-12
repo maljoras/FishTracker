@@ -48,11 +48,10 @@ function playVideo(self,timerange,writefile)
       fish.helper.verbose('Set new videoFile');
     end
   end
-  
-      
+       
      
   if ~exist('timerange','var')
-    t = self.res.tabs(:,1);
+    t = res_dag.tabs(:,1);
     timerange = t([1,end]);
   end
 
@@ -80,14 +79,20 @@ function playVideo(self,timerange,writefile)
   videoReader.reset();
   videoReader.setCurrentTime(timerange(1)); 
 
-  t_tracks =self.res.tabs(:,1);
+  t_tracks = res_dag.tabs(:,1);
   tidx = find(t_tracks>=timerange(1) & t_tracks<timerange(2)); 
   t_tracks = t_tracks(tidx);
   cols = uint8(255*jet(self.nfish));
   s = 0;
   
-  plotstm = self.stmif && isfield(self.res,'stmInfo') && isprop(self.stimulusPresenter,'IDX_BBOX');
+  plotstm = self.stmif && isfield(res_swb.tracks,'stmInfo') && isprop(self.stimulusPresenter,'IDX_BBOX');
+  
+  if plotstm
+    stmInfo = res_swb.tracks.stmInfo;
+  end
+  
 
+  
   while videoReader.hasFrame() && s<length(tidx) && isOpen(self.videoPlayer)
     uframe = videoReader.readFrameFormat('RGBU');
     s = s+1;
@@ -128,13 +133,14 @@ function playVideo(self,timerange,writefile)
 
     %%stimulus
     if plotstm
-      stmbboxes = shiftdim(self.res.stmInfo(tidx(ind),:,self.stimulusPresenter.IDX_BBOX),1);
+      stmbboxes = shiftdim(stmInfo(tidx(ind),:,self.stimulusPresenter.IDX_BBOX),1);
       stmidx = ~isnan(stmbboxes(:,1));
       stmbboxes(stmidx,:) = self.stimulusPresenter.fromScreenBbox( stmbboxes(stmidx,:));
       if isprop(self.stimulusPresenter,'IDX_FISHID')
-        stmFishIds = squeeze(self.res.stmInfo(tidx(ind),:,self.stimulusPresenter.IDX_FISHID));
+        stmFishIds = squeeze(stmInfo(tidx(ind),:,self.stimulusPresenter.IDX_FISHID));
       else
-        stmFishIds = self.res.stmFishId(tidx(ind),:);
+        error('Cannot fined Stim Fish Id') 
+        %stmFishIds = self.res.stmFishId(tidx(ind),:);
       end
       clabels = cols(stmFishIds(stmidx),:);
       uframe = insertShape(uframe, 'Filledrectangle', stmbboxes(stmidx,:),'Color',clabels,'Opacity',0.2);

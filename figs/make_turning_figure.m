@@ -13,8 +13,10 @@ end
 
 if COMPUTE
 
-  timeRange = [ft.stimulusPresenter.adaptationTime, 20*3600];  
+  timeRange = [ft.stimulusPresenter.adaptationTime, 10*3600];  
   dagif = 1;
+  
+  b = ft.stimulusPresenter.borderWidth;
 
   res = ft.getTrackingResults(timeRange,dagif);
   turn = ft.getTurningStats(res);
@@ -234,8 +236,8 @@ if PLOT
   bw = ft.stimulusPresenter.borderWidth;
   border = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([bw,bw,1-bw*2,1-bw*2]));
   rectangle('position',border,'edgecolor','r','linestyle',':')
-
- xreg = ft.stimulusPresenter.xRegions;
+  
+  xreg = ft.stimulusPresenter.xRegions;
   l1 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(1),bw,1-bw*2,1-bw*2]));
   plot([l1(1),l1(1)],[l1(2),l1(2)+l1(4)],'r--')
   l2 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(2),bw,1-bw*2,1-bw*2]));
@@ -317,7 +319,7 @@ if PLOT
 
     len(len>500) = NaN;
     z = vel0/ft.fishlength;
-    b = ft.stimulusPresenter.borderWidth;
+
     z( xy(:,1)<b | xy(:,1)>1-b) = NaN;
     
     imori0 = accumarray(ibin_sf0,z,[nbins,nbins],@nanmedian,NaN);
@@ -373,7 +375,7 @@ if PLOT
     %istmx = interp1(res.tabs(msk),stmxy(msk,i,1),(res.tabs(1):dt:res.tabs(end))','next');
     
     sf = turn(i).stm.sizefactor;
-    mxt = 50;
+    mxt = 40;
     tidx =   turn(i).stm.tidx;
     tidx_stop =   turn(i).stm.stoptidx;
     xy = turn(i).stm.xy(:,:);
@@ -409,13 +411,15 @@ if PLOT
     
       %mposx(:,s) = accumarray(accmsk,istmx,[mxt+1,1],@nanmedian);
     end
+    
+    %mvel = bsxfun(@minus,mvel,avelregion(i,:));
 % $$$     xreg = [0,ft.stimulusPresenter.xRegions,1];
 % $$$     for j = 1:length(xreg)-1
 % $$$       msk1 = (accmsk==mxt+1 & istmx>xreg(j) & istmx<=xreg(j+1) & istmx>b & istmx<1-b);
 % $$$       mvel(:,j) = mvel(:,j) - nanmedian(ivel(msk1));
 % $$$     end
     
-    h = fish.helper.errorbarpatch((0:mxt-1)*dt,mvel(1:end-1,:),svel(1:end-1,:));
+    h = fish.helper.errorbarpatch(((0:mxt-1)+toffs)*dt,mvel(1:end-1,:),svel(1:end-1,:));
     xlabel('Rel time [s]','fontsize',10)
     if i==1
       ylabel('Avg. velocity [BL/s]','fontsize',10);

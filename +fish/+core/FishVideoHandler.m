@@ -68,6 +68,13 @@ classdef FishVideoHandler < handle & fish.core.FishVideoReader & fish.core.FishB
       bwmsk = self.bwmsk;
     end
     
+    function frame = getCurrentFrame(self);
+      frame = getCurrentFrame@fish.core.FishVideoReader(self);
+      if self.resizeif
+        frame = cv.resize(frame,self.resizescale);
+      end
+    end
+    
     
     function self = setOpts(self,opts)
     % to set the OPTIONS use the keywords "blob" "reader" and "detector"

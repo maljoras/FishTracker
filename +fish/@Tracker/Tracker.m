@@ -246,6 +246,11 @@ classdef Tracker < handle;
       ftresnan = ftres;
       ftresnan.pos = ft.deleteInvisible(ftres,'pos');
       
+      if ft.videoHandler.resizeif
+        ftresnan.pos = ftresnan.pos/ft.videoHandler.resizescale;
+        ftres.pos = ftres.pos/ft.videoHandler.resizescale;
+      end
+      
       dist = zeros(nfish);
       offs = size(idres.pos,1) - size(ftres.pos,1);
       
@@ -1067,7 +1072,7 @@ classdef Tracker < handle;
           end
           idx = ncidx{i};
           if all(ismember(nc{i},fishIds)) ...
-              && (self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx)))
+              && (self.enoughEvidenceForAllFishSwitch(prob(idx),steps(idx),probdiag(idx)))
 
             % only permute if true permutation and enough evidence
             fish.helper.verbose('Switching fish with fishClassifierUpdate [%1.2f,%d]',min(prob(idx)),min(steps(idx)))
@@ -1206,13 +1211,26 @@ classdef Tracker < handle;
       prob(isinf(prob)) = nan;
     
     end
+    
+    function bool = enoughEvidenceForAllFishSwitch(self,prob,steps,probdiag)
+      if any(isnan(probdiag)) || self.nfish>5
+        bool = false;
+      else
+        bool = mean(prob-probdiag)>self.opts.classifier.allSwitchProbThres*self.maxClassificationProb && min(steps)>=self.minBatchN;
+
+        if bool
+          fish.helper.verbose('Enough evidence: %1.2f',sum(prob-probdiag));
+        end
+        %bool = min(prob)>self.opts.classifier.reassignProbThres && min(steps)>=self.minBatchN;
+      end
+    end
 
     
     function bool = enoughEvidenceForReassignment(self,prob,steps,probdiag)
       if any(isnan(probdiag))
         bool = false;
       else
-        bool = mean(prob-probdiag)>self.opts.classifier.reassignProbThres*self.maxClassificationProb && min(steps)>=self.minBatchN;
+        bool = max(prob-probdiag)>self.opts.classifier.reassignProbThres*self.maxClassificationProb && min(steps)>=self.minBatchN;
 
         if bool
           fish.helper.verbose('Enough evidence: %1.2f',sum(prob-probdiag));
@@ -1224,7 +1242,7 @@ classdef Tracker < handle;
     function bool = enoughEvidenceForForcedUpdate(self,prob,steps,probdiag)
       if any(isnan(probdiag)) || (length(prob)<self.nfish && length(prob)>1)
         bool = false;
-      elseif length(prob)==1 && self.nfish>self.MAXCROSSFISH
+      elseif length(prob)==1 %&& self.nfish>self.MAXCROSSFISH
         bool = true; % single update;
       else
         bool = min(steps) >= self.nFramesAfterCrossing;
@@ -1236,7 +1254,7 @@ classdef Tracker < handle;
       if any(isnan(probdiag))
         bool = false;
       else
-        bool = (min(prob)>self.maxClassificationProb*self.opts.classifier.handledProbThres ...
+        bool = (mean(prob)>self.maxClassificationProb*self.opts.classifier.handledProbThres ...
                 && min(steps)>=self.nFramesAfterCrossing) ... 
                || max(steps)>=self.nFramesForUniqueUpdate;
       end
@@ -1456,7 +1474,7 @@ classdef Tracker < handle;
         clp(idx) = 0;
         prob_notcorrect = mean(max(clp,[],2)); % might be Nan
         pdiff = prob_notcorrect - prob_correct ;
-        bool = pdiff > self.opts.classifier.reassignProbThres; % will be zero if pdiff should be NaN
+        bool = pdiff > self.opts.classifier.allSwitchProbThres; % will be zero if pdiff should be NaN
       else
         bool = false;
         pdiff = 0;
@@ -2545,8 +2563,8 @@ classdef Tracker < handle;
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
       
-      def.opts.detector.adjustThresScale = 0.95;   
-      doc.detector.adjustThresScale = {'0.8..1 : reduce when detections too noisy (useKNN=0)',''};
+      def.opts.detector.adjustThresScale = 1;   
+      doc.detector.adjustThresScale = {'0.8..1.2 : change thres when detections too noisy (useKNN=0)',''};
 
 
       %% reader
@@ -2576,14 +2594,18 @@ classdef Tracker < handle;
       def.opts.classifier.tau = 5000; 
       doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
-      def.opts.classifier.reassignProbThres = 0.2; %0.45
+      def.opts.classifier.reassignProbThres = 0.1; %0.2%0.45
       doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
+
+      def.opts.classifier.allSwitchProbThres = 1; %0.2%0.45
+      doc.classifier.allSwitchProbThres = {['minimal probability for ' ...
+                          'all fish reassignments']};
 
       def.opts.classifier.forcedReassignProbThres = 0.6; %0.45
       doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
 
       
-      def.opts.classifier.handledProbThres = 0.2; %0.45
+      def.opts.classifier.handledProbThres = 0.0; %0.2%0.45
       doc.classifier.handledProbThres = {'minimal diff probability for crossing exits'};
 
 
@@ -2614,10 +2636,10 @@ classdef Tracker < handle;
       def.opts.tracks.crossingCostScale =  1;
       doc.tracks.crossingCostScale = {'Scaling of non-assignment cost during crossings'};
 
-      def.opts.tracks.probThresForFish = 0.1; 
+      def.opts.tracks.probThresForFish = 0.01; %0.1
       doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
 
-      def.opts.tracks.useDagResults = 1;
+      def.opts.tracks.useDagResults = 0;
       doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
       
       def.opts.tracks.kalmanFilterPredcition = false; 
@@ -2720,7 +2742,7 @@ classdef Tracker < handle;
       opts.detector.fixedSize = 0;  
       doc.detector.fixedSize = {'Set 1 for saving the fixedSize image'};
 
-      opts.detector.nskip = max(ceil(opts.detector.history/50),1); 
+      opts.detector.nskip = 5; 
       doc.detector.nskip = 'Skip frames for background (useKNN=0)';
 
       opts.display.detectedObjects = false;

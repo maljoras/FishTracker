@@ -52,7 +52,7 @@ function generateResults(self)
   dt = 1/self.videoHandler.frameRate;
   tidx = round((tabs-tabs(1))/dt)+1;
   frames = (1:nFrames)';
-  t = (0:tidx(end)-1)'*dt;
+  t = (0:tidx(end)-1)'*dt + tabs(1);
   for f = {'swb','dag'}
     for f2 = fieldnames(self.res.(f{1}).tracks)'
       field = self.res.(f{1}).tracks.(f2{1});

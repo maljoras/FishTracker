@@ -171,6 +171,209 @@ classdef Tracker < handle;
     end
   
     
+    %% parameter variations
+          
+    function [d,ddag, fL, t_elapsed] = parameterfun(opts1,parname,parvalue,tmax,dfname);
+
+      if nargin>4 && ~isempty(dfname)
+        global VERBOSEDIARY;
+        VERBOSEDIARY = dfname;
+      end
+        
+      
+      maxNumCompThreads(4);
+      opts = opts1;
+      
+      opts = fish.helper.setfield(opts,parname,parvalue);
+      opts.nfish = 5;
+      opts.verbosity = 3;
+      
+      fish.helper.verbose('Start parameter variation: %s = %f',parname,parvalue);
+      
+      ft = [];
+      [~,t_elapsed,~,idpos, ft] = fish.Tracker.runTest(tmax,opts,[],[],0);
+      
+      r = ft.getDagTrackingResults();
+      ftposdag = r.pos;
+      
+      ddag = squeeze(sqrt(sum((ftposdag - idpos).^2,2)));
+      r = ft.getSwitchBasedTrackingResults();
+      ftpos = r.pos;
+      d = squeeze(sqrt(nansum((ftpos - idpos).^2,2)));
+      fL = ft.fishlength;
+      
+      if nargin>4 && ~isempty(dfname)
+        VERBOSEDIARY = 0;
+      end
+    end
+
+    function res = parameterVariations(pv,ftopts,varargin)
+    % RES=PARAMETERVARIATIONS(PV,FTOPTS,...) computes parameter variations for
+    % given parameters and checks how the runTest performs. PV is a struc of
+    % field names like parmeters in fish.Tracker. The field contains the array
+    % to loop over. FTOPTS is an options structure for other paramters to be
+    % fixed.
+    % 
+    % EXAMPLE: 
+    %   pv.avgVelocity  = 1:10;
+    %   pv.classifier.reassignProbThres = 0:0.1:0.5;
+    %   res = parameterVariations(pv);  % submit tasks
+    %   res = parameterVariations(res); % fetch and plot
+
+      
+      def.pv = [];
+      def.ftopts = [];
+      def.opts.diaryif = 0;
+      def.opts.diarypath = 'diary';
+      def.opts.tmax = [];
+
+      VERBOSELEVEL = 0;
+      MFILENAME = 'fish.Tracker.parameterVariations';      
+      fish.helper.parseInputs;
+      if HELP, return;end;
+
+
+      if isfield(pv,'MFILENAME')
+        SUBMIT = 0;
+        res = pv;
+       else
+        res = INPUTS;
+        SUBMIT = 1;
+        res.translate = {};
+        res.dat = [];
+      end
+      
+      % re-format
+      pars= fish.helper.allfieldnames(res.pv)';
+      pararr = {};
+      for i = 1:length(pars)
+        pararr{i} = fish.helper.getfield(res.pv,pars{i});
+      end
+
+
+      if res.opts.diaryif
+        basepath = [res.opts.diarypath filesep];
+      end
+
+      if SUBMIT
+        s = 0;
+        for i = 1:length(pars)
+          for j = 1:length(pararr{i})
+            
+            s= s+1;
+            
+            if res.opts.diaryif
+              fn = sprintf('%sdiary.%d.log',basepath,s);
+            else
+              fn = [];
+            end
+            
+            
+            res.f(s) = parfeval(@fish.Tracker.parameterfun,4,res.ftopts,pars{i},pararr{i}(j),res.opts.tmax,fn);
+            res.translate{s} = [i,j];
+          end
+        end
+
+        fish.helper.verbose('Submitted %d tasks.',s);
+        fish.helper.verbose('Catch outputs by recalling the function with RES as argument...');
+        return
+      end
+
+      if isempty(res.dat) || numel(cat(1,res.dat.fishLength))<numel(res.translate)
+        % get output
+        fish.helper.verbose('Waiting for results..');
+        for k = 1:length(res.f)
+          
+          ONLINE = 0;%isempty(res.dat);
+          if ONLINE
+              [completedIdx, d, ddag, fishLength,t_elapsed] = fetchNext(res.f);
+          else
+            completedIdx = k;
+            try
+              [d, ddag , fishLength,t_elapsed] = fetchOutputs(res.f(k));
+            catch
+              disp(res.f(k))
+              continue;
+            end
+          end
+          
+          idx = res.translate{completedIdx};
+          i = idx(1);
+          j = idx(2);
+          res.dat(i,j).d = d;
+          res.dat(i,j).ddag = ddag;
+          res.dat(i,j).t_elapsed = t_elapsed;
+          res.dat(i,j).fishLength = fishLength;
+          res.dat(i,j).parval = pararr{i}(j);
+          res.dat(i,j).parname = pars{i};
+          if opts.diaryif
+            res.dat(i,j).log = sprintf('%sdiary.%d.log',basepath,completedIdx);
+            %read log with: textread(res(i,j).log,'%s','delimiter','\n');
+          end
+          fish.helper.verbose('Fetched %d/%d results.\r',k,length(res.f));
+        end
+      
+        if isempty(res.dat)
+          error('Cannot find any results');
+        end
+      end
+      
+
+      
+      %% plotting
+      figure;
+
+      init = 100;
+      
+      [r1,r2] = fish.helper.getsubplotnumber(size(res,1));
+      %fun = @(x)nanmax(x,[],2);
+      %fun = @(x)nanmean(x,2);
+      fun = @(x)nansum(x>0.5,2); % across fish;
+      
+      dat = res.dat;
+      nframes = size(dat(1,1).d,1);
+      nfish = size(dat(1,1).d,2);
+      n = nframes*nfish;
+      
+      for i = 1:size(dat,1)
+        fL = cat(1,dat(i,:).fishLength); 
+        parr = cat(2,dat(i,:).parval);
+        x  = bsxfun(@rdivide,cat(3,dat(i,:).d),permute(fL,[3,2,1]));
+        x = x(init:end,:,:);
+        
+        xdag  = bsxfun(@rdivide,cat(3,dat(i,:).ddag),permute(fL,[3,2,1]));
+        xdag = xdag(init:end,:,:);
+
+        
+        md = shiftdim(nanmean(fun(x),1));
+        sd = shiftdim(fish.helper.stderr(fun(x),1));
+        
+        mdag = shiftdim(nanmean(fun(xdag),1));
+        sdag = shiftdim(fish.helper.stderr(fun(xdag),1));
+
+        nnan = shiftdim(sum(sum(isnan(cat(3,dat(i,:).d)),1),2))/n;
+        nnandag = shiftdim(sum(sum(isnan(cat(3,dat(i,:).ddag)),1),2))/n;
+        
+        a = subplot(r1,r2,i);
+        nc = 1;
+        fish.helper.errorbarpatch(parr,imfilter([md,mdag],ones(nc,1)/nc,'same','replicate'),[sd,sdag]);
+        ylabel('% frames > 1 BL');
+        legend('SWB','DAG');
+        b = fish.helper.submargin(a,'MARGIN',0.01,'SPACE',0.2);
+        hold on;
+        plot(b,parr,[nnan,nnandag])
+        xlabel(unique(cat(1,dat(i,:).parname),'rows'));    
+        
+        linkaxes([a,b],'x');
+      end
+    
+    
+
+    
+    end
+    
+      
+
     %% test
     
     function [success,t_elapsed,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
@@ -249,11 +452,6 @@ classdef Tracker < handle;
       ftres.pos(end,:,:) = NaN; % why ? 
       ftresnan = ftres;
       ftresnan.pos = ft.deleteInvisible(ftres,'pos');
-      
-      if ft.videoHandler.resizeif
-        ftresnan.pos = ftresnan.pos/ft.videoHandler.resizescale;
-        ftres.pos = ftres.pos/ft.videoHandler.resizescale;
-      end
       
       dist = zeros(nfish);
       offs = size(idres.pos,1) - size(ftres.pos,1);
@@ -935,7 +1133,7 @@ classdef Tracker < handle;
         else
         
           % use the mean of center line as centroid instead
-          mcl = permute(mean(self.centerLine,1),[3,2,1]);
+          mcl = permute(sum(self.centerLine,1)/size(self.centerLine,1),[3,2,1]);
           ncl = ~isnan(mcl(:,1));
           self.locations(ncl,:) = mcl(ncl,:);
         end
@@ -1224,7 +1422,9 @@ classdef Tracker < handle;
       if any(isnan(probdiag)) 
         bool = false;
       else
-        bool = mean(max(prob-probdiag,0))>self.opts.classifier.allSwitchProbThres*self.maxClassificationProb ...
+        p = max(prob-probdiag,0);
+        bool = sum(p)/max(sum(p>0),1)>...
+               self.opts.classifier.allSwitchProbThres*self.maxClassificationProb ...
                && min(steps)>=self.minBatchN;
 
         if bool
@@ -1387,8 +1587,8 @@ classdef Tracker < handle;
                 switchFish(self,thisTrackIndices,assignedFishIds,true)
                 subDeleteCrossedTrackIds(thisTrackIndices); % always handle;
                 
-                % elseif self.enoughEvidenceForBeingHandled(prob,steps,probdiag) % might need to be handled because too long
-                % subDeleteCrossedTrackIds(thisTrackIndices);
+              elseif self.enoughEvidenceForBeingHandled(prob,steps,probdiag) % might need to be handled because too long
+                subDeleteCrossedTrackIds(thisTrackIndices);
               end
               
             else
@@ -1400,7 +1600,6 @@ classdef Tracker < handle;
                 if  length(self.tracks(thisTrackIndices(idx)).crossedTrackIds)<=1
                   % delete all from crossings
                   subDeleteCrossedTrackIds(thisTrackIndices(idx));
-                  break
                 end
               end
             end
@@ -1479,13 +1678,23 @@ classdef Tracker < handle;
     %      if length(trackIndices)<self.MAXCROSSFISH
         fishIds = cat(1,self.tracks(trackIndices).fishId);
         clp = cat(1,self.tracks(trackIndices).clpMovAvg);
-        idx = fish.helper.s2i(size(clp),[(1:size(clp,1))',fishIds]);
-        prob_correct = mean(clp(idx));
+        [sz1,sz2] = size(clp);
+        idx =  (fishIds-1)*sz1 + (1:sz1)';
+        prob_correct = clp(idx); %  probability that current settings correct
         clp(idx) = 0;
-        prob_notcorrect = mean(max(clp,[],2)); % might be Nan
-        pdiff = prob_notcorrect - prob_correct ;
-        bool = pdiff > self.opts.classifier.allSwitchProbThres; % will be zero if pdiff should be NaN
-% $$$       else
+        prob_notcorrect = max(clp,[],2); % maximal offset (might be nan)
+        d = prob_notcorrect - prob_correct;
+        n = sum(d>0);
+        if n>1 % at least two
+          pdiff = sum(d(d>0))/n;
+          bool = pdiff > self.opts.classifier.allSwitchProbThres*self.maxClassificationProb;
+        else
+          pdiff = 0;
+          bool = false;
+        end
+        
+        
+    % $$$       else
 % $$$         bool = false;
 % $$$         pdiff = 0;
 % $$$       end
@@ -1529,14 +1738,12 @@ classdef Tracker < handle;
       
       
       %% test whether tracks might be misaligned
-      if sum(handled)>1
+      if sum(handled)>1 && mod(self.currentFrame,2)
         handledIndices = find(handled);
         [misif,pdiff] = self.testTrackMisalignment(handledIndices);
         if misif 
-          
           fish.helper.verbose('Probably misaligned (%1.2f)..\r',pdiff);
           self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
-          
         end
       end
       
@@ -1680,9 +1887,9 @@ classdef Tracker < handle;
 
         % Compute the cost of assigning each detection to each track.
         for k = 1:length(self.costinfo)
-          switch lower(self.costinfo{k})
+          switch self.costinfo{k}
 
-            case {'location','centroid'}
+            case {'Location','Centroid'}
 
               %% center position 
               centers = cat(1,self.tracks.location);
@@ -1695,7 +1902,7 @@ classdef Tracker < handle;
               fcost(:,:,k) = dst;
 
               
-            case {'centerline'}
+            case {'CenterLine'}
               if self.useMex
                 
                 %% use the mex-file
@@ -1718,14 +1925,14 @@ classdef Tracker < handle;
               end
 
               
-            case {'overlap'}
+            case {'Overlap'}
 
               bbsegs = double(cat(1,self.segments.BoundingBox));
               bbtracks = double(cat(1,self.tracks.bbox));
               overlap = getBBoxOverlap(bbtracks,bbsegs,0);
               fcost(:,:,k) = 1-overlap ;%+ (overlap==0)*somewhatCostly;
               
-            case {'classprob','classification','classifier'}
+            case {'Classifier'}
 
               if self.isInitClassifier
                 clProb = cat(1,self.tracks(:).classProb);
@@ -1780,7 +1987,7 @@ classdef Tracker < handle;
         fcost = self.computeCostMatrix();
 
         % scale the cost
-        sfcost = sum(bsxfun(@times,fcost,shiftdim(scale(:),-2)),3);
+        sfcost = sum(bsxfun(@times,fcost,permute(scale(:),[3,2,1])),3);
 
         % Solve the assignment problem. First for the visible
         nvis = cat(1,self.tracks.consecutiveInvisibleCount);
@@ -1850,7 +2057,8 @@ classdef Tracker < handle;
 
         % save the individual mean cost
         mt = max(min(self.opts.tracks.costtau*self.avgTimeScale,self.currentFrame),1);
-        self.meanCost = self.meanCost*(mt-1)/mt  + 1/mt*mean(reshape(fcost,[],size(fcost,3)),1);
+        tmp = reshape(fcost,[],size(fcost,3));
+        self.meanCost = self.meanCost*(mt-1)/mt  + 1/mt/size(tmp,1)*sum(tmp,1);
 
         % save the mean assignment costs
         if ~isempty(self.assignments)
@@ -2062,7 +2270,7 @@ classdef Tracker < handle;
         if ~isempty(trackIndices)
           % switching!
           self.resetBatchIdx(trackIndices); 
-          if self.verbosity>1
+          if self.verbosity>1 && self.nfish<10
             fish.helper.verbose('Dag switched a fish...\r');
           end
         end
@@ -2615,7 +2823,7 @@ classdef Tracker < handle;
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
       
-      def.opts.classifier.handledProbThres = 0.05; %0.2%0.45
+      def.opts.classifier.handledProbThres = 0.1; %0.2%0.45
       doc.classifier.handledProbThres = {'minimal  probability for crossing exits'};
 
 
@@ -2646,7 +2854,7 @@ classdef Tracker < handle;
       def.opts.tracks.crossingCostScale =  1;
       doc.tracks.crossingCostScale = {'Scaling of non-assignment cost during crossings'};
 
-      def.opts.tracks.probThresForFish = 0.01; %0.1
+      def.opts.tracks.probThresForFish = 0.05; 
       doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
 
       def.opts.tracks.useDagResults = 0;

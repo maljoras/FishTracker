@@ -62,8 +62,8 @@ if COMPUTE
     opts = [];
     opts.verbosity = 3;
     opts.nfish = 5;
-    opts.fishlength = 100;
-    opts.fishwidth = 20;
+    %opts.fishlength = 100;
+    %opts.fishwidth = 20;
     opts.classifier.npca = 40;
     
   end

@@ -24,6 +24,14 @@ function [res idx] = getTrackingResults(self,timeRange,dagif,forceif)
     end
   end
 
+  if self.videoHandler.resizeif
+    fish.helper.verbose(['WARNING: resizeif set! Adjust ONLY "pos" ' ...
+                        'to original frame size.' 'Other variables ' ...
+                        'might need to be adjusted manually!'])
+    res.pos = res.pos/self.videoHandler.resizescale;
+  end
+  
+  
   if exist('timeRange','var') && ~isempty(timeRange)
     n = length(res.t);
     idx = find(res.t>=timeRange(1) & res.t<timeRange(2));

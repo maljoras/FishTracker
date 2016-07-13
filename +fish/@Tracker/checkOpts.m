@@ -10,6 +10,27 @@ function checkOpts(self)
   self.fishlength = self.fishlength;
 
   
+  if self.opts.tracks.useDagResults
+    if self.fishlength<80
+      warning(['Using DAG results for small fishsizes might result ' ...
+               'in inferior results. Set default to SWB.']);
+      self.opts.tracks.useDagResults = 0;
+    end
+    if self.nfish>10
+      warning(['Using DAG results for large number of fish might result ' ...
+               'in inferior results. Set default to SWB.']);
+      self.opts.tracks.useDagResults = 0;
+    end
+  end
+  
+  if self.nfish>10 & self.fishlength<80 &   self.opts.classifier.allSwitchProbThres<0.5
+    warning(['Many small fish. Consider increasing ' ...
+             '"classifier.allSwitchProbThres" (set to 0.6)']);
+    self.opts.classifier.allSwitchProbThres = 0.6;
+  end
+  
+    
+    
   %% classifier
   if self.opts.classifier.nlfd
     if self.opts.classifier.nlfd<0

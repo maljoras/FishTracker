@@ -1518,7 +1518,7 @@ void BackgroundThresholder::apply(cv::Mat frame,cv::Mat *bwimg, cv::Mat *dframe)
   }
   //update mean
   if (m_istep==0) {
-    m_meanImage = floatframe - 127;
+    m_meanImage = floatframe - 255;
   }  else {
     float n;
     if (m_istep<m_history) {
@@ -1532,7 +1532,7 @@ void BackgroundThresholder::apply(cv::Mat frame,cv::Mat *bwimg, cv::Mat *dframe)
     }
     if (n>1) {
       // update 
-      m_meanImage = m_meanImage*((n-1)/n) + floatframe*(1./n) - (127./n);
+      m_meanImage = m_meanImage*((n-1)/n) + floatframe*(1./n) - (255./n);
     }
   }
 

@@ -67,16 +67,18 @@ classdef FishVideoHandlerMex < handle & fish.core.FishBlobAnalysis & fish.core.F
       if ~exist('FishVideoHandler_')
         error('Cannot find mex file. Forgot to run make ?');
       end
+
+
       self@fish.core.FishVideoReader(vidname);       
       self@fish.core.FishBlobAnalysis(opts);       
+      if nargin >1
+        self.timeRange = timerange;
+      end
       
       self.frameFormat = 'RGBU'; % default
       self.knnMethod = global_knnMethod;
       clear global global_knnMethod;
       
-      if nargin >1
-        self.timeRange = timerange;
-      end
 
       if nargin >3
         setOpts(self,opts);

@@ -113,7 +113,7 @@ classdef Tracker < handle;
     lastTimeStamp = [];
     dt = [];
     
-    MAXCROSSFISH = 10; % MAX number of cross for many fish....DEVELOPMENTAL
+    %    MAXCROSSFISH = 10; % MAX number of cross for many fish....DEVELOPMENTAL
   end
 
   
@@ -231,7 +231,7 @@ classdef Tracker < handle;
 
       % run benchmark
       fish.helper.verbose('Starting run test.');
-      ft = fish.Tracker(pathToVideo,args{:});
+      ft = fish.Tracker(pathToVideo,'avgVelocity',5,args{:});
       ft.setDisplay(max(plotif-1,0));
       ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
 
@@ -521,10 +521,10 @@ classdef Tracker < handle;
     
     function [handler, timerange] = newVideoHandler(self,vidname,timerange,opts)
     % note: does not set the current time. 
-      if ~exist('timerange','var')
+      if nargin<3
         timerange = [];
       end
-      if ~exist('opts','var')
+      if nargin<4
         opts = self.opts;
       end
       if self.useMex && fish.core.FishVideoHandlerMex.installed()
@@ -820,7 +820,7 @@ classdef Tracker < handle;
       self.clpMovAvgTau = max(ceil(self.opts.classifier.clpMovAvgTau*self.avgTimeScale),1);
 
       self.minBatchN = min(max(ceil(self.nFramesAfterCrossing*0.75),4),50);  
-      self.nFramesForSingleUpdate = floor(1.5* self.nFramesForUniqueUpdate);
+      self.nFramesForSingleUpdate = floor(3 * self.nFramesForUniqueUpdate);
       self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
 
       
@@ -1213,15 +1213,16 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForAllFishSwitch(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) || self.nfish>5
+      if any(isnan(probdiag)) 
         bool = false;
       else
-        bool = mean(prob-probdiag)>self.opts.classifier.allSwitchProbThres*self.maxClassificationProb && min(steps)>=self.minBatchN;
+        bool = mean(max(prob-probdiag,0))>self.opts.classifier.allSwitchProbThres*self.maxClassificationProb ...
+               && min(steps)>=self.minBatchN;
 
         if bool
           fish.helper.verbose('Enough evidence: %1.2f',sum(prob-probdiag));
         end
-        %bool = min(prob)>self.opts.classifier.reassignProbThres && min(steps)>=self.minBatchN;
+
       end
     end
 
@@ -1230,12 +1231,13 @@ classdef Tracker < handle;
       if any(isnan(probdiag))
         bool = false;
       else
-        bool = max(prob-probdiag)>self.opts.classifier.reassignProbThres*self.maxClassificationProb && min(steps)>=self.minBatchN;
+        bool = max(prob-probdiag)>self.opts.classifier.reassignProbThres*self.maxClassificationProb ...
+               && min(steps)>=self.minBatchN;
 
         if bool
           fish.helper.verbose('Enough evidence: %1.2f',sum(prob-probdiag));
         end
-        %bool = min(prob)>self.opts.classifier.reassignProbThres && min(steps)>=self.minBatchN;
+
       end
     end
     
@@ -1330,11 +1332,11 @@ classdef Tracker < handle;
         [assignedFishIds prob steps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,...
                                                           self.nFramesForUniqueUpdate); 
 
-        if length(assumedFishIds)>self.MAXCROSSFISH && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
-          % cannot deal with large crossings
-          subDeleteCrossedTrackIds(thisTrackIndices); 
-          continue;
-        end
+% $$$         if length(assumedFishIds)>self.MAXCROSSFISH && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
+% $$$           % cannot deal with large crossings
+% $$$           subDeleteCrossedTrackIds(thisTrackIndices); 
+% $$$           continue;
+% $$$         end
 
         if  all(ismember(assignedFishIds,assumedFishIds)) 
           % we have a valid assignment (note that it is always a permutation inside
@@ -1466,7 +1468,7 @@ classdef Tracker < handle;
     
     function [bool,pdiff] = testTrackMisalignment(self,trackIndices);
 
-      if length(trackIndices)<self.MAXCROSSFISH
+    %      if length(trackIndices)<self.MAXCROSSFISH
         fishIds = cat(1,self.tracks(trackIndices).fishId);
         clp = cat(1,self.tracks(trackIndices).clpMovAvg);
         idx = fish.helper.s2i(size(clp),[(1:size(clp,1))',fishIds]);
@@ -1475,10 +1477,10 @@ classdef Tracker < handle;
         prob_notcorrect = mean(max(clp,[],2)); % might be Nan
         pdiff = prob_notcorrect - prob_correct ;
         bool = pdiff > self.opts.classifier.allSwitchProbThres; % will be zero if pdiff should be NaN
-      else
-        bool = false;
-        pdiff = 0;
-      end
+% $$$       else
+% $$$         bool = false;
+% $$$         pdiff = 0;
+% $$$       end
       
     end
     
@@ -2595,18 +2597,18 @@ classdef Tracker < handle;
       doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
       def.opts.classifier.reassignProbThres = 0.1; %0.2%0.45
-      doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
+      doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
-      def.opts.classifier.allSwitchProbThres = 1; %0.2%0.45
-      doc.classifier.allSwitchProbThres = {['minimal probability for ' ...
+      def.opts.classifier.allSwitchProbThres = 0.3; %0.2%0.45
+      doc.classifier.allSwitchProbThres = {['minimal diff probability for ' ...
                           'all fish reassignments']};
 
       def.opts.classifier.forcedReassignProbThres = 0.6; %0.45
-      doc.classifier.reassignProbThres = {'minimal probability for reassignments'};
+      doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
       
-      def.opts.classifier.handledProbThres = 0.0; %0.2%0.45
-      doc.classifier.handledProbThres = {'minimal diff probability for crossing exits'};
+      def.opts.classifier.handledProbThres = 0.05; %0.2%0.45
+      doc.classifier.handledProbThres = {'minimal  probability for crossing exits'};
 
 
       def.opts.classifier.crossCostThres = 3; 
@@ -2652,7 +2654,7 @@ classdef Tracker < handle;
       def.opts.classifier.timeToInit = 20;  
       doc.classifier.timeToInit = {'Time to initialize the classifier [avgBLC]'};
 
-      def.opts.classifier.timeAfterCrossing =  2; 
+      def.opts.classifier.timeAfterCrossing =  1; 
       doc.classifier.timeAfterCrossing = {['When to check for permutations after ' ...
                           'crossings [avgBLC]']};
       
@@ -2660,7 +2662,7 @@ classdef Tracker < handle;
       doc.classifier.nFramesForUniqueUpdate = {['Unique frames needed for update all ' ...
                           'fish simultaneously [avgBLC]']};
 
-      def.opts.classifier.clpMovAvgTau = 1; 
+      def.opts.classifier.clpMovAvgTau = 0.5; 
       doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [avgBLC].'};
 
       def.opts.tracks.tauVelocity = 1; 

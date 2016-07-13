@@ -118,7 +118,11 @@ classdef Tracker < handle;
 
   
   methods(Static)
-  
+    
+    function success=checkCompiled()
+      success = ~~exist('getCurrentTracks_');
+    end
+
     function obj = loadobj(S)
 
       deleted_fields = {'saveFieldSub'};
@@ -603,7 +607,11 @@ classdef Tracker < handle;
     % Create objects for reading a video from a file, drawing the tracked
     % objects in each frame, and playing the video.
 
-      
+      if ~fish.Tracker.checkCompiled()
+        error(['Please compile the code. Consult the Readme. ("make ' ...
+               'clean;make" on linux)']);
+      end
+          
       %% Create a video file reader.
       self.videoHandler = [];
       [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange);

@@ -5,8 +5,12 @@ function varargout = displayCurrentTracks(self)
   cjet = jet(self.nextId);
 
   minVisibleCount = 2;
-  uframe = getCurrentFrame(self.videoHandler);
-
+  if self.opts.display.BWImg
+    uframe = getCurrentBWImg(self.videoHandler);
+  else
+    uframe = getCurrentFrame(self.videoHandler);
+  end
+  
   if ~isa(uframe,'uint8')
     uframe = uint8(uframe*255);
   end

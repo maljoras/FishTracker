@@ -635,14 +635,14 @@ void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * ne
   Mat srel = getStructuringElement(MORPH_ELLIPSE,Size(3,3));
 
   // get the bounding boxes and erode 
-  double mx =MAX(featureheight,60)*MAX(featurewidth,30)*4;
+  double mx =MAX(featureheight,30)*MAX(featurewidth,10)*4;
   for (int i=0;i<contours.size();i++) {
     if (!valid[i])
       continue;
     
     Rect bbox = boundingRect(contours[i]);
     double wh = bbox.width*bbox.height;
-    if ((wh > mx) && (0)){
+    if ((wh > mx)){
       //try to split regions
       Mat roi;
       inBwImg(bbox).copyTo(roi); // make a true copy
@@ -745,12 +745,15 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     Mat img ;
     copyMakeBorder(segm->Image,img,nborder,nborder,nborder,nborder,BORDER_CONSTANT,0);
 
-    if ((segm->MinorAxisLength)>20) {
+    if ((segm->MinorAxisLength)>4) {
       //opening and closing
       dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
       erode(img,img,srel,Point(-1,-1),4,BORDER_CONSTANT,0);
       dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
-    }
+    } else{
+      dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
+      erode(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
+    }	    
     
     Mat F,L;
     distanceTransform(img,F,CV_DIST_L2, 3);

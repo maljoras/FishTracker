@@ -3,6 +3,11 @@ classdef Tracker < handle;
 
   properties 
     timerange= [];    
+    maxVelocity = [];        
+    avgVelocity = [];
+    fishlength = [];
+    fishwidth = [];
+    nfish = [];
     opts = struct([]);
   end
 
@@ -13,13 +18,6 @@ classdef Tracker < handle;
     writefile = '';
     currentFrame = 0;
 
-    nfish = [];
-    fishlength = [];
-    fishwidth = [];
-
-    maxVelocity = [];        
-    avgVelocity = [];
-    
     stmif = 0;
     useMex = 1;
     useOpenCV = 1;
@@ -106,7 +104,8 @@ classdef Tracker < handle;
     meanAssignmentCost =1;
     maxAssignmentCost =1;
     maxClassificationProb =0;
-    
+    meanClassificationProb =0;
+
     avgTimeScale = [];
     
     timeStamp = [];
@@ -795,7 +794,8 @@ classdef Tracker < handle;
     
     function predictor = newPredictor(self,centroid);
     % Create a Kalman filter object.
-      predictor = configureKalmanFilter('ConstantVelocity', centroid, [20, 20], [20, 20], 5);
+      vel = 1/(self.avgTimeScale)*self.fishlength;
+      predictor = configureKalmanFilter('ConstantVelocity', centroid, [self.fishlength, self.fishlength], [vel,vel], 1);
     end
 
     
@@ -1204,7 +1204,7 @@ classdef Tracker < handle;
       oldFishIds = [self.tracks(trackIndices).fishId];
       A = zeros(self.nfish);
       A(sub2ind(size(A),oldFishIds,assignedFishIds)) = 1;
-      [~,~,nc] = fish.helper.networkComponents(A | A');
+      nc = fish.helper.networkComponents(A);
       % delete self-components
       nc(cellfun('length',nc)==1) = []; 
       
@@ -1436,7 +1436,7 @@ classdef Tracker < handle;
 
     
     function bool = enoughEvidenceForReassignment(self,prob,steps,probdiag)
-      if any(isnan(probdiag))
+      if any(isnan(probdiag)) || sum(prob)/length(prob)<self.opts.tracks.probThresForFish*self.maxClassificationProb
         bool = false;
       else
         bool = max(prob-probdiag)>self.opts.classifier.reassignProbThres*self.maxClassificationProb ...
@@ -1450,7 +1450,8 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForForcedUpdate(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) || (length(prob)<self.nfish && length(prob)>1)
+      if any(isnan(probdiag)) || (length(prob)<self.nfish && length(prob)>1) ...
+          || sum(prob)/length(prob)<self.opts.tracks.probThresForFish*self.maxClassificationProb
         bool = false;
       elseif length(prob)==1 %&& self.nfish>self.MAXCROSSFISH
         bool = true; % single update;
@@ -1461,12 +1462,18 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForBeingHandled(self,prob,steps,probdiag)
-      if any(isnan(probdiag))
+      if min(steps)<self.nFramesAfterCrossing || any(isnan(probdiag)) 
         bool = false;
       else
-        bool = (mean(prob)>self.maxClassificationProb*self.opts.classifier.handledProbThres ...
-                && min(steps)>=self.nFramesAfterCrossing) ... 
-               || max(steps)>=self.nFramesForUniqueUpdate;
+        m =sum(probdiag)/length(probdiag); 
+        if m>self.opts.tracks.probThresForFish*self.maxClassificationProb
+          
+          bool = m>self.meanClassificationProb*self.opts.classifier.handledProbThres ...
+                 || max(steps)>=self.nFramesForUniqueUpdate;
+          bool = bool || (self.nfish>9 && length(prob)>self.nfish/2); % crossing too big to be handled
+        else
+          bool = true; % not enough evidence, but to inaccurate to be sure,  release
+        end
       end
     end
     
@@ -1540,19 +1547,21 @@ classdef Tracker < handle;
         [assignedFishIds prob steps probdiag] = self.predictFish(thisTrackIndices,crossedFishIds,...
                                                           self.nFramesForUniqueUpdate); 
 
-% $$$         if length(assumedFishIds)>self.MAXCROSSFISH && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
-% $$$           % cannot deal with large crossings
-% $$$           subDeleteCrossedTrackIds(thisTrackIndices); 
-% $$$           continue;
-% $$$         end
+        MAXCROSSFISH = max(10,self.nfish/2);
+        if length(assumedFishIds)>MAXCROSSFISH && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
+          % cannot deal with large crossings
+          subDeleteCrossedTrackIds(thisTrackIndices); 
+          continue;
+        end
 
-        if  all(ismember(assignedFishIds,assumedFishIds)) 
-          % we have a valid assignment (note that it is always a permutation inside
-          % those that cross because that is guaranteed in predictFish)
+        OLD = 0;
+        if OLD
 
-          
-          OLD = 0;
-          if OLD
+          if  all(ismember(assignedFishIds,assumedFishIds)) 
+            % we have a valid assignment (note that it is always a permutation inside
+            % those that cross because that is guaranteed in predictFish)
+
+            
             [nc ncidx] = self.connectedComponents(thisTrackIndices,assignedFishIds);
             
             for i_nc = 1:length(ncidx)
@@ -1573,11 +1582,36 @@ classdef Tracker < handle;
                   switchFish(self,thisTrackIndices(idx),assignedFishIds(idx),true)
                   subDeleteCrossedTrackIds(thisTrackIndices(idx)); % always handle
                   
-                  
+                elseif self.enoughEvidenceForBeingHandled(prob(idx),steps(idx),probdiag(idx)) 
+                  subDeleteCrossedTrackIds(thisTrackIndices(idx));
                 end
+
               end
             end
+            
           else
+            if self.enoughEvidenceForBeingHandled(prob,steps,probdiag) 
+              subDeleteCrossedTrackIds(thisTrackIndices);
+            else
+            
+              % Still inside the fishID previously involved in the crossing. 
+              % We better put
+              % the track back into the crossing
+              if ~any(isnan(prob))
+                fish.helper.verbose('Put tracks back into crossings!')
+                fishIds = [self.tracks.fishId];
+                ids = [self.tracks.id];
+                self.crossings{end +1 } = ids(find(ismember(fishIds,crossedFishIds)));
+              end
+            end
+          end
+
+            
+        else % NEW (no exit of individual fish from crossings)
+
+          if length(assignedFishIds)==1
+            subDeleteCrossedTrackIds(thisTrackIndices); % always handle;
+          elseif all(ismember(assignedFishIds,assumedFishIds)) 
             if any(assignedFishIds ~= assumedFishIds)
               
               if self.enoughEvidenceForReassignment(prob,steps,probdiag)
@@ -1596,30 +1630,15 @@ classdef Tracker < handle;
                 subDeleteCrossedTrackIds(thisTrackIndices);
               end
               
-              for idx=1:length(thisTrackIndices)
-                if  length(self.tracks(thisTrackIndices(idx)).crossedTrackIds)<=1
-                  % delete all from crossings
-                  subDeleteCrossedTrackIds(thisTrackIndices(idx));
-                end
-              end
+            end
+          else
+            % should be always the case  ? 
+            if self.enoughEvidenceForBeingHandled(prob,steps,probdiag) % might need to be handled because too long
+              subDeleteCrossedTrackIds(thisTrackIndices);
             end
           end
-          
-          
-            
-        else
-          % Still inside the fishID previously involved in the crossing. 
-          % We better put
-          % the track back into the crossing
-          if ~any(isnan(prob))
-            fish.helper.verbose('Put tracks back into crossings!')
-            fishIds = [self.tracks.fishId];
-            self.crossings{end +1 } = find(ismember(fishIds,crossedFishIds));
-          end
         end
-
       end
-      
       
       
       if self.displayif && self.opts.display.crossings
@@ -1628,16 +1647,20 @@ classdef Tracker < handle;
 
       
       function subDeleteCrossedTrackIds(localTrackIndices)
-        [self.tracks(localTrackIndices).crossedTrackIds] = deal([]);
-        thisTrackIds = [self.tracks(localTrackIndices).id];
-
-        %delete these ids from all others. They should not currently cross. 
-        for i = 1:length(self.tracks)
-          self.tracks(i).crossedTrackIds = setdiff(self.tracks(i).crossedTrackIds,thisTrackIds);
-          if isempty(self.tracks(i).crossedTrackIds)
-            self.tracks(i).crossedTrackIds = []; % some weired things happening with the size of the empty set in matlab
-
+        ids = [self.tracks.id];
+        for ii = 1:length(localTrackIndices)
+          
+          thisTrackId = self.tracks(localTrackIndices(ii)).id;
+          crossedIds = self.tracks(localTrackIndices(ii)).crossedTrackIds;
+          crossedTrackIndices = find(ismember(ids,crossedIds));
+          
+          crossedIds = setdiff(crossedIds,thisTrackId);
+          if isempty(crossedIds)
+            crossedIds = [];
           end
+          
+          [self.tracks(crossedTrackIndices).crossedTrackIds] = deal(crossedIds);
+          self.tracks(localTrackIndices(ii)).crossedTrackIds = [];
         end
 
       end % nested function
@@ -1820,6 +1843,7 @@ classdef Tracker < handle;
         'age', {}, ...
         'totalVisibleCount', {}, ...
         'consecutiveInvisibleCount', {},...
+        'consecutiveVisibleCount', {},...
         'switchedFrames',{},...
         'assignmentCost', {},...
         'nIdFeaturesLeftOut', {},...
@@ -1991,7 +2015,7 @@ classdef Tracker < handle;
 
         % Solve the assignment problem. First for the visible
         nvis = cat(1,self.tracks.consecutiveInvisibleCount);
-        validIdx = find(~nvis);
+        validIdx = find(~nvis);%<self.avgTimeScale); !!!!!!!!!!!!!!!
 
         [self.assignments, self.unassignedTracks, self.unassignedDetections] = ...
             fish.helper.assignDetectionsToTracks(sfcost(validIdx,:),  costOfNonAssignment);
@@ -2005,7 +2029,7 @@ classdef Tracker < handle;
           % Solve the assignment problem for the invisible tracks
           sfcost1 = sfcost(invisibleIdx,self.unassignedDetections);
 
-          costOfNonAssignment1 = costOfNonAssignment*(1+nvis(invisibleIdx)*self.opts.tracks.invisibleCostScale);
+          costOfNonAssignment1 = costOfNonAssignment +nvis(invisibleIdx)*self.meanAssignmentCost;
 
           if self.opts.tracks.adjustCostDuringCrossing
             crossMsk = ~self.testHandled();
@@ -2021,7 +2045,7 @@ classdef Tracker < handle;
                               self.unassignedDetections(assignments(:,2))]];
           self.unassignedDetections = self.unassignedDetections(unassignedDetections);
           self.unassignedTracks = [self.unassignedTracks;invisibleIdx(unassignedTracks)];
-        
+
         end
         
 
@@ -2101,6 +2125,8 @@ classdef Tracker < handle;
       numAssignedTracks = size(assignments, 1);
       trackopts = self.opts.tracks;
       maxClass = 0;
+      meanClass = 0;
+      imeanClass = 0;
       
       for i = 1:numAssignedTracks
         trackIdx = assignments(i, 1);
@@ -2194,6 +2220,8 @@ classdef Tracker < handle;
           self.tracks(trackIdx).clpMovAvg =  tmp  + (w/self.clpMovAvgTau) * classprob;
 
           maxClass = max(maxClass,max(classprob));
+          meanClass = meanClass + classprob(self.tracks(trackIdx).fishId);
+          imeanClass = imeanClass+1;
         end
         self.tracks(trackIdx).classProbW = w;
         
@@ -2231,6 +2259,14 @@ classdef Tracker < handle;
         
         %% Update visibility.
         self.tracks(trackIdx).totalVisibleCount =  self.tracks(trackIdx).totalVisibleCount + 1;
+
+        % length of last visbility
+        if self.tracks(trackIdx).consecutiveInvisibleCount>0
+          self.tracks(trackIdx).consecutiveVisibleCount = 1;
+        else
+          self.tracks(trackIdx).consecutiveVisibleCount = self.tracks(trackIdx).consecutiveVisibleCount + 1;
+        end
+        
         self.tracks(trackIdx).consecutiveInvisibleCount = 0;
       end
 
@@ -2238,6 +2274,7 @@ classdef Tracker < handle;
       if maxClass
         mt = min(self.opts.tracks.costtau*self.avgTimeScale,self.currentFrame-self.nFramesForInit);
         self.maxClassificationProb = self.maxClassificationProb*(mt-1)/mt + 1/mt*maxClass;
+        self.meanClassificationProb = self.meanClassificationProb*(mt-1)/mt + 1/mt*meanClass/imeanClass;
       end
       
       
@@ -2246,7 +2283,6 @@ classdef Tracker < handle;
         ind = self.unassignedTracks(i);
         self.tracks(ind).age = self.tracks(ind).age + 1;
         self.tracks(ind).consecutiveInvisibleCount =  self.tracks(ind).consecutiveInvisibleCount + 1;
-
 
         % do not update the tracks with nan, but use clp average instead
         self.tracks(ind).classProb = self.tracks(ind).clpMovAvg;
@@ -2365,7 +2401,7 @@ classdef Tracker < handle;
         end
         
         if self.opts.tracks.kalmanFilterPredcition
-          pred = self.newPredictor(self.pos(i,:));
+          pred = self.newPredictor(self.locations(i,:));
         else
           pred = [];
         end
@@ -2428,6 +2464,7 @@ classdef Tracker < handle;
           'age',       1,                 ...
           'totalVisibleCount', 1,         ...
           'consecutiveInvisibleCount', 0, ...
+          'consecutiveVisibleCount', 1, ...
           'switchedFrames',0,...
           'assignmentCost',Inf, ...
           'nIdFeaturesLeftOut',0,...
@@ -2453,33 +2490,32 @@ classdef Tracker < handle;
         return
       end
 
-      crossmat = false(length(self.tracks),length(self.tracks));
-      bbox = cat(1,self.tracks.bbox);
       locations = cat(1,self.tracks.location);
-      msk = fish.helper.pdist2Euclidean(locations,locations)<self.currentCrossBoxLengthScale*self.fishlength;
+      dmsk = fish.helper.pdist2Euclidean(locations,locations)<self.currentCrossBoxLengthScale*self.fishlength;
 
+      bbox = cat(1,self.tracks.bbox);
       bBoxXOverlap = bsxfun(@ge,bbox(:,1) + bbox(:,3), bbox(:,1)') & bsxfun(@lt,bbox(:,1), bbox(:,1)');
       bBoxYOverlap = bsxfun(@ge,bbox(:,2) + bbox(:,4), bbox(:,2)') & bsxfun(@lt,bbox(:,2), bbox(:,2)');
       bBoxOverlap = bBoxXOverlap & bBoxYOverlap;
-      pthres =self.opts.tracks.probThresForFish;
-      costThres = self.maxAssignmentCost + self.opts.classifier.crossCostThres*self.meanAssignmentCost;
-      for i = 1:length(self.tracks)
+      bBoxOverlap = bBoxOverlap | bBoxOverlap';
+      
+      costThres = self.opts.classifier.crossCostThresScale*self.meanAssignmentCost;
+      %costThres = self.meanAssignmentCost;
+      
+      assignmentCost = [self.tracks.assignmentCost];
+      nvis = [self.tracks.consecutiveInvisibleCount];
+      vmsk = (assignmentCost>costThres) | (nvis>0);
 
-        if sum(msk(i,:))>1  || sum(bBoxOverlap(i,:))>1  
-          if self.tracks(i).consecutiveInvisibleCount>0 || self.tracks(i).assignmentCost>costThres 
-            if ~isempty(self.tracks(i).clpMovAvg) && self.tracks(i).clpMovAvg(self.tracks(i).fishId)>pthres
-              crossmat(i,:) =  msk(i,:)  | bBoxOverlap(i,:);
-            end
-          end
-        end
+      %crossmat = bsxfun(@and,(bBoxOverlap | dmsk), vmsk);
+      crossmat = (bBoxOverlap | dmsk) & bsxfun(@and,vmsk, vmsk'); % only when all above thres
+
+      if any(crossmat(:))
+        %crossmat = crossmat | crossmat'; % will be done with in the networkComponent function
+        crossings = fish.helper.networkComponents(crossmat);
+        crossings(cellfun('length',crossings)==1) = []; % delete self-components
       end
       
-      %make symmetric CAUTION: MIGHT NOT BE SYMMETRIC!
-      if any(crossmat(:))
-        crossmat = crossmat | crossmat';
-        [~,~,crossings] = fish.helper.networkComponents(crossmat);
-        crossings(cellfun('length',crossings)==1) = []; % delete self-components
-      end % else just empty (see above)
+
     end
     
     
@@ -2492,6 +2528,7 @@ classdef Tracker < handle;
       for i_cross = 1:length(self.crossings) % now cell array of trackIndices that cross
         
         crossedIndices = self.crossings{i_cross}(:)';
+        
         newCrossedTracks = [];        
         allCrossedTracks = [];
         s = 0;
@@ -2506,7 +2543,8 @@ classdef Tracker < handle;
           
         end
         
-        
+          
+          
         for trackIndex = crossedIndices(:)'
           % handle each trackIndex one by one
 
@@ -2718,7 +2756,7 @@ classdef Tracker < handle;
       doc.maxVelocity = {'Maximal velocity in BL/sec (estimated if empty)'};
 
       def.opts.avgVelocity = 4;
-      doc.maxVelocity = {'Approx. avg velocity. Important parameter ', ...
+      doc.maxVelocity = {'Approx. avg velocity [BL/sec]. Important parameter ', ...
                           'to set the time scale of the tracking problem'};
       
       def.opts.useScaledFormat = false;
@@ -2755,20 +2793,20 @@ classdef Tracker < handle;
       def.opts.cost.Location = 10;
       doc.cost.Location = {'Location comparison','Relative cost weighting. 0 turns cost type off.'};
       
-      def.opts.cost.Overlap = 5;
+      def.opts.cost.Overlap = 2;
       doc.cost.Overlap = {'BBox overlap'};
 
-      def.opts.cost.CenterLine = 3;
+      def.opts.cost.CenterLine = 5;
       doc.cost.CenterLine = {'CenterLine feature comparison'};
 
-      def.opts.cost.Classifier = 2;
+      def.opts.cost.Classifier = 1;
       doc.cost.Classifier = {'Classification prob comparison'};
 
-      def.opts.cost.Size = 1;
-      doc.cost.Size = {'Major/Minor axis comparison'};
+      %      def.opts.cost.Size = 0; % !!! seems to have bad effect!
+      %doc.cost.Size = {'Major/Minor axis comparison'};
       
-      def.opts.cost.Area = 1;
-      doc.cost.Area = {'blob pixel area comparison'};
+      % def.opts.cost.Area = 0; % !!! seems to have bad effect!
+      %doc.cost.Area = {'blob pixel area comparison'};
 
       def.opts.cost.BoundingBox = 0; 
       doc.cost.BoundingBox = {'[x,y,w,h] bbox comparison',''};
@@ -2823,12 +2861,12 @@ classdef Tracker < handle;
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
       
-      def.opts.classifier.handledProbThres = 0.1; %0.2%0.45
-      doc.classifier.handledProbThres = {'minimal  probability for crossing exits'};
+      def.opts.classifier.handledProbThres = 0.5;
+      doc.classifier.handledProbThres = {'mean class probability SCALE for crossing exits'};
 
 
-      def.opts.classifier.crossCostThres = 3; 
-      doc.classifier.crossCostThres = {'candidates for crossings: scales mean assignment cost',''};
+      def.opts.classifier.crossCostThresScale = 2; 
+      doc.classifier.crossCostThresScale = {'candidates for crossings: scales mean assignment cost',''};
 
 
       %% tracks
@@ -2844,12 +2882,8 @@ classdef Tracker < handle;
       def.opts.tracks.keepFullTrackStruc = false;
       doc.tracks.keepFullTrackStruc = {'Whether to keep full track structure. ONLY FOR DEBUG!'};
       
-      def.opts.tracks.costOfNonAssignment = 4;
+      def.opts.tracks.costOfNonAssignment = 2;
       doc.tracks.costOfNonAssignment =  {'Scales the threshold for','cost of non assignment'};
-
-      def.opts.tracks.invisibleCostScale = 1;%1 
-      doc.tracks.invisibleCostScale = {'Factor for nonAssignmentCost per frame with','invisible count'};
-
 
       def.opts.tracks.crossingCostScale =  1;
       doc.tracks.crossingCostScale = {'Scaling of non-assignment cost during crossings'};
@@ -2914,6 +2948,9 @@ classdef Tracker < handle;
       def.opts.display.tracks = true;
       doc.display.tracks = {'Whether to plot the tracking process'};
 
+      def.opts.display.BWImg = false;
+      doc.display.BWImg = {'Whether to plot the BWImg during the tracking process'};
+      
       def.opts.display.level = 3;
       doc.display.level = {'Level of details of the track plot'};
       

@@ -1468,7 +1468,7 @@ classdef Tracker < handle;
         m =sum(probdiag)/length(probdiag); 
         if m>self.opts.tracks.probThresForFish*self.maxClassificationProb
           
-          bool = m>self.meanClassificationProb*self.opts.classifier.handledProbThres ...
+          bool = m>self.meanClassificationProb*self.opts.classifier.handledProbThresScale ...
                  || max(steps)>=self.nFramesForUniqueUpdate;
           bool = bool || (self.nfish>9 && length(prob)>self.nfish/2); % crossing too big to be handled
         else
@@ -2861,8 +2861,8 @@ classdef Tracker < handle;
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
       
-      def.opts.classifier.handledProbThres = 0.5;
-      doc.classifier.handledProbThres = {'mean class probability SCALE for crossing exits'};
+      def.opts.classifier.handledProbThresScale = 0.5;
+      doc.classifier.handledProbThresScale = {'mean class probability SCALE for crossing exits'};
 
 
       def.opts.classifier.crossCostThresScale = 2; 

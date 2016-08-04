@@ -1457,7 +1457,7 @@ classdef Tracker < handle;
         bool = true; % single update;
       else
         bool = min(steps) >= self.nFramesAfterCrossing;
-        bool = bool && max(prob)<=self.opts.classifier.forcedReassignProbThres*self.maxClassificationProb;
+        bool = bool && max(prob)<=self.opts.classifier.forcedUpdateProbThres*self.maxClassificationProb;
       end
     end
     
@@ -2505,10 +2505,13 @@ classdef Tracker < handle;
       assignmentCost = [self.tracks.assignmentCost];
       nvis = [self.tracks.consecutiveInvisibleCount];
       vmsk = (assignmentCost>costThres) | (nvis>0);
-
-      %crossmat = bsxfun(@and,(bBoxOverlap | dmsk), vmsk);
-      crossmat = (bBoxOverlap | dmsk) & bsxfun(@and,vmsk, vmsk'); % only when all above thres
-
+      
+      if self.nfish<=5
+        crossmat = bsxfun(@and,(bBoxOverlap | dmsk), vmsk);
+      else
+        crossmat = (bBoxOverlap | dmsk) & bsxfun(@and,vmsk, vmsk'); % only when all above thres
+      end
+      
       if any(crossmat(:))
         %crossmat = crossmat | crossmat'; % will be done with in the networkComponent function
         crossings = fish.helper.networkComponents(crossmat);
@@ -2853,11 +2856,11 @@ classdef Tracker < handle;
       def.opts.classifier.reassignProbThres = 0.1; %0.2%0.45
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
-      def.opts.classifier.allSwitchProbThres = 0.3; %0.2%0.45
+      def.opts.classifier.allSwitchProbThres = 0.6; %0.2%0.45
       doc.classifier.allSwitchProbThres = {['minimal diff probability for ' ...
                           'all fish reassignments']};
 
-      def.opts.classifier.forcedReassignProbThres = 0.6; %0.45
+      def.opts.classifier.forcedUpdateProbThres = 0.6; %0.45
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
       
@@ -2865,7 +2868,7 @@ classdef Tracker < handle;
       doc.classifier.handledProbThresScale = {'mean class probability SCALE for crossing exits'};
 
 
-      def.opts.classifier.crossCostThresScale = 2; 
+      def.opts.classifier.crossCostThresScale = 1.5; 
       doc.classifier.crossCostThresScale = {'candidates for crossings: scales mean assignment cost',''};
 
 

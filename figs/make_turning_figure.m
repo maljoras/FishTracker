@@ -3,7 +3,7 @@
 LOAD = 0;
 COMPUTE = 1;
 PLOT = 1;
-SAVEIF = 0;
+SAVEIF = 1;
 
 if LOAD 
  load ~/data/zebra/videos/textures/texturesinregionsF4-1-1.mat
@@ -434,7 +434,7 @@ if PLOT
   end
 
   if SAVEIF
-    exportfig(gcf,'~/work/projects/zebra/turning1.pdf','Color','rgb')
+    exportfig(gcf,'~/work/projects/zebra/turning1.eps','Color','rgb')
   end
   
 end

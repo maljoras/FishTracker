@@ -6,7 +6,7 @@ if LOAD
   %load ~/data/zebra/videos/longterm/Blongterm11_draft.mat
   %reader = fish.core.FishVideoReader(ft.videoFile);
 
-  ft = fish.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nfish',3);
+  ft = fish.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nfish',3,'fishlength',120,'fishwidth',30);
 end
 
 

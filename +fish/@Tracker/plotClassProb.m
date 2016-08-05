@@ -37,20 +37,18 @@ function plotClassProb(self,plotTimeRange,fishIds);
   probid = conv(probid,ones(nconv,1)/nconv,'same');
   probmax = conv(probmax,ones(nconv,1)/nconv,'same');
 
-  tt = t(plotidx);
-
 
   a(1) = subplot(3,1,1);
-  plot([probid,probmax]);
+  plot(t,[probid,probmax]);
 
   a(2) = subplot(3,1,2);
   seq = res.tracks.consecutiveInvisibleCount(:,fishIds);
-  plot(seq);
+  plot(t,seq);
 
   a(3) = subplot(3,1,3);
   x = res.pos(:,:,fishIds);
   v2 = squeeze(sum(abs(diff(x,1,1)),2)); 
-  plot(v2);
+  plot(t(1:end-1),v2);
   linkaxes(a,'x');
 
 

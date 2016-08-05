@@ -105,6 +105,7 @@ classdef Tracker < handle;
     maxAssignmentCost =1;
     maxClassificationProb =0;
     meanClassificationProb =0;
+    meanClassificationProbOther =0;
 
     avgTimeScale = [];
     
@@ -437,7 +438,7 @@ classdef Tracker < handle;
 
       % run benchmark
       fish.helper.verbose('Starting run test.');
-      ft = fish.Tracker(pathToVideo,'avgVelocity',5,args{:});
+      ft = fish.Tracker(pathToVideo,'avgVelocity',5,'blob.colorfeature',false,args{:});
       ft.setDisplay(max(plotif-1,0));
       ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
 
@@ -1258,7 +1259,7 @@ classdef Tracker < handle;
       
       %we here also check whether some unaccounted switching occurred (maybe outside of
       %a crossing)
-      if length(same)>1 && ~all(same) 
+      if length(same)>1 && ~all(same) && self.enoughEvidenceForAllFishSwitch(prob,steps,probdiag)
         % we have some mixed classes 
 
         % might be some NaNs...
@@ -1278,7 +1279,7 @@ classdef Tracker < handle;
           end
           idx = ncidx{i};
           if all(ismember(nc{i},fishIds)) ...
-              && (self.enoughEvidenceForAllFishSwitch(prob(idx),steps(idx),probdiag(idx)))
+              && (self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx)))
 
             % only permute if true permutation and enough evidence
             fish.helper.verbose('Switching fish with fishClassifierUpdate [%1.2f,%d]',min(prob(idx)),min(steps(idx)))
@@ -1419,14 +1420,15 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForAllFishSwitch(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) 
+      if any(isnan(probdiag)) || self.meanClassificationProb-self.meanClassificationProbOther<self.opts.classifier.minOtherProbDiff
         bool = false;
       else
         p = max(prob-probdiag,0);
-        bool = sum(p)/max(sum(p>0),1)>...
-               self.opts.classifier.allSwitchProbThres*self.maxClassificationProb ...
-               && min(steps)>=self.minBatchN;
-
+        n = sum(p>0);
+        bool = n > 1 ...
+               && sum(p)/n> self.opts.classifier.allSwitchProbThres*self.maxClassificationProb ...
+               && min(steps)>=self.minBatchN...
+               &&  min(steps) >= self.nFramesAfterCrossing;
         if bool
           fish.helper.verbose('Enough evidence: %1.2f',sum(prob-probdiag));
         end
@@ -1456,8 +1458,9 @@ classdef Tracker < handle;
       elseif length(prob)==1 %&& self.nfish>self.MAXCROSSFISH
         bool = true; % single update;
       else
-        bool = min(steps) >= self.nFramesAfterCrossing;
-        bool = bool && max(prob)<=self.opts.classifier.forcedUpdateProbThres*self.maxClassificationProb;
+        bool1 = min(steps) >= self.nFramesAfterCrossing;
+        bool = bool1 && max(prob)<=self.opts.classifier.forcedUpdateProbThres*self.maxClassificationProb;
+        bool = bool || (bool1 && self.meanClassificationProb-self.meanClassificationProbOther<self.opts.classifier.minOtherProbDiff);
       end
     end
     
@@ -2126,6 +2129,7 @@ classdef Tracker < handle;
       trackopts = self.opts.tracks;
       maxClass = 0;
       meanClass = 0;
+      meanClassOther = 0;
       imeanClass = 0;
       
       for i = 1:numAssignedTracks
@@ -2220,7 +2224,11 @@ classdef Tracker < handle;
           self.tracks(trackIdx).clpMovAvg =  tmp  + (w/self.clpMovAvgTau) * classprob;
 
           maxClass = max(maxClass,max(classprob));
+          
           meanClass = meanClass + classprob(self.tracks(trackIdx).fishId);
+          cl = classprob;
+          cl(self.tracks(trackIdx).fishId) = 0;
+          meanClassOther = meanClassOther + max(cl);
           imeanClass = imeanClass+1;
         end
         self.tracks(trackIdx).classProbW = w;
@@ -2275,6 +2283,7 @@ classdef Tracker < handle;
         mt = min(self.opts.tracks.costtau*self.avgTimeScale,self.currentFrame-self.nFramesForInit);
         self.maxClassificationProb = self.maxClassificationProb*(mt-1)/mt + 1/mt*maxClass;
         self.meanClassificationProb = self.meanClassificationProb*(mt-1)/mt + 1/mt*meanClass/imeanClass;
+        self.meanClassificationProbOther = self.meanClassificationProbOther*(mt-1)/mt + 1/mt*meanClassOther/imeanClass;
       end
       
       
@@ -2822,7 +2831,7 @@ classdef Tracker < handle;
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
       
-      def.opts.detector.adjustThresScale = 1;   
+      def.opts.detector.adjustThresScale = 0.95;   
       doc.detector.adjustThresScale = {'0.8..1.2 : change thres when detections too noisy (useKNN=0)',''};
 
 
@@ -2835,7 +2844,7 @@ classdef Tracker < handle;
       
       %% blob anaylser
 
-      def.opts.blob(1).colorfeature = false; 
+      def.opts.blob(1).colorfeature = true; 
       doc.blob.colorfeature = {'Use color information for fish feature'};
 
       def.opts.blob.headprop = 0.6; 
@@ -2846,29 +2855,32 @@ classdef Tracker < handle;
       def.opts.classifier.npca = 40; 
       doc.classifier.npca = 'Number of PCA components';
 
-      def.opts.classifier.nlfd = -1; 
+      def.opts.classifier.nlfd = 10; 
       doc.classifier.nlfd = {'Number of LFD components. Set to 0 to turn off.',...
                           '-1 for auto setting.'};
 
       def.opts.classifier.tau = 5000; 
       doc.classifier.tau = {'Slow time constant of classifier [nFrames].'};
 
-      def.opts.classifier.reassignProbThres = 0.1; %0.2%0.45
+      def.opts.classifier.reassignProbThres = 0.2; %0.2%0.45
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
       def.opts.classifier.allSwitchProbThres = 0.6; %0.2%0.45
       doc.classifier.allSwitchProbThres = {['minimal diff probability for ' ...
                           'all fish reassignments']};
 
-      def.opts.classifier.forcedUpdateProbThres = 0.6; %0.45
+      def.opts.classifier.forcedUpdateProbThres = 0.4; %0.45
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
-      
+      def.opts.classifier.minOtherProbDiff = 0.3;
+      doc.classifier.minOtherProbDiff = {'minimal runingavg class diff probability',...
+                          'to use all fish switches and updates'};
+
       def.opts.classifier.handledProbThresScale = 0.5;
       doc.classifier.handledProbThresScale = {'mean class probability SCALE for crossing exits'};
 
 
-      def.opts.classifier.crossCostThresScale = 1.5; 
+      def.opts.classifier.crossCostThresScale = 2; 
       doc.classifier.crossCostThresScale = {'candidates for crossings: scales mean assignment cost',''};
 
 

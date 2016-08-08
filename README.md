@@ -1,8 +1,8 @@
-# fish.Tracker
-Online tracking of fish in real time. 
+# xy.Tracker (小鱼跟踪)
+Online tracking of groups of small animals in a planar environment in real time. 
 
 
-FishTracker is a modular Matlab platform form fast tracking of fish for group learning experiments. 
+xyTracker is a modular Matlab platform form fast tracking of fish for group learning experiments. 
 It tracks fish in real time and performs a online classification of the fish identity to ensure that fish identity 
 is not lost for long tracking experiments. 
 

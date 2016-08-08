@@ -1,11 +1,11 @@
-# xy.Tracker (小鱼跟踪)
+# xy.Tracker
 Online tracking of groups of small animals in a planar environment in real time. 
 
 
 xyTracker is a modular Matlab platform for real-time tracking of
 animals for group learning experiments in planar environments. 
 It tracks animals in real time and performs an online classification of the animal identity to ensure that animal identity 
-is not lost for long tracking experiments. 
+is not lost for long tracking experiments. The name "xy" derives from Chinese "XiaoYu" (小鱼).
 
 ##Installation
 

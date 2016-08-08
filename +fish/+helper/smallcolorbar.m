@@ -8,10 +8,15 @@ function hc = smallcolorbar(ax,varargin);
   end
   axes(ax);
   hc = colorbar;
+  set(hc,'units','normalized');
   p2 = get(ax,'position');
   p1 = get(hc,'position');
-  p1(1) = p1(1)-0.02;
+  
+  p1(1) = p2(1) + p2(3) + p2(3)*0.05;
+  p1(2) = p2(2);
+  p1(4) = p2(4);
   p1(3) = p1(3)*0.5;
+  
   set(hc,'position',p1);
   set(ax,'position',p2);
 

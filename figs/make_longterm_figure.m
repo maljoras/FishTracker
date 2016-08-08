@@ -7,6 +7,8 @@ if LOAD
   %reader = fish.core.FishVideoReader(ft.videoFile);
 
   ft = fish.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nfish',3,'fishlength',120,'fishwidth',30);
+  ft.setDisplay(0);
+  ft.track();
 end
 
 
@@ -57,7 +59,7 @@ if PLOT
   posy(inv) = NaN;
   d12 = sqrt((posx(:,1) - posx(:,2)).^2 + (posy(:,1) - posy(:,2)).^2);
   d13 = sqrt((posx(:,1) - posx(:,3)).^2 + (posy(:,1) - posy(:,3)).^2);
-  d23 = sqrt((posx(:,2) - posx(:,3)).^2 + (posy(:,2) - posy(:, 3)).^2);
+  d23 = sqrt((posx(:,2) - posx(:,3)).^2 + (posy(:,2) - posy(:,3)).^2);
 
   vel1 = abs(diff(posx)) + abs(diff(posy));
   msk =([vel1;zeros(1,3)]>50) | ([zeros(1,3);vel1]>50);

@@ -136,7 +136,8 @@ classdef Tracker < handle;
           end
         end
 
-        opts.stmif = 0; % set to zero
+        opts.stmif = 0; % set to zero;
+        opts.tracks.initBackground = 0;
         if iscell(S.videoFile)
           fish.helper.verbose('Realtime-stimulus experiment. Load grabbed video file.')
           S.videoFile = S.videoFile{2};
@@ -167,6 +168,9 @@ classdef Tracker < handle;
         end
       else
         obj = S;
+      end
+      if isa(obj.stimulusPresenter,'fish.stimulus.Presenter');
+        obj.stimulusPresenter.closeProgressBar();
       end
     end
   

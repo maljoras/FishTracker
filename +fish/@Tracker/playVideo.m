@@ -91,7 +91,6 @@ function playVideo(self,timerange,writefile)
     stmInfo = res_swb.tracks.stmInfo;
   end
   
-
   
   while videoReader.hasFrame() && s<length(tidx) && isOpen(self.videoPlayer)
     uframe = videoReader.readFrameFormat('RGBU');

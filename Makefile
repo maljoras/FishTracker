@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 # ============================================================================
-#                              FishTrackerMakefile
+#                              xyTrackerMakefile
 # ============================================================================
 #
 # The following configuration parameters are recognized:
@@ -79,11 +79,11 @@ ifeq ($(MEXEXT),)
 endif
 
 #aux dirs
-HELPERDIR = +fish/+helper
-CAPTUREDIR = +fish/+core/@FishVideoCapture/private
-HANDLERDIR = +fish/+core/@FishVideoHandlerMex/private
-BTRACEDIR = +fish/+core/@FishDAGraph/private
-GTTDIR = +fish/@Tracker/private
+HELPERDIR = +xy/+helper
+CAPTUREDIR = +xy/+core/@VideoCapture/private
+HANDLERDIR = +xy/+core/@VideoHandlerMex/private
+BTRACEDIR = +xy/+core/@DAGraph/private
+GTTDIR = +xy/@Tracker/private
 
 # savevideo
 ifneq ($(FLYCAPFLAG),)
@@ -121,12 +121,12 @@ MUNKRESTARGET = $(TARGETDIR)/$(HELPERDIR)/assignDetectionsToTracks.$(MEXEXT)
 ifneq ($(ALLTARGET),helper)
   # mexopencv files and targets
   HEADERS    := $(wildcard $(INCLUDEDIR)/*.hpp) 
-  SRCS1      := $(SRCDIR)/FishVideoCapture_.cpp
-  TARGETS1   := $(TARGETDIR)/$(CAPTUREDIR)/FishVideoCapture_.$(MEXEXT) 
+  SRCS1      := $(SRCDIR)/xyVideoCapture_.cpp
+  TARGETS1   := $(TARGETDIR)/$(CAPTUREDIR)/xyVideoCapture_.$(MEXEXT) 
   SRCS2      := $(SRCDIR)/VideoHandler.cpp
   OBJECTS    := $(TARGETDIR)/$(HANDLERDIR)/VideoHandler.$(OBJEXT) 
-  SRCS3      := $(SRCDIR)/FishVideoHandler_.cpp 
-  TARGETS2   := $(TARGETDIR)/$(HANDLERDIR)/FishVideoHandler_.$(MEXEXT)
+  SRCS3      := $(SRCDIR)/xyVideoHandler_.cpp 
+  TARGETS2   := $(TARGETDIR)/$(HANDLERDIR)/xyVideoHandler_.$(MEXEXT)
 
   # OpenCV flags
   ifneq ($(shell pkg-config --exists --atleast-version=3 opencv; echo $$?), 0)

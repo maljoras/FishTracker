@@ -1,4 +1,4 @@
-classdef FishVideoHandlerMatlab < handle & xy.core.FishVideoReaderMatlab & xy.core.FishBlobAnalysisMatlab
+classdef VideoHandlerMatlab < handle & xy.core.VideoReaderMatlab & xy.core.BlobAnalysisMatlab
 %FISHVIDEOHANDER  wrapper class
 %
 % Class for video reading of the xy.Tracker
@@ -26,19 +26,19 @@ classdef FishVideoHandlerMatlab < handle & xy.core.FishVideoReaderMatlab & xy.co
 
   methods
     
-    function self = FishVideoHandlerMatlab(vidname,timerange,useKnn,opts)
-    %VIDEOCAPTURE  Create a new FishVideoHandler object
+    function self = VideoHandlerMatlab(vidname,timerange,useKnn,opts)
+    %VIDEOCAPTURE  Create a new VideoHandler object
     %
       if useKnn
         error('knn method not supported in Matlab');
       end
       
-      self@xy.core.FishBlobAnalysisMatlab(opts); 
-      self@xy.core.FishVideoReaderMatlab(vidname,timerange);  %%% SOMEHOW
+      self@xy.core.BlobAnalysisMatlab(opts); 
+      self@xy.core.VideoReaderMatlab(vidname,timerange);  %%% SOMEHOW
                                                   %%% MATALB READER
                                                   %%% DOES
                                                   %%% NOT WORK ?!?
-      self.detector = xy.core.FishForegroundDetectorMatlab();  
+      self.detector = xy.core.ForegroundDetectorMatlab();  
 
       if exist('opts','var')
         self.setOpts(opts);
@@ -93,7 +93,7 @@ classdef FishVideoHandlerMatlab < handle & xy.core.FishVideoReaderMatlab & xy.co
     end
 
     function frame = getCurrentFrame(self);
-      frame = getCurrentFrame@xy.core.FishVideoReaderMatlab(self);
+      frame = getCurrentFrame@xy.core.VideoReaderMatlab(self);
       if self.resizeif
         frame = imresize(frame,self.resizescale);
       end

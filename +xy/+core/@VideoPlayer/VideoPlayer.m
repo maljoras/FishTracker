@@ -1,4 +1,4 @@
-classdef FishVideoPlayer < handle;
+classdef VideoPlayer < handle;
   
   
   
@@ -13,7 +13,7 @@ classdef FishVideoPlayer < handle;
   methods
   
     
-    function self = FishVideoPlayer() 
+    function self = VideoPlayer() 
     % constructor
       self = self@handle();
       

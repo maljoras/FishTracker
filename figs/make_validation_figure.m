@@ -8,16 +8,16 @@ if LOAD
   idres.pos = permute(id.trajectories,[1,3,2]);
 
   vid = '/home/malte/Videos/5Zebrafish_nocover_22min.avi';  
-  ft = xy.Tracker(vid,'detector.adjustThresScale',1,'nanimals',5,'detector.fixedSize',150);
+  xyT = xy.Tracker(vid,'detector.adjustThresScale',1,'nbody',5,'detector.fixedSize',150);
 
-  ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
-  ft.setDisplay('switchFish',1,'tracks',1);
-  ft.setDisplay(0);
+  xyT.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
+  xyT.setDisplay('switchIdentity',1,'tracks',1);
+  xyT.setDisplay(0);
   
   tic;
-  ft.track();
+  xyT.track();
   toc
-  %ft.getPosFromDag();
+  %xyT.getPosFromDag();
 end
 
 
@@ -30,30 +30,30 @@ if PLOT
   s = 0;
   a = [];
   
-  nanimals = ft.nanimals;
-  ftres = ft.getTrackingResults();
-  ftresnan = ftres;
-  ftresnan.pos = ft.deleteInvisible(ftres,'pos');
+  nbody = xyT.nbody;
+  xyTres = xyT.getTrackingResults();
+  xyTresnan = xyTres;
+  xyTresnan.pos = xyT.deleteInvisible(xyTres,'pos');
   
-  dist = zeros(nanimals);
+  dist = zeros(nbody);
 
-  for i = 1:nanimals
-    for j = 1:nanimals
-      dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,i) - idres.pos(1:end-1,:,j)).^2,2)));
+  for i = 1:nbody
+    for j = 1:nbody
+      dist(i,j) = nanmean(sqrt(sum((xyTres.pos(:,:,i) - idres.pos(1:end-1,:,j)).^2,2)));
     end
   end
   assignments = assignDetectionsToTracks(dist,1e3);
 
-  ftpos = ftres.pos(:,:, assignments(assignments(:,1),2));
-  ftposnan = ftresnan.pos(:,:, assignments(assignments(:,1),2));
+  xyTpos = xyTres.pos(:,:, assignments(assignments(:,1),2));
+  xyTposnan = xyTresnan.pos(:,:, assignments(assignments(:,1),2));
   idpos = idres.pos(1:end-1,:,:);
  
   %distances
   s = s+1;
   a(end+1) = subplot(r1,r2,s,'align');
   
-  t = ftres.t(:,1);
-  d = sqrt(sum((ftpos(:,:,:) - idpos(:,:,:)).^2,2))/ft.fishlength;
+  t = xyTres.t(:,1);
+  d = sqrt(sum((xyTpos(:,:,:) - idpos(:,:,:)).^2,2))/xyT.bodylength;
   
   MAXDISTANCE = 0;
   if MAXDISTANCE
@@ -79,9 +79,9 @@ if PLOT
   s = s+1;
   a(end+1) = subplot(r1,r2,s,'align');
   nconv = 75;
-  ftnan = conv(sum(isnan(ftposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
+  xyTnan = conv(sum(isnan(xyTposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
   idnan = conv(sum(isnan(idpos(:,1,:)),3),ones(nconv,1)/nconv,'same');
-  plot(t,[ftnan,idnan]*100/ft.nanimals);
+  plot(t,[xyTnan,idnan]*100/xyT.nbody);
   xlim(t([1,end]))
   set(a(s),'fontsize',8);
 
@@ -96,7 +96,7 @@ if PLOT
   a(end+1) = subplot(r1,r2,s,'align');
   
 
-  cross = diff(ftres.tracks.lastFrameOfCrossing-ftres.tracks.firstFrameOfCrossing)>0;
+  cross = diff(xyTres.tracks.lastFrameOfCrossing-xyTres.tracks.firstFrameOfCrossing)>0;
   ccross = conv2(sum(double(cross),2),ones(nconv,1)/nconv,'same');
   plot(t(1:end-1),ccross,'k')
   set(a(s),'fontsize',8);
@@ -108,7 +108,7 @@ if PLOT
   % probability
   s = s+1;
   a(end+1) = subplot(r1,r2,s,'align');
-  clp = ftres.tracks.classProb;
+  clp = xyTres.tracks.classProb;
   dclp = zeros(size(clp,1),size(clp,2));
   mclp = zeros(size(clp,1),size(clp,2));
   for i =1:size(clp,2)

@@ -1,5 +1,5 @@
 function plot(self,varargin)
-% FISHTRACKER/PLOT([PLOTTIMERANGE],[IDENTITYIDS]) plots an overview of
+% IDENTITYTRACKER/PLOT([PLOTTIMERANGE],[IDENTITYIDS]) plots an overview of
 % the tracking results
 
   clf;

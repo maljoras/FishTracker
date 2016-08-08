@@ -40,7 +40,7 @@ classdef PresenterFlash < xy.stimulus.Presenter;
     
     
     function stmInfo = stepStimulus(self,x,y,t,identityIds)
-    % this function will be called from xy.Tracker after each round
+    % this function will be called from xy.Tracker axyTer each round
     
       self.borderFlash(x,y);
 

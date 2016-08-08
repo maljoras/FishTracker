@@ -12,7 +12,7 @@ function varargout = plotVelocityMap(self,plotTimeRange,identityIds,minmaxvel)
   end
 
   if ~exist('identityIds','var') || isempty(identityIds)
-    identityIds = 1:self.nanimals;
+    identityIds = 1:self.nbody;
   end
 
   if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
@@ -24,8 +24,8 @@ function varargout = plotVelocityMap(self,plotTimeRange,identityIds,minmaxvel)
   t = res.t(:,1);
 
   pos = self.interpolateInvisible(res,'pos',3);
-  velocity = [zeros(1,2,self.nanimals);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
-  avelocity = squeeze(sqrt(sum(velocity.^2,2)))/self.fishlength;
+  velocity = [zeros(1,2,self.nbody);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
+  avelocity = squeeze(sqrt(sum(velocity.^2,2)))/self.bodylength;
   avelocity = avelocity(:,identityIds);
 
   if ~exist('minmaxvel','var')

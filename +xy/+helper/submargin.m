@@ -2,12 +2,12 @@ function a2 = submargin(a1,varargin);
 %  A1 = SUBMARGIN(A,X,Y,...) plots a second plot below the actual plot
 %  and reduces the size of the first axis. 
 
-  location = 1; %or 0 for left;
+  location = 1; %or 0 for lexyT;
   SPACE = 0.20; % in percent of the original plot
   MARGIN = 0.05; %margin between plots
   
   PERCENT = 1;
-  SWAP = 0;  % whether to swap left right, or bottom, top
+  SWAP = 0;  % whether to swap lexyT right, or bottom, top
   
   args = varargin;
   for i = length(args)-1:-2:1

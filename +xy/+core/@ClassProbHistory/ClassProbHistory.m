@@ -1,4 +1,4 @@
-classdef FishClassProbHistory < handle;
+classdef ClassProbHistory < handle;
   
   
   
@@ -22,7 +22,7 @@ classdef FishClassProbHistory < handle;
    methods(Static);
     function obj = loadobj(S);
       if isstruct(S)
-        obj = xy.core.FishClassProbHistory(size(S.buffer,2));
+        obj = xy.core.ClassProbHistory(size(S.buffer,2));
         for f = fieldnames(S)'
           if isprop(obj,f{1}) 
             obj.(f{1}) = S.(f{1});
@@ -38,7 +38,7 @@ classdef FishClassProbHistory < handle;
   
   methods
     
-    function self = FishClassProbHistory(nanimals, varargin) 
+    function self = ClassProbHistory(nbody, varargin) 
     % constructor
       self = self@handle();
 
@@ -54,7 +54,7 @@ classdef FishClassProbHistory < handle;
         end
       end
 
-      self.buffer = nan(self.nHistory,nanimals);
+      self.buffer = nan(self.nHistory,nbody);
       self.weightbuffer = nan(self.nHistory,1);
       self.currentIdx = 0;
       self.age = 0;

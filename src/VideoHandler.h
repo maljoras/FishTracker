@@ -39,8 +39,8 @@ public:
     cv::Mat FilledImageFixedSizeRotated;
     cv::Mat RotImage;
     cv::Mat RotFilledImage;
-    cv::Mat FishFeature;
-    cv::Mat FishFeatureRemap;
+    cv::Mat IdentityFeature;
+    cv::Mat IdentityFeatureRemap;
     cv::Mat CenterLine;    
     Scalar mback;
     
@@ -174,7 +174,7 @@ public:
 private:
     
     void getSegment(Segment * segm, vector<cv::Point>inContour, cv::Mat inBwImg, cv::Mat inFrame,cv::Mat inOFrame);
-    void findFishContours(cv::Mat inBwImg, vector<vector<cv::Point> > * newcontours);
+    void findBodyContours(cv::Mat inBwImg, vector<vector<cv::Point> > * newcontours);
     void plotFrame(cv::Mat pFrame,const string windowName);
     bool testValid(Segment * pSeg);
     void initPars();

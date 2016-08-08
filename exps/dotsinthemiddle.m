@@ -4,12 +4,12 @@ COMPUTE =0
 PLOT =1;
 
 
-if LOAD && ~exist('ft','var')
+if LOAD && ~exist('xyT','var')
   videoFile = '/data/videos/onlinelearning/dotsInTheMiddle2_4fish.avi';
   opts = [];
   opts.detector.inverted = 1;
   
-  opts.nanimals = 4;
+  opts.nbody = 4;
 
   opts.stmif = 1;
   opts.display.videoHandler = true;
@@ -17,18 +17,18 @@ if LOAD && ~exist('ft','var')
   opts.stimulus.presenter = 'xy.stimulus.PresenterOnlineLearningCue';
   opts.detector.adjustThresScale = 1.05;
   
-  opts.fishwidth = 25;
-  opts.fishlength =  90;
+  opts.bodywidth = 25;
+  opts.bodylength =  90;
   
   
-  ft = xy.Tracker({0,videoFile},opts);
+  xyT = xy.Tracker({0,videoFile},opts);
 end
 
 
 if COMPUTE
 
   if ~exist('sbbox','var')
-    %sbbox = ft.calibrateStimulusScreen();
+    %sbbox = xyT.calibrateStimulusScreen();
     sbbox = [88,63,1584,1247];
   end
   opts = [];
@@ -42,14 +42,14 @@ if COMPUTE
   ostm.screenBoundingBox = sbbox;  
   ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(ft.nanimals);
+  ostm.stmCol= parula(xyT.nbody);
   ostm.stmLambda= 0.0;
   
-  ostm.stmSize = ones(ft.nanimals,1)*ft.fishlength.*(1+rand(ft.nanimals,1));  
+  ostm.stmSize = ones(xyT.nbody,1)*xyT.bodylength.*(1+rand(xyT.nbody,1));  
 
-  ostm.stmType = 'fishtextures';
+  ostm.stmType = 'bodytextures';
   ostm.stmSizeFactor = 1.2;
-  ostm.stmShift = ft.fishlength; % in px of xy.tracker frame
+  ostm.stmShift = xyT.bodylength; % in px of xy.tracker frame
   ostm.stmShiftOri = 0;
   ostm.stmVelThres = 2;
   ostm.stmBorderThres = 0.075;
@@ -76,12 +76,12 @@ if COMPUTE
 
   opts.stimulus = ostm;
   
-  ft.setOpts(opts);
+  xyT.setOpts(opts);
 
-  %ft.setDisplay(0);  
-  ft.setDisplay('tracks',false);  
-  ft.track();
-  ft.save();
+  %xyT.setDisplay(0);  
+  xyT.setDisplay('tracks',false);  
+  xyT.track();
+  xyT.save();
 
   
 
@@ -92,16 +92,16 @@ end
 
 if PLOT
   dagresults = 1;
-  ft.setDefaultResultType(dagresults);
-  res = ft.getTrackingResults();
+  xyT.setDefaultResultType(dagresults);
+  res = xyT.getTrackingResults();
   
   info = res.tracks.stmInfo;
-  stmmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS_LR;
-  nonmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS_RL;
+  stmmsk = info(:,1,1)==xyT.stimulusPresenter.ID_STIMULUS_LR;
+  nonmsk = info(:,1,1)==xyT.stimulusPresenter.ID_STIMULUS_RL;
 
 
-  pos = ft.deleteInvisible(res,'pos');;
-  velocity = ft.deleteInvisible(res,'velocity');
+  pos = xyT.deleteInvisible(res,'pos');;
+  velocity = xyT.deleteInvisible(res,'velocity');
   vel = sqrt(res.tracks.velocity(:,:,1).^2+res.tracks.velocity(:,:,2).^2);
   
   mpos1 = squeeze(nanmean(pos(stmmsk,:,:),1));
@@ -129,7 +129,7 @@ if PLOT
   
   figure;
   a = subplot(2,1,1);
-  vel = ft.deleteInvisible(res,'velocity');
+  vel = xyT.deleteInvisible(res,'velocity');
   vabs = sqrt(res.tracks.velocity(:,:,1).^2 + res.tracks.velocity(:,:,2).^2);
   vabs(vabs>100) = NaN;
   

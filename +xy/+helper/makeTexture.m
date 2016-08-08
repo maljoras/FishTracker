@@ -309,12 +309,12 @@ function texture = makeTexture(typestr,dim,varargin)
       texture = randn(dim);
       %imagesc(texture);
       
-      F = fft2(texture);
+      F = fxyT2(texture);
 
       F = F.*pow;
     
       %F(z) = 0;
-      tex{i} = abs(ifft2(F)).^2;
+      tex{i} = abs(ifxyT2(F)).^2;
     end
     
     texture = tex{1}-tex{2}; % difference texture

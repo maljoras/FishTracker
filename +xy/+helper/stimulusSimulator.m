@@ -8,8 +8,8 @@ function stimulusSimulator(stmObj,varargin)
   def.opts.screen = 0;
   def.opts.windowSize = [600,400]; % PsychToolb : x,y
   def.opts.windowOrigin = [0,0];
-  def.opts.nanimals = 3;
-  def.opts.fishSize = 20;
+  def.opts.nbody = 3;
+  def.opts.bodySize = 20;
   def.opts.velocity = 1;
   def.opts.frameSize = [800,1000]; % Matlab: y,x
   def.opts.timeFactor = 1;
@@ -50,18 +50,18 @@ function stimulusSimulator(stmObj,varargin)
 
   % make fake tracks
   nt = floor(opts.tmax/opts.dt/opts.timeFactor);
-  trace = subMakeTrace(nt,opts.nanimals,opts.velocity*opts.dt*opts.timeFactor);
+  trace = subMakeTrace(nt,opts.nbody,opts.velocity*opts.dt*opts.timeFactor);
 
 
-  cmap = jet(opts.nanimals);
+  cmap = jet(opts.nbody);
   localTimeReference = tic;
-  fl = opts.fishSize;
+  fl = opts.bodySize;
   for iframe = 1:nt
 
     % make fake tracks
     tdelay = tic;
     tracks = [];
-    for i = 1:opts.nanimals
+    for i = 1:opts.nbody
       tracks(i).centroid = trace(iframe,:,i).*opts.frameSize([2,1]);
       tracks(i).location = tracks(i).centroid;
       tracks(i).bbox = [tracks(i).centroid-[fl,fl]/2,fl,fl];
@@ -80,9 +80,9 @@ function stimulusSimulator(stmObj,varargin)
     lt = localTime*opts.timeFactor;
     tracks = stmObj.step(tracks,opts.frameSize,lt);
   
-    % plot fishys
-    for i = 1:opts.nanimals
-      stmObj.plotDot(trace(iframe,1,i),trace(iframe,2,i),opts.fishSize,cmap(i,:))
+    % plot identityys
+    for i = 1:opts.nbody
+      stmObj.plotDot(trace(iframe,1,i),trace(iframe,2,i),opts.bodySize,cmap(i,:))
     end
     stmObj.flip(true);    
     
@@ -101,10 +101,10 @@ function stimulusSimulator(stmObj,varargin)
 end
 
 
-function trace = subMakeTrace(nt,nanimals,cutoff);
+function trace = subMakeTrace(nt,nbody,cutoff);
 
   [Hb,Ha] = butter(4,cutoff,'low');
-  rpath = filtfilt(Hb,Ha,exp(1i*4*pi*(rand(nt,2,nanimals)-0.5)));
+  rpath = filtfilt(Hb,Ha,exp(1i*4*pi*(rand(nt,2,nbody)-0.5)));
   trace = angle(rpath)/pi/2 + 0.5;
   
   

@@ -2,11 +2,11 @@
 LOAD = 1
 COMPUTE =0
 
-if LOAD || ~exist('ft','var')
+if LOAD || ~exist('xyT','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
-  opts.nanimals = 3;
+  opts.nbody = 3;
   opts.stmif = 1;
 
   opts.stimulus.screen = 1;
@@ -27,32 +27,32 @@ if LOAD || ~exist('ft','var')
 
   opts.stimulus.nRoundsPerGroup = 4; % switch betweem left & right stimulation
   opts.stimulus.nPauseStmGroupsPerExp = 2;  %   
-  opts.stimulus.nanimalsStimPerExps = [1,5,3,4,5];
+  opts.stimulus.nbodyStimPerExps = [1,5,3,4,5];
 
   
-  %opts.fishwidth = 30;
-  %opts.fishlength = 150;
+  %opts.bodywidth = 30;
+  %opts.bodylength = 150;
 
 
-  ft = xy.Tracker({0,videoFile},opts);
+  xyT = xy.Tracker({0,videoFile},opts);
 end
 
 
 if COMPUTE
-  %xy.helper.stimulusSimulator('xy.stimulus.PresenterPlaneIndiv','nanimals',5,'stimulus',opts.stimulus,'timeFactor',3)
+  %xy.helper.stimulusSimulator('xy.stimulus.PresenterPlaneIndiv','nbody',5,'stimulus',opts.stimulus,'timeFactor',3)
 
   
   
   if ~exist('sbbox','var')
-    %sbbox = ft.calibrateStimulusScreen();
+    %sbbox = xyT.calibrateStimulusScreen();
     sbbox = [150,53,1580,1256];
   end
-  ft.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100);
-  ft.setDisplay(0);  
+  xyT.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100);
+  xyT.setDisplay(0);  
 
   
-  ft.track();
-  ft.save();
+  xyT.track();
+  xyT.save();
 
   
 

@@ -3,7 +3,7 @@ function plotCenterLine(self,plotTimeRange,identityIds)
 %   with center line information. 
   
   if ~exist('identityIds','var') || isempty(identityIds)
-    identityIds = 1:self.nanimals;
+    identityIds = 1:self.nbody;
   end
 
   if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
@@ -31,7 +31,7 @@ function plotCenterLine(self,plotTimeRange,identityIds)
 
   
   clf;
-  cmap = jet(self.nanimals);
+  cmap = jet(self.nbody);
   szFrame = self.videoHandler.frameSize;
 
   lapthres = 1;

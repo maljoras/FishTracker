@@ -1,10 +1,10 @@
-classdef FishBatchClassifier < handle;
-% Classifies the Fish 
+classdef BatchClassifier < handle;
+% Classifies the  
 
   properties 
     npca = 15;
     nlfd = 0;
-    nanimals = 2;
+    nbody = 2;
     minBatchN = 50; % minimal number of features for updateing the batch
     noveltyThres = 0.10;
     regularizer = 1e-10;
@@ -32,7 +32,7 @@ classdef FishBatchClassifier < handle;
     function obj = loadobj(S);
       if isstruct(S)
 
-        obj = xy.core.FishBatchClassifier(S.nanimals,S.featdim);
+        obj = xy.core.BatchClassifier(S.nbody,S.featdim);
         for f = fieldnames(S)'
           if isprop(obj,f{1}) 
             obj.(f{1}) = S.(f{1});
@@ -55,7 +55,7 @@ classdef FishBatchClassifier < handle;
     % CAUTION: also computes the pca from it....
 
       
-      if ~iscell(batchsample) || length(batchsample)~=self.nanimals || ...
+      if ~iscell(batchsample) || length(batchsample)~=self.nbody || ...
             all(cellfun('isempty',batchsample))
         xy.helper.verbose('WARNING: provide a batch for each fish!');
         keyboard
@@ -72,14 +72,14 @@ classdef FishBatchClassifier < handle;
       end
       
       
-      xy.helper.verbose('Initialize FishBatchClassifier...');
+      xy.helper.verbose('Initialize BatchClassifier...');
       
       if self.npca>0 || self.nlfd>0
         Z = cat(1,batchsample{:});
         % do some weak oulyier detection
-        [pc,a] = xy.helper.emclustering(Z,self.nanimals+2);
+        [pc,a] = xy.helper.emclustering(Z,self.nbody+2);
         [~,cl] = max(pc,[],2);
-        idx = find(a<self.noveltyThres/self.nanimals);
+        idx = find(a<self.noveltyThres/self.nbody);
         goodidx = ~ismember(cl,idx);
         
         cl = cellfun(@(x,k)k*ones(size(x,1),1),batchsample,num2cell(1:length(batchsample)),'uni',0);
@@ -102,11 +102,11 @@ classdef FishBatchClassifier < handle;
 
       % initialize 
       self.d = d;
-      self.n = zeros(self.nanimals,1);
-      self.mu = zeros(self.nanimals,d);
-      self.Sigma = repmat(eye(d),[1,1,self.nanimals]);
-      self.invSigma = repmat(eye(d),[1,1,self.nanimals]); % dummy
-      self.norm = ones(self.nanimals,1);
+      self.n = zeros(self.nbody,1);
+      self.mu = zeros(self.nbody,d);
+      self.Sigma = repmat(eye(d),[1,1,self.nbody]);
+      self.invSigma = repmat(eye(d),[1,1,self.nbody]); % dummy
+      self.norm = ones(self.nbody,1);
       
       % convert the batchsample
       l = cellfun('isempty',batchsample);
@@ -114,7 +114,7 @@ classdef FishBatchClassifier < handle;
 
       % initial setting
       s = 0;
-      for i = 1:self.nanimals
+      for i = 1:self.nbody
         if ~l(i)
           s = s+1;
           assert(d==size(X{s},2));
@@ -132,9 +132,9 @@ classdef FishBatchClassifier < handle;
     function [classprob] = predictWithoutPreProcessing(self,X)
 
       b = size(X,1);
-      classprob = zeros(b,self.nanimals);
+      classprob = zeros(b,self.nbody);
 
-      for j = 1:self.nanimals
+      for j = 1:self.nbody
         if self.n(j)
           xm = bsxfun(@minus,X,self.mu(j,:));
           xms = xm*self.invSigma(:,:,j);
@@ -182,7 +182,7 @@ classdef FishBatchClassifier < handle;
       self.initialize(batchsample)
     end
     
-    function self = FishBatchClassifier(nanimals,dim,varargin) % constructor
+    function self = BatchClassifier(nbody,dim,varargin) % constructor
       
       self = self@handle();
 
@@ -198,7 +198,7 @@ classdef FishBatchClassifier < handle;
         end
       end
       
-      self.nanimals = nanimals;
+      self.nbody = nbody;
       self.featdim = dim;
     end
     
@@ -256,7 +256,7 @@ classdef FishBatchClassifier < handle;
       prob = nan(size(fishidx));
       l = cellfun(@(x)(size(x,1)),batchsample);
       if ~self.isInit() % not yet initialized
-        if  all(l>=minBatchN) && length(unique(fishidx))==self.nanimals
+        if  all(l>=minBatchN) && length(unique(fishidx))==self.nbody
           self.initialize(batchsample);
           assignedIdentityIdx = fishidx;
         end
@@ -330,7 +330,7 @@ classdef FishBatchClassifier < handle;
       end
       
       
-      cost = zeros(self.nanimals,self.nanimals);
+      cost = zeros(self.nbody,self.nbody);
       s = 0;
       validclasses = true(size(assumedClassIdx));
       for i = assumedClassIdx
@@ -383,9 +383,9 @@ classdef FishBatchClassifier < handle;
 
     function mu = getMeans(self);
     % returns the means of the classes in "readable" format
-      mu = zeros([self.nanimals,self.featdim]);
+      mu = zeros([self.nbody,self.featdim]);
 
-      for i = 1:self.nanimals
+      for i = 1:self.nbody
         if self.nlfd
           x = self.lfdpc*self.mu(i,:)';
         else
@@ -413,10 +413,10 @@ classdef FishBatchClassifier < handle;
       end
       
       clf;
-      [r1,r2] = xy.helper.getsubplotnumber(self.nanimals+(self.nanimals>1));
+      [r1,r2] = xy.helper.getsubplotnumber(self.nbody+(self.nbody>1));
       mu = self.getMeans();
       
-      for i = 1:self.nanimals
+      for i = 1:self.nbody
         a = subplot(r1,r2,i,'align');
       
         imagesc(squeeze(mu(i,:,:)));
@@ -428,7 +428,7 @@ classdef FishBatchClassifier < handle;
       end
 
       % difference of the last 2 fish
-      if self.nanimals>1
+      if self.nbody>1
         a = subplot(r1,r2,i+1,'align'); 
         z = squeeze(mu(end-1,:,:) - mu(end,:,:));
         imagesc(z);

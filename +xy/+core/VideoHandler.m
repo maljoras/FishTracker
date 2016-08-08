@@ -1,4 +1,4 @@
-classdef FishVideoHandler < handle & xy.core.FishVideoReader & xy.core.FishBlobAnalysis
+classdef VideoHandler < handle & xy.core.VideoReader & xy.core.BlobAnalysis
 %FISHVIDEOHANDER  wrapper class
 %
 % Class for video reading of the xy.Tracker
@@ -26,8 +26,8 @@ classdef FishVideoHandler < handle & xy.core.FishVideoReader & xy.core.FishBlobA
 
   methods
     
-    function self = FishVideoHandler(vidname,timerange,knnMethod,opts)
-    %VIDEOCAPTURE  Create a new FishVideoHandler object
+    function self = VideoHandler(vidname,timerange,knnMethod,opts)
+    %VIDEOCAPTURE  Create a new VideoHandler object
     %
       if iscell(vidname)
         error('Capture not supported');
@@ -35,17 +35,17 @@ classdef FishVideoHandler < handle & xy.core.FishVideoReader & xy.core.FishBlobA
                               % open cv
       end
 
-      self@xy.core.FishBlobAnalysis(opts); 
-      self@xy.core.FishVideoReader(vidname,timerange); 
+      self@xy.core.BlobAnalysis(opts); 
+      self@xy.core.VideoReader(vidname,timerange); 
 
       if exist('knnMethod','var') && ~isempty(knnMethod)
         self.knnMethod = knnMethod;
       end
 
       if self.knnMethod
-        self.detector = xy.core.FishForegroundDetector();  
+        self.detector = xy.core.ForegroundDetector();  
       else
-        self.detector = xy.core.FishForegroundDetectorMatlabCV();  
+        self.detector = xy.core.ForegroundDetectorMatlabCV();  
       end
 
       if self.knnMethod 
@@ -69,7 +69,7 @@ classdef FishVideoHandler < handle & xy.core.FishVideoReader & xy.core.FishBlobA
     end
     
     function frame = getCurrentFrame(self);
-      frame = getCurrentFrame@xy.core.FishVideoReader(self);
+      frame = getCurrentFrame@xy.core.VideoReader(self);
       if self.resizeif
         frame = cv.resize(frame,self.resizescale);
       end
@@ -179,7 +179,7 @@ classdef FishVideoHandler < handle & xy.core.FishVideoReader & xy.core.FishBlobA
   methods(Access=protected)
     
     function frameSize= a_getFrameSize(self);
-      frameSize = a_getFrameSize@xy.core.FishVideoReader(self);
+      frameSize = a_getFrameSize@xy.core.VideoReader(self);
       if self.resizeif
         frameSize = round(self.resizescale*frameSize);
       end

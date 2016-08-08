@@ -1,4 +1,4 @@
-classdef FishDAGraph < handle;
+classdef DAGraph < handle;
 % FISHDAGRAPH is a class for implementing the Directed Acyclic
 % Graph based MHT tracking approach. It looks for the shorted path
 % from the beginning of a crossing to the end, where identities are
@@ -6,7 +6,7 @@ classdef FishDAGraph < handle;
 % distances) on the way and finds the shortest and likeliest
 % (according to the classprobs of individual fish). 
 %
-% update is fast and linear in N = ndet*nhyp*nanimals. per time step. 
+% update is fast and linear in N = ndet*nhyp*nbody. per time step. 
 % Backtracing to find the tracks needs a single through the past
 % time steps for each xy. 
 %
@@ -20,7 +20,7 @@ classdef FishDAGraph < handle;
     nhyp = [];
     dim = 2;
     probScale = 0.5; % 1 means 50/50 weighting of classprob with distance
-                   % if points a fishLength apart
+                   % if points a bodylength apart
     useClassProbNoise = false; % weights class prob with estimated noise
     saveDagIif = 0;
   end
@@ -35,7 +35,7 @@ classdef FishDAGraph < handle;
   
   
   properties (SetAccess=private,GetAccess=private)
-    nanimals = [];
+    nbody = [];
     frameCounter = 0;
     dagPos = [];
     dagIdx = [];
@@ -79,25 +79,25 @@ classdef FishDAGraph < handle;
       background = 0.1;
       foreground = 0.12;
 
-      nanimals = self.nanimals;
+      nbody = self.nbody;
       nobj = self.nhyp;
       assert(self.dim==2,'Test only available for dim==2');
       
       cutoff = velocity*dt;
       [Hb,Ha] = butter(4,cutoff,'low');
-      trace = filtfilt(Hb,Ha,randn(nt,2,nanimals));
+      trace = filtfilt(Hb,Ha,randn(nt,2,nbody));
       trace = trace/std(trace(:));
 
       % noisy observations of the tracks
       otrace = trace + randn(size(trace))*sig;
       
       % add some noise detections
-      if nanimals<nobj
-        nadd = nobj-nanimals; 
+      if nbody<nobj
+        nadd = nobj-nbody; 
         pos =randn(nt,self.dim,nadd);
         
         otrace = cat(3,otrace, pos);
-        for i = nanimals+1:nobj
+        for i = nbody+1:nobj
           ridx = find(rand(nt,1)>pfalsealarm);
           otrace(ridx,:,i) = NaN;
         end
@@ -111,9 +111,9 @@ classdef FishDAGraph < handle;
       end
       
 
-      br = background*rand(nt,nanimals,nobj);
+      br = background*rand(nt,nbody,nobj);
       classprob = br;
-      for i = 1:nanimals
+      for i = 1:nbody
         classprob(:,i,i) = classprob(:,i,i) + foreground*rand(nt,1,1);
       end
       for j = 1:nobj
@@ -123,7 +123,7 @@ classdef FishDAGraph < handle;
 
       % distance for tracking
       dsig = sig;
-      col = parula(nanimals+1);
+      col = parula(nbody+1);
       sym = 'xos<>^vp';
       
       % permute the positions (obj index is random)
@@ -134,14 +134,14 @@ classdef FishDAGraph < handle;
                     repmat(ridx,[1,dim,1]));
       rotrace = otrace(idx);
       
-      idx = sub2ind(size(classprob),repmat((1:nt)',[1,nanimals,nobj]),...
-                    repmat(1:nanimals,[nt,1,nobj]),...
-                    repmat(ridx,[1,nanimals,1]));
+      idx = sub2ind(size(classprob),repmat((1:nt)',[1,nbody,nobj]),...
+                    repmat(1:nbody,[nt,1,nobj]),...
+                    repmat(ridx,[1,nbody,1]));
       rclassprob = classprob(idx);
       
 
       clf;
-      for i = 1:nanimals
+      for i = 1:nbody
         plot(squeeze(trace(:,1,i)),squeeze(trace(:,2,i)),'color',col(i,:));
         hold on;
       end
@@ -182,7 +182,7 @@ classdef FishDAGraph < handle;
       end
       
       self.checkOverlap();
-      self.plotTraces(1:self.nanimals,1:self.nanimals);
+      self.plotTraces(1:self.nbody,1:self.nbody);
 
     end
 
@@ -208,7 +208,7 @@ classdef FishDAGraph < handle;
     % NOTE: if ifish and ihyp have the same length ifish(i),
     % ihyp(i) is plotted instead
 
-      col = parula(self.nanimals+1);
+      col = parula(self.nbody+1);
       sym = 'xos<>^vp';
       
       if nargin<4
@@ -238,18 +238,18 @@ classdef FishDAGraph < handle;
       if nargin<2 || isempty(objidx)
         [rtrace,objidx] = self.backtrace();
       end
-      objidx = reshape(objidx,[],self.nanimals,self.nhyp);
+      objidx = reshape(objidx,[],self.nbody,self.nhyp);
 
       if nargin<3
         verbosity = 2;
       end
       
       % check for potential overlaps
-      n = self.nanimals;
+      n = self.nbody;
       eqmsk = zeros([size(objidx,1),n*(n-1)/2]);
       s = 0;allL = [];
-      for i = 1:self.nanimals
-        for j = i+1:self.nanimals
+      for i = 1:self.nbody
+        for j = i+1:self.nbody
           s = s+1;
           eqmsk(:,s) = (objidx(:,i,i) == objidx(:,j,j));
           if sum(eqmsk(:,s))>1
@@ -305,7 +305,7 @@ classdef FishDAGraph < handle;
       end
       
       if nargin<2 ||  isempty(ifish) 
-        [ifish,mobj] = ndgrid(1:self.nanimals,1:self.nhyp);
+        [ifish,mobj] = ndgrid(1:self.nbody,1:self.nhyp);
         ifish = ifish(:)';
         mobj = mobj(:)';
       end
@@ -351,20 +351,20 @@ classdef FishDAGraph < handle;
     function reset(self,initPos,tframe);
       % init pos has to be in fishID order...
       
-      self.dagI = self.startPenalty*ones(self.nanimals,self.nhyp);
-      self.dagI(find(eye(self.nanimals))) = 0;
+      self.dagI = self.startPenalty*ones(self.nbody,self.nhyp);
+      self.dagI(find(eye(self.nbody))) = 0;
       
-      self.dagIdx = nan(self.nanimals,self.nhyp,self.memoryBlock);
+      self.dagIdx = nan(self.nbody,self.nhyp,self.memoryBlock);
       self.dagPos = nan(self.dim,self.nhyp,self.memoryBlock);
 
       if self.saveDagIif
-        self.dagIsave = nan(self.nanimals,self.nhyp,self.memoryBlock);
+        self.dagIsave = nan(self.nbody,self.nhyp,self.memoryBlock);
         self.dagIsave(:,:,1) = self.dagI;
       end
       
       self.frameCounter = 1; % next step if 2
 
-      for i = 1:self.nanimals
+      for i = 1:self.nbody
         self.dagIdx(i,:,1) = i;
       end
 
@@ -379,7 +379,7 @@ classdef FishDAGraph < handle;
     end
   
     
-    function updateFromTracks(self,tracks,fishLength)
+    function updateFromTracks(self,tracks,bodylength)
     % UPDATEFROMTRACKS(SELF,TRACKS) as UPDATE but takes position
     % information directly from tracks strcuture. Length of tracks
     % should be equal to the number of hypothesis. Expects position
@@ -404,7 +404,7 @@ classdef FishDAGraph < handle;
         cl = bsxfun(@times,cl,w);
       end
       
-      dist = xy.helper.pdist2Euclidean(self.dagPos(:,:,self.frameCounter)',pos')/fishLength;
+      dist = xy.helper.pdist2Euclidean(self.dagPos(:,:,self.frameCounter)',pos')/bodylength;
 
       self.updateWCost(dist,cl,pos);
     
@@ -417,7 +417,7 @@ classdef FishDAGraph < handle;
     % Directed Acyclic Graph minimal path problem in an online manner
     % (Nodes are in topological order) based on distance and class
     % probs. DETECTIONS are the positions/features of the detections
-    % in format NDIM x NDETECT. CLASSPROB is NANIMALS x NDETECT
+    % in format NDIM x NDETECT. CLASSPROB is NBODY x NDETECT
 
         
       dist = xy.helper.pdist2Euclidean(self.dagPos(:,:,self.frameCounter)',detections');
@@ -440,7 +440,7 @@ classdef FishDAGraph < handle;
     % computes the Directed Acyclic Graph minimal path problem in
     % an online manner (Nodes are in topological order). SFCOST is
     % cost matrix of size NHYP x NDETECT
-    % DETECTIONS shoue be NDIM x NDETECT. CLASSPROB is NANIMALS x
+    % DETECTIONS shoue be NDIM x NDETECT. CLASSPROB is NBODY x
     % NDETECT 
       
       ndetect = size(sfcost,2);
@@ -453,7 +453,7 @@ classdef FishDAGraph < handle;
       elseif ndetect<self.nhyp
         dist = costOfNonAssignment*ones(self.nhyp,self.nhyp);
         dist(:,1:ndetect) = sfcost;
-        cl = zeros(self.nanimals,self.nhyp);
+        cl = zeros(self.nbody,self.nhyp);
         if ~isempty(classProb)
           cl(:,1:ndetect) = classProb;
         end
@@ -483,7 +483,7 @@ classdef FishDAGraph < handle;
       self.frameCounter = self.frameCounter + 1;
 
       if size(self.dagIdx,3)<self.frameCounter
-        self.dagIdx = cat(3,self.dagIdx,nan(self.nanimals,self.nhyp,self.memoryBlock));
+        self.dagIdx = cat(3,self.dagIdx,nan(self.nbody,self.nhyp,self.memoryBlock));
         
         self.dagPos = cat(3,self.dagPos,nan(2,self.nhyp,self.memoryBlock));        
 
@@ -491,7 +491,7 @@ classdef FishDAGraph < handle;
         self.dagI = self.dagI - min(self.dagI(:));
 
         if self.saveDagIif
-          self.dagIsave = cat(3,self.dagIsave,nan(self.nanimals,self.nhyp,self.memoryBlock));          
+          self.dagIsave = cat(3,self.dagIsave,nan(self.nbody,self.nhyp,self.memoryBlock));          
         end
       
       end
@@ -513,10 +513,10 @@ classdef FishDAGraph < handle;
       end
     end
     
-    function self = FishDAGraph(nanimals,nhyp,opts)
-    % self = FishDAGraph(nanimals,nhyp)
+    function self = DAGraph(nbody,nhyp,opts)
+    % self = DAGraph(nbody,nhyp)
       self.nhyp = nhyp;
-      self.nanimals = nanimals;
+      self.nbody = nbody;
       
       if nargin>2
         self.setOpts(opts);

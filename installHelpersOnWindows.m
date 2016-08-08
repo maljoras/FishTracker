@@ -18,7 +18,7 @@ targets = {};
 HELPER = '..\+fish\+helper\';
 
 fnames{end+1} = 'backtrace_.c';
-targets{end+1} = '..\+fish\+core\@FishDAGraph\private\';
+targets{end+1} = '..\+fish\+core\@DAGraph\private\';
 
 fnames{end+1} = 'getCurrentTracks_.c';
 targets{end+1} = '..\+fish\@Tracker\private\';

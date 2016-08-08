@@ -1,9 +1,9 @@
-function [combinedFT varargout] = trackParallel(self,inTimeRange, ...
+function [combinedXYT varargout] = trackParallel(self,inTimeRange, ...
                                                 tOverlap,minDurationPerWorker)
-  %  FTNEW = FT.TRACKPARALLEL() will track the results in parallel and creates a
-  %  new FT object with tracks combined
+  %  XYTNEW = XYT.TRACKPARALLEL() will track the results in parallel and creates a
+  %  new XYT object with tracks combined
   % 
-  %  FT.TRACKPARALLEL(..,TOVERLAP,MINDURATIONPERWORKER) sepecifies the overlap
+  %  XYT.TRACKPARALLEL(..,TOVERLAP,MINDURATIONPERWORKER) sepecifies the overlap
   %  between workers in seconds and the minmal video time per worker in
   %  seconds
   % 
@@ -36,7 +36,7 @@ function [combinedFT varargout] = trackParallel(self,inTimeRange, ...
   if totalDuration<2*tOverlap || totalDuration < 2*(minDurationPerWorker-tOverlap)
     % just on a single computer;
     self.track();
-    combinedFT = self; % SHOULD IMPLEMENT COPY OBJECT HERE !!!
+    combinedXYT = self; % SHOULD IMPLEMENT COPY OBJECT HERE !!!
     varargout{1} = [];
     return
   end
@@ -61,16 +61,16 @@ function [combinedFT varargout] = trackParallel(self,inTimeRange, ...
   % CAUTION THIS YIELDS A REFERENCE COPY ONLY !!! HOWEVER, RUNNING THIS WITH PARFOR LOOP WILL CHANGE
   % EACH HANDLE TO A VALUE BASED OBJECT ON EACH WORKER SO WE DO NOT NEED A FORMAL COPY METHOD. SEEMS TO
   % BE A HACK IN MATLAB.
-  FTs = repmat(self,[1,nRanges]);
+  XYTs = repmat(self,[1,nRanges]);
   res = {};
   parfor i = 1:nRanges
-    ft = FTs(i);
-    ft.setupSystemObjects(ft.videoFile); % redo the videoHandler;
-    ft.displayif = 0;
-    ft.track(timeRanges(i,:));
-    res{i} = ft;
+    xyT = XYTs(i);
+    xyT.setupSystemObjects(xyT.videoFile); % redo the videoHandler;
+    xyT.displayif = 0;
+    xyT.track(timeRanges(i,:));
+    res{i} = xyT;
   end
-  combinedFT = combine(res{:});
+  combinedXYT = combine(res{:});
   if nargout>1
     varargout{1} = res;
   end

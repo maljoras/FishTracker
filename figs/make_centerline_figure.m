@@ -5,23 +5,23 @@ PLOTCENTERLINE = 0;
 PLOTIDENTITY = 1;
 SAVEIF = 1
 
-if LOAD || ~exist('ft1','var')
+if LOAD || ~exist('xyT1','var')
   v =  '/home/malte/Videos/5Zebrafish_nocover_22min.avi';
-  ft1 = xy.Tracker(v,'nanimals',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
+  xyT1 = xy.Tracker(v,'nbody',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
                     'detector.adjustThresScale',1); 
 
-  ft1.track([0,20]);
-  tracks = ft1.savedTracksFull;
+  xyT1.track([0,20]);
+  tracks = xyT1.savedTracksFull;
 end
 
 
 if PLOTCENTERLINE
-  tracks = ft1.savedTracksFull;
+  tracks = xyT1.savedTracksFull;
   
   idx = 180;
   id = 1;
   T = tracks(idx,id);
-  l = ft1.opts.detector.fixedSize;
+  l = xyT1.opts.detector.fixedSize;
   bbox = double(T.bbox);
   rbbox = bbox;
   rbbox(1:2) = bbox(1:2) - T.segment.Centroid + l/2 +1;
@@ -158,14 +158,14 @@ end
 
 if PLOTIDENTITY
   clf;
-  tracks = ft1.savedTracksFull;
+  tracks = xyT1.savedTracksFull;
   nf = 5;
   ni = 7;
   istart = 504;
   a = [];
   r1 = 2;
   r2 = 2;
-  l = ft1.opts.detector.fixedSize;
+  l = xyT1.opts.detector.fixedSize;
   
   a(1) = subplot(r1,r2,1,'align');
   s =0;
@@ -236,7 +236,7 @@ if PLOTIDENTITY
       hold on
       
       % feature box
-      fsz = size(seg.FishFeature);
+      fsz = size(seg.IdentityFeature);
       fbox = [rsz(1) - floor(w(2)/2) - fsz(1) ,rsz(2)/2 - fsz(2)/2+1,fsz];
       fbox([1,3]) = fbox([1,3])./rsz(1);
       fbox([2,4]) = fbox([2,4])./rsz(2);
@@ -255,7 +255,7 @@ if PLOTIDENTITY
     for j = 1:nf
       seg = tracks(i,j).segment;
       
-      img = seg.FishFeature;
+      img = seg.IdentityFeature;
       sz = size(img);
       b = 2;
       rimg = cv.copyMakeBorder(img,0,0,floor((sz(1)-sz(2))/2),ceil((sz(1)-sz(2))/2),...
@@ -277,7 +277,7 @@ if PLOTIDENTITY
     axis xy;
     daspect([1,1,1])
     if ~mod(i-1,r2)
-      ylabel('Fish [#]');
+      ylabel('Identity [#]');
     end
     if i>r1*(r2-1)
       xlabel('Frame [#]');

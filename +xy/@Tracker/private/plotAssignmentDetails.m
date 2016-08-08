@@ -18,19 +18,19 @@ function plotAssignmentDetails(self)
 
   if self.displayif && self.opts.display.assignmentCost
     figure(6);
-    subplot(self.nanimals+2,1,1);
+    subplot(self.nbody+2,1,1);
     hold on;   
     plot(self.currentFrame,self.meanAssignmentCost','xk');
     title('Assignment costs');
     
-    subplot(self.nanimals+2,1,2);
+    subplot(self.nbody+2,1,2);
     hold on;
     set(gca,'colororderindex',1);
     plot(self.currentFrame,self.meanCost','x');
     title('mean cost');
     
     
-    plotcost = nan(self.nanimals,size(fcost,3));
+    plotcost = nan(self.nbody,size(fcost,3));
     ssfcost = bsxfun(@times,fcost,shiftdim(scale(:),-2));
     for i = 1:size(self.assignments,1)
       plotcost(self.assignments(i,1),:) = ssfcost(self.assignments(i,1),self.assignments(i,2),:);
@@ -40,7 +40,7 @@ function plotAssignmentDetails(self)
     
     col = 'rgbykmc';
     for i = 1:size(plotcost,1)
-      subplot(self.nanimals+2,1,2+i);
+      subplot(self.nbody+2,1,2+i);
       hold on;
       for j = 1:size(plotcost,2)
         h(j) = plot(self.currentFrame,plotcost(i,j),['x',col(j)]);

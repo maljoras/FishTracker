@@ -2,7 +2,7 @@ function playVideo(self,timerange,writefile)
 % PLAYVIDEO(SELF,TIMERANGE,WRITEFILE) plays (and saves) a video together with the tracking
 % results. Rectanble annotation is based in the SWITCH-based tracking results, filled
 % color is based in the DAG results. Small dots at the bottom show the current fram
-% probability of being a particular fish identity (based in the classifier).
+% probability of being a particular animal identity (based in the classifier).
   
   res_dag = self.getDagTrackingResults();
   res_swb = self.getSwitchBasedTrackingResults();
@@ -82,7 +82,7 @@ function playVideo(self,timerange,writefile)
   t_tracks = res_dag.tabs(:,1);
   tidx = find(t_tracks>=timerange(1) & t_tracks<timerange(2)); 
   t_tracks = t_tracks(tidx);
-  cols = uint8(255*jet(self.nanimals));
+  cols = uint8(255*jet(self.nbody));
   s = 0;
   
   plotstm = self.stmif && isfield(res_swb.tracks,'stmInfo') && isprop(self.stimulusPresenter,'IDX_BBOX');
@@ -138,7 +138,7 @@ function playVideo(self,timerange,writefile)
       if isprop(self.stimulusPresenter,'IDX_IDENTITYID')
         stmIdentityIds = squeeze(stmInfo(tidx(ind),:,self.stimulusPresenter.IDX_IDENTITYID));
       else
-        error('Cannot fined Stim Fish Id') 
+        error('Cannot fined Stim Body Id') 
         %stmIdentityIds = self.res.stmIdentityId(tidx(ind),:);
       end
       clabels = cols(stmIdentityIds(stmidx),:);
@@ -149,8 +149,8 @@ function playVideo(self,timerange,writefile)
     %%classprob
     clprob = shiftdim(res_swb.tracks.classProb(tidx(ind),:,:),1);
     clprob(isnan(clprob)) = 0;
-    dia = self.fishlength/max(self.nanimals,2);
-    for i_cl = 1:self.nanimals
+    dia = self.bodylength/max(self.nbody,2);
+    for i_cl = 1:self.nbody
       for j = 1:length(foundidx)
         if ~foundidx(j)
           continue;

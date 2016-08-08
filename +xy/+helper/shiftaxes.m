@@ -1,5 +1,5 @@
 function shiftaxes(handle,shift)
-% SHIFTAXES(HANDLE,SHIFT) shifts axes by SHIFT amount
+% SHIXYTAXES(HANDLE,SHIXYT) shifts axes by SHIXYT amount
 
   
   for i = 1:length(handle)

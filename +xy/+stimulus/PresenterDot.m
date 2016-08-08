@@ -2,7 +2,7 @@ classdef PresenterDot < xy.stimulus.Presenter;
   
   properties
     stmTime = 10; %time of stimulus (in seconds)
-    gapTime = 50; % time of gap after stim
+    gapTime = 50; % time of gap axyTer stim
     adaptationTime =300;%600; % time at the beginning (in seconds
     
     colBackground = [0,0,0]; % background color (RGB [0,0,0] for black)
@@ -50,7 +50,7 @@ classdef PresenterDot < xy.stimulus.Presenter;
    function [x,y] = plotStimulus(self,x,y,t,identityIds,lrswitch)
 
      if length(x) ~= length(self.stmState)
-       % should only happen once in the beginning. (nanimals is constant)
+       % should only happen once in the beginning. (nbody is constant)
        self.stmState = ones(size(x))';
      end
 

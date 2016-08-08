@@ -572,7 +572,7 @@ void VideoHandler::segmentThread()
 	
 	// finding contours
 	vector<vector<cv::Point> > contours;
-	findFishContours(m_BWImg,&contours);
+	findBodyContours(m_BWImg,&contours);
 	
 	
 	Debug(cout << "contours: " <<  timer.elapsed() << endl;
@@ -616,7 +616,7 @@ void VideoHandler::segmentThread()
 }
 
 /****************************************************************************************/
-void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * newcontours) {
+void VideoHandler::findBodyContours(Mat inBwImg, vector<vector<cv::Point> > * newcontours) {
 
   // finding contours
   vector<Vec4i> hierarchy;
@@ -881,13 +881,13 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     RotFilledMskImage.setTo(segm->mback,segm->RotImage==0);
 
     Point2f centerfish(szout.width - m_featureSize.width/2,szout.height/2);
-    getRectSubPix(RotFilledMskImage,m_featureSize,centerfish,segm->FishFeature,-1);
+    getRectSubPix(RotFilledMskImage,m_featureSize,centerfish,segm->IdentityFeature,-1);
 
     
     // get the output to matlab right
-    transpose(segm->FishFeature,segm->FishFeature);
-    flip(segm->FishFeature,segm->FishFeature,0);
-    segm->FishFeature.convertTo(segm->FishFeature,CV_32FC1);
+    transpose(segm->IdentityFeature,segm->IdentityFeature);
+    flip(segm->IdentityFeature,segm->IdentityFeature,0);
+    segm->IdentityFeature.convertTo(segm->IdentityFeature,CV_32FC1);
 
     // get bending stddev
     int cols = segm->RotFilledImage.cols;
@@ -984,18 +984,18 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
       //Point2f centerfish(szout.width - m_featureSize.width/2,szout.height/2);
       Mat ffr;
       getRectSubPix(fishfeature,m_featureSize,centerfish,ffr,-1);
-      segm->FishFeatureRemap = ffr.clone(); //copy
+      segm->IdentityFeatureRemap = ffr.clone(); //copy
       
       // get output right
-      transpose(segm->FishFeatureRemap,segm->FishFeatureRemap);
-      flip(segm->FishFeatureRemap,segm->FishFeatureRemap,0);
-      segm->FishFeatureRemap.convertTo(segm->FishFeatureRemap,CV_32FC1);
+      transpose(segm->IdentityFeatureRemap,segm->IdentityFeatureRemap);
+      flip(segm->IdentityFeatureRemap,segm->IdentityFeatureRemap,0);
+      segm->IdentityFeatureRemap.convertTo(segm->IdentityFeatureRemap,CV_32FC1);
 
     }
 #ifdef PLOTSEGMENTS
     if (segm->Size.height + segm->Size.width > 100 ){
       namedWindow("fish",WINDOW_AUTOSIZE);
-      imshow("fish",segm->FishFeature);
+      imshow("fish",segm->IdentityFeature);
 
 
       

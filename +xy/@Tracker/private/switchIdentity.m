@@ -1,7 +1,7 @@
 function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
 % changes the IdentityIds of the tracks. expects a premutations. updates all relevant identityId
 % dependet varibeles. Resets the data to avoid the learning of wrong features. Also
-% resets the uniqueFishFrame counter
+% resets the uniqueIdentityFrame counter
 %
 % if the crossing flag is set, the switching point is calculated based on the
 % distance within the last crossing. If not set, the switchingpoint is calculated
@@ -22,10 +22,10 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
   f2t = self.identityId2TrackId;
   orgpos = self.pos;
   self.resetBatchIdx(trackIndices); % reset for all
-  self.uniqueFishFrames = 0;
+  self.uniqueIdentityFrames = 0;
 
 
-  if self.opts.display.switchFish && self.displayif && self.opts.display.tracks;
+  if self.opts.display.switchIdentity && self.displayif && self.opts.display.tracks;
     self.displayCurrentTracks();
   end
   
@@ -104,7 +104,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
           tminfinal = tminfinaldist;
         end
       else 
-        % fishClassUpdate
+        % identityClassUpdate
         tminprob = subCalcClassProbBasedSwitchPoint();
         
         if tcurrent-tminprob> 2*self.nFramesAfterCrossing
@@ -141,7 +141,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
       self.pos(:,assignedIdentityIds,tcross) = p;
     end
 
-    if self.opts.display.switchFish && self.displayif
+    if self.opts.display.switchIdentity && self.displayif
       subPlotCrossings();
     end
 
@@ -261,13 +261,13 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
     % deletions happen. Need to save trackids in dag to handle this
     assert(~self.opts.tracks.withTrackDeletion)
     
-    % CAUTION: might involve other fish, so that f2t has not unique
+    % CAUTION: might involve other identity, so that f2t has not unique
     % tracks for aeach time frame anymore. 
     u = unique([unique(dagf2t(:))',assignedIdentityIds]);
-    Nanimals = accumarray(dagf2t(:),1,[self.nanimals,1]);
+    Nbody = accumarray(dagf2t(:),1,[self.nbody,1]);
     if length(u)>length(assignedIdentityIds)
       extra = setdiff(u,assignedIdentityIds);
-      if sum(Nanimals(extra))/sum(Nanimals)/length(assignedIdentityIds) > 0.1
+      if sum(Nbody(extra))/sum(Nbody)/length(assignedIdentityIds) > 0.1
         if self.verbosity>2
           xy.helper.verbose('CAUTION: More tracks involved in crossing !')
         end
@@ -276,7 +276,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
       end
     end
     
-    if min(Nanimals(assignedIdentityIds))<stepsback/2
+    if min(Nbody(assignedIdentityIds))<stepsback/2
       if self.verbosity>2
         xy.helper.verbose('CAUTION: Tracks seem to have heavy overlap in DAG !');
       end
@@ -410,7 +410,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
     
   
   function tminOut = subCalcDistanceBasedSwitchPoint()
-  % to be called from switchFish: calculated the end point based on the distance of
+  % to be called from switchIdentity: calculated the end point based on the distance of
   % the tracks. It is assumed that the given indices are only ONE permutation
 
 
@@ -441,7 +441,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
         if all(inter_msk)
           localpos(inter_msk,i_inter,:) = 0;
           if length(idxOldIdentityIds)==2
-            % cannot be distance based for two fish. just take start
+            % cannot be distance based for two identity. just take start
             tminOut =  tstart;
             return;
           end

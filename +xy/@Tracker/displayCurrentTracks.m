@@ -54,11 +54,11 @@ function varargout = displayCurrentTracks(self)
       
 
       labels = strcat(labels, isPredicted);
-      cols = jet(self.nanimals);
+      cols = jet(self.nbody);
       cols_grey = [0.5,0.5,0.5;cols];
       
       
-      if length(reliableTracks)==self.nanimals && self.isInitClassifier
+      if length(reliableTracks)==self.nbody && self.isInitClassifier
 
         ids = [reliableTracks(:).identityId];
 
@@ -77,7 +77,7 @@ function varargout = displayCurrentTracks(self)
       end
       
       center = cat(1, reliableTracks.location);
-      center = cat(2,center,max(self.fishlength/2,self.fishwidth)*ones(size(center,1),1));
+      center = cat(2,center,max(self.bodylength/2,self.bodywidth)*ones(size(center,1),1));
       
       crossedTrackIdStrs = arrayfun(@(x)num2str(sort(x.crossedTrackIds)), reliableTracks,'uni',0);
       [u,idxct,idxu] = unique(crossedTrackIdStrs);
@@ -122,7 +122,7 @@ function varargout = displayCurrentTracks(self)
       
       if self.opts.display.level>2
         %% insert more markers
-        if length(self.tracks)==self.nanimals
+        if length(self.tracks)==self.nbody
           howmany = 25;
           idx = max(self.currentFrame-howmany,1):self.currentFrame;
           trackpos = self.pos(:,:,idx);
@@ -130,7 +130,7 @@ function varargout = displayCurrentTracks(self)
           delidx = find(any(any(isnan(trackpos),1),2));
           trackpos(:,:,delidx) = [];
           f2t(delidx,:) = [];
-          cli = NaN(length(idx),self.nanimals);
+          cli = NaN(length(idx),self.nbody);
           if ~isempty(self.tracks(1).classProbHistory)
 
             for iii = 1:length(self.tracks)
@@ -149,7 +149,7 @@ function varargout = displayCurrentTracks(self)
           [~,f2i] = ismember(f2t,trackIds);
 
           if ~isempty(trackpos)
-            for ii = 1:self.nanimals
+            for ii = 1:self.nbody
               idx1 = f2i(:,ii)+1;
               inds = xy.helper.s2i(size(cli),[(1:size(cli,1))',idx1]);
               inds2 = cli(inds);

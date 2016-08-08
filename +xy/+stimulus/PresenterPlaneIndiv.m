@@ -2,9 +2,9 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
 
    
   properties
-    nRoundsPerGroup = 4; % switch betweem left & right stimulation
+    nRoundsPerGroup = 4; % switch betweem lexyT & right stimulation
     nPauseStmGroupsPerExp = 2;  %   
-    nanimalsStimPerExps = [1,5,3,4,5];
+    nbodyStimPerExps = [1,5,3,4,5];
     
   end
   
@@ -32,7 +32,7 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
     
     function bool = isFinished(self,t)
       iExp = self.getExpIdx(t);
-      bool = iExp>length(self.nanimalsStimPerExps);
+      bool = iExp>length(self.nbodyStimPerExps);
     end
     
     function iExp = getExpIdx(self,t);
@@ -51,19 +51,19 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
 
       iExp = self.getExpIdx(t);
       if iExp>0
-        nanimalsStm = self.nanimalsStimPerExps(min(iExp,end));
+        nbodyStm = self.nbodyStimPerExps(min(iExp,end));
       else
-        nanimalsStm = 0;
+        nbodyStm = 0;
       end
       
-      self.funLRStm = @(identityIds) identityIds<=nanimalsStm;
+      self.funLRStm = @(identityIds) identityIds<=nbodyStm;
       
       % let the super do the work
       stmInfo1= stepStimulus@xy.stimulus.PresenterOnlineLearningCue(self,x,y,t,identityIds);
       stmInfo  = cat(2,stmInfo1, zeros(length(identityIds),3));
       stmInfo(:,size(stmInfo1,2)+1) = self.iround;
       stmInfo(:,size(stmInfo1,2)+2) = iExp;
-      stmInfo(:,size(stmInfo1,2)+3) = nanimalsStm;
+      stmInfo(:,size(stmInfo1,2)+3) = nbodyStm;
     end
     
     

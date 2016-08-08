@@ -20,7 +20,7 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
     
     %% mean parmeters. Can be vector with elements for each identityId
     stmSizeFactor = 1; 
-    stmShift = 50; % in px of fishtracker frame
+    stmShift = 50; % in px of xy.tracker frame
     stmShiftOri = 0; % in RAD=0 means in front
 
     %% randomness. 
@@ -41,8 +41,8 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
     IDX_T = 5;
     IDX_STATE = 6;
     IDX_MSK = 7;
-    IDX_SHIFT =8;
-    IDX_SHIFTORI = 9;
+    IDX_SHIXYT =8;
+    IDX_SHIXYTORI = 9;
     IDX_SIZEFACTOR = 10;
     IDX_COL = 11:13;
     IDX_BBOX = 14:17;
@@ -124,7 +124,7 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
       beginning = 0; 
       dt = t - self.lastt;
       if length(sx) ~= length(self.stmState)
-        % should only happen once in the beginning. (nanimals is constant)
+        % should only happen once in the beginning. (nbody is constant)
         self.stmState = ones(size(x));
         self.nextStateChange = zeros(size(x));
         beginning = 1;
@@ -302,8 +302,8 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
 
       if self.stmIdx == self.ID_STIMULUS
         stmInfo(:,self.IDX_MSK) = stmmsk(identityIds);
-        stmInfo(:,self.IDX_SHIFT) = self.curStmShift(identityIds);
-        stmInfo(:,self.IDX_SHIFTORI) = self.curStmShiftOri(identityIds);
+        stmInfo(:,self.IDX_SHIXYT) = self.curStmShift(identityIds);
+        stmInfo(:,self.IDX_SHIXYTORI) = self.curStmShiftOri(identityIds);
         stmInfo(:,self.IDX_SIZEFACTOR) = self.curStmSizeFactor(identityIds);
         stmInfo(:,self.IDX_COL) = self.curStmCol(identityIds,:);
         stmInfo(:,self.IDX_STATE) = self.stmState(identityIds);

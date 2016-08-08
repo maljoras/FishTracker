@@ -4,16 +4,16 @@ LOAD = 0;
 PLOT = 1;
 SAVEIF = 0
 
-if LOAD || ~exist('ft1','var')
+if LOAD || ~exist('xyT1','var')
   v =  '/home/malte/Videos/5Zebrafish_nocover_22min.avi';
-  ft1 = xy.Tracker(v,'nanimals',5,'displayif',0,'detector.fixedSize',150,...
+  xyT1 = xy.Tracker(v,'nbody',5,'displayif',0,'detector.fixedSize',150,...
                      'tracks.keepFullTrackStruc',true,'dag.saveDagIif',1); 
 
-  ft1.track([0,10]);
+  xyT1.track([0,10]);
   
   clear reader;
   
-  reader = xy.core.FishVideoReader(v);
+  reader = xy.core.VideoReader(v);
   nframes = 200;
   bkgframe = 0;
   for i = 1:nframes
@@ -28,7 +28,7 @@ if PLOT
   a = [];
   
   lbox = 'on';
-  tracks = ft1.getSavedTracksFull();
+  tracks = xyT1.getSavedTracksFull();
   
   startframe = 205; % before  crossing
   endframe = 290; % within  crossing
@@ -48,8 +48,8 @@ if PLOT
   T = T1(:,crossedIds);
   msk = msk1(:,crossedIds);
   
-  t = ft1.res.t(startframe:endframe,1);
-  iframe =  t*ft1.videoHandler.frameRate + 1;
+  t = xyT1.res.t(startframe:endframe,1);
+  iframe =  t*xyT1.videoHandler.frameRate + 1;
   crossframe = find(msk(:,1),1,'first');
 
   igap = 11;
@@ -131,7 +131,7 @@ if PLOT
   xdag = squeeze(dagpos(:,1,:));
   ydag = squeeze(dagpos(:,2,:));
   
-  dagI=ft1.daGraph.getSavedDagI();
+  dagI=xyT1.daGraph.getSavedDagI();
     
   dagI = dagI(crossedIds,crossedIds,startframe-nclassinit+1:endframe-nclassinit+1);
     
@@ -169,7 +169,7 @@ if PLOT
     xlim(t([1,end]));
     set(a(end),'xticklabel',[],'fontsize',10);
     
-    title(sprintf('Fish #%d',iii),'color',colororder(iii,:),'fontsize',10,'vert','middle') ;
+    title(sprintf('Identity #%d',iii),'color',colororder(iii,:),'fontsize',10,'vert','middle') ;
    
   end
   set(a(end),'xticklabelmode','auto');
@@ -196,17 +196,17 @@ if PLOT
   prob = {};
   h = [];
   for i = 1:size(T,2)
-    feat{i} = T(end,i).batchFeatures(1:ft1.opts.classifier.nFramesAfterCrossing,:);
-    prob{i} = ft1.fishClassifier.predict(feat{i});
+    feat{i} = T(end,i).batchFeatures(1:xyT1.opts.classifier.nFramesAfterCrossing,:);
+    prob{i} = xyT1.identityClassifier.predict(feat{i});
     prob{i} = prob{i}(:,crossedIds);
-    pre{i} = ft1.fishClassifier.preprocess(feat{i});
+    pre{i} = xyT1.identityClassifier.preprocess(feat{i});
   end
   
   
   hold on;  
   comps = [1,2];
-  mu = ft1.fishClassifier.mu(crossedIds,comps);
-  sigma = ft1.fishClassifier.Sigma(comps,comps,crossedIds);
+  mu = xyT1.identityClassifier.mu(crossedIds,comps);
+  sigma = xyT1.identityClassifier.Sigma(comps,comps,crossedIds);
   set(a(end),'colororder',colororder)
   sym = 'xo><';
 

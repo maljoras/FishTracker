@@ -1,10 +1,10 @@
-function [FV,eVar,Proj,r] = lfd(Z,iidx,nanimals,npca,whiteif)
-% [FV,EVAR,PROJ,RSTRUC] = LFD(Z,IIDX,NANIMALS,NPCA) computes the LInear Fisher
-% Discrimant directions of Z (after initial PCA with NPCA components,)
+function [FV,eVar,Proj,r] = lfd(Z,iidx,nbody,npca,whiteif)
+% [FV,EVAR,PROJ,RSTRUC] = LFD(Z,IIDX,NBODY,NPCA) computes the LInear Fisher
+% Discrimant directions of Z (axyTer initial PCA with NPCA components,)
 % using generalized eigenvectors. IIDX is has a unique number for each
 % individual (like class labels). NPCA=0 shuts the PCA preprocessing
 % off.
-% LFD(..,WHITEIF) whites the data after PCA (default 0). 
+% LFD(..,WHITEIF) whites the data axyTer PCA (default 0). 
 
   
   %first do pca on Z
@@ -24,7 +24,7 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nanimals,npca,whiteif)
   r.retainedVar = sum(var(X))/r.totalVar;
 
   if exist('whiteif','var') && whiteif
-    % AFTER Pca
+    % AXYTER Pca
     X = whiten(X); % use function from matlab central; 
   end
     
@@ -87,7 +87,7 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nanimals,npca,whiteif)
   
   r.D = sd;
   r.V = V(:,sidx);
-  eVar = sd(1:nanimals);
+  eVar = sd(1:nbody);
   r.Sb = Sb;
   r.Sw = Sw;
   
@@ -105,6 +105,6 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nanimals,npca,whiteif)
   
   
   
-  Proj = bsxfun(@minus,X,mu)*r.V(:,1:nanimals);
-  FV = r.V(:,1:nanimals);
+  Proj = bsxfun(@minus,X,mu)*r.V(:,1:nbody);
+  FV = r.V(:,1:nbody);
   

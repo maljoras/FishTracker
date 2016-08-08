@@ -325,7 +325,7 @@ classdef Presenter < handle;
 
     function convertedbbox = fromScreenBbox(self,bbox)
     % converts the bounding box from PsychToolbox coordinates to
-    % fishtracker coordinates. Reverses TOSCREENBBOX
+    % xytracker coordinates. Reverses TOSCREENBBOX
 
       sbbox = self.screenBoundingBox(:)'; 
       nbbox = self.fromScreenRect(bbox);

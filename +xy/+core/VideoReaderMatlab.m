@@ -1,4 +1,4 @@
-classdef FishVideoReaderMatlab < xy.core.FishVideoReader;
+classdef VideoReaderMatlab < xy.core.VideoReader;
 % implements the reader using the matlab included video reader
   
   
@@ -112,14 +112,14 @@ classdef FishVideoReaderMatlab < xy.core.FishVideoReader;
   methods
     
  
-   function self = FishVideoReaderMatlab(vid,trange,varargin) 
+   function self = VideoReaderMatlab(vid,trange,varargin) 
      
      if nargin==1
        trange = [];
        varargin = {};
      end
        
-     self@xy.core.FishVideoReader(vid,varargin{:});
+     self@xy.core.VideoReader(vid,varargin{:});
 
 
       

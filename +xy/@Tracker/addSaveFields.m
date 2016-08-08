@@ -1,5 +1,5 @@
 function addSaveFields(self,varargin);
-%  FT.ADDSAVEFIELD('FIELDNAME1','FIELDNAME2',...) adds a tracks field to the saved structure
+%  XYT.ADDSAVEFIELD('FIELDNAME1','FIELDNAME2',...) adds a tracks field to the saved structure
 
   f = fieldnames(self.initializeTracks())'; 
   forbiddenFields = {'id','segment','classProbHistory','predictor',...

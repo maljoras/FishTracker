@@ -1,11 +1,11 @@
 function setDisplay(self,varargin)
-% FT.SETDISPLAY(VALUE) sets the amount of plotting during the tracking of the fish. Use 0
+% XYT.SETDISPLAY(VALUE) sets the amount of plotting during the tracking of the bodies. Use 0
 % for disabling all plotting. Additional, particular plots can be turned on (see
 % help of xy.Tracker).
 % Example:
-% >> ft.setDisplay(0); % turnoff plotting
-% >> ft.setDisplay(3); % turn on and set track plotting level to 3
-% >> ft.setDisplay('tracks',true); % turns on tracks display
+% >> xyT.setDisplay(0); % turnoff plotting
+% >> xyT.setDisplay(3); % turn on and set track plotting level to 3
+% >> xyT.setDisplay('tracks',true); % turns on tracks display
 
 
   if nargin==2
@@ -35,7 +35,7 @@ function setDisplay(self,varargin)
   else
     fprintf('\n');
     disp(fieldnames(self.opts.display));
-    error('Choose one of the above field names to set, E.g. ft.setDisplay(''tracks'',1)');
+    error('Choose one of the above field names to set, E.g. xyT.setDisplay(''tracks'',1)');
   end
   
   if ~isempty(self.videoHandler)
@@ -43,7 +43,7 @@ function setDisplay(self,varargin)
   end
   
   if ~self.displayif && nargin>2
-    xy.helper.verbose('WARNING: Displaying is turned off. Turn on with ft.setDisplay(1)')
+    xy.helper.verbose('WARNING: Displaying is turned off. Turn on with xyT.setDisplay(1)')
   end
 
 end

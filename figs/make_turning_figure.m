@@ -9,28 +9,28 @@ VELTRIGGERPLOT = 0;
 
 if LOAD 
  load ~/data/zebra/videos/textures/texturesinregionsF4-1-1.mat
- ft.getTrackingResults([],[],1); % force to generate new DAG
+ xyT.getTrackingResults([],[],1); % force to generate new DAG
 end
 
 
 if COMPUTE
 
-  timeRange = [ft.stimulusPresenter.adaptationTime, 10*3600];  
+  timeRange = [xyT.stimulusPresenter.adaptationTime, 10*3600];  
   dagif = 1;
   
-  b = ft.stimulusPresenter.borderWidth;
+  b = xyT.stimulusPresenter.borderWidth;
 
-  res = ft.getTrackingResults(timeRange,dagif);
-  turn = ft.getTurningStats(res);
+  res = xyT.getTrackingResults(timeRange,dagif);
+  turn = xyT.getTurningStats(res);
 
-  % we first have to match the current fishID to the stimFishID at the time of
+  % we first have to match the current fishID to the stimIdentityID at the time of
   % stimulus presentations
   stmInfo = res.tracks.stmInfo; % this is sorted accroding to gloval estimate
                                 % of fishIDs (might include some ID switches)
-  stmIdentityId = stmInfo(:,:,ft.stimulusPresenter.IDX_IDENTITYID);
+  stmIdentityId = stmInfo(:,:,xyT.stimulusPresenter.IDX_IDENTITYID);
 
-  pos = ft.interpolateInvisible(res,'pos',3);
-  velocity = [zeros(1,2,ft.nanimals);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
+  pos = xyT.interpolateInvisible(res,'pos',3);
+  velocity = [zeros(1,2,xyT.nbody);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
   avelocity = squeeze(sqrt(sum(velocity.^2,2)));
   maxvel = quantile(avelocity(:),0.99);
   dlmsk = avelocity>maxvel;
@@ -40,32 +40,32 @@ if COMPUTE
 
   % we need to raw data to reconstruct the velocity at stimulus
   % onset
-  rawres = ft.getRawTrackData();
+  rawres = xyT.getRawTrackData();
   
-  velfishid = sqrt(sum(ft.getResField(res,'velocity').^2,3));
-  trackid  = ft.getResField(res,'id');
+  velfishid = sqrt(sum(xyT.getResField(res,'velocity').^2,3));
+  trackid  = xyT.getResField(res,'id');
 
-  rawfishid  = rawres.stmInfo(:,:,ft.stimulusPresenter.IDX_IDENTITYID);
+  rawfishid  = rawres.stmInfo(:,:,xyT.stimulusPresenter.IDX_IDENTITYID);
   velfishraw = sqrt(sum(rawres.velocity.^2,3));
   
   % msk includes boundary off (same as ~isnan(bbox(1)))'
-  stmmsk = stmInfo(:,:,ft.stimulusPresenter.IDX_MSK); 
-  stmbbox = zeros([size(stmmsk),length(ft.stimulusPresenter.IDX_BBOX)]);
+  stmmsk = stmInfo(:,:,xyT.stimulusPresenter.IDX_MSK); 
+  stmbbox = zeros([size(stmmsk),length(xyT.stimulusPresenter.IDX_BBOX)]);
   for i = 1:size(stmInfo,2)
-    stmbbox(:,i,:) = ft.stimulusPresenter.fromScreenBbox( squeeze(stmInfo(:,i,ft.stimulusPresenter.IDX_BBOX))); 
+    stmbbox(:,i,:) = xyT.stimulusPresenter.fromScreenBbox( squeeze(stmInfo(:,i,xyT.stimulusPresenter.IDX_BBOX))); 
   end
   
   stmcenter = stmbbox(:,:,1:2) + stmbbox(:,:,3:4)/2;
-  stmxy = stmInfo(:,:,ft.stimulusPresenter.IDX_XY); 
+  stmxy = stmInfo(:,:,xyT.stimulusPresenter.IDX_XY); 
   stmdx = stmcenter - permute(pos,[1,3,2]);
 
-  stmsf = stmInfo(:,:,ft.stimulusPresenter.IDX_SIZEFACTOR);
-  stmshift = stmInfo(:,:,ft.stimulusPresenter.IDX_SHIFT);
-  stmshiftori = stmInfo(:,:,ft.stimulusPresenter.IDX_SHIFTORI);
+  stmsf = stmInfo(:,:,xyT.stimulusPresenter.IDX_SIZEFACTOR);
+  stmshift = stmInfo(:,:,xyT.stimulusPresenter.IDX_SHIFT);
+  stmshiftori = stmInfo(:,:,xyT.stimulusPresenter.IDX_SHIFTORI);
   theory_stmdx = cat(3,sin(stmshiftori).*stmshift,cos(stmshiftori).*stmshift);
 
   avelregion = []; 
-  xreg = ft.stimulusPresenter.xRegions;
+  xreg = xyT.stimulusPresenter.xRegions;
   for j = 1:length(xreg)
     msk = stmxy(:,:,1)>b & stmxy(:,:,1)<=xreg(j);
     tmp = avelocity;
@@ -76,15 +76,15 @@ if COMPUTE
   msk = stmxy(:,:,1)<1-b & stmxy(:,:,1)>xreg(end);
   tmp(msk) = NaN;
   avelregion(:,j+1) = nanmedian(tmp);
-  avelregion =  avelregion/ft.fishlength
+  avelregion =  avelregion/xyT.bodylength
   
-  stmstate = stmInfo(:,:,ft.stimulusPresenter.IDX_STATE); 
+  stmstate = stmInfo(:,:,xyT.stimulusPresenter.IDX_STATE); 
   tt  = 1:size(stmstate,1);
   msk = isnan(res.tabs);
   stmstate(msk,:) = interp1(tt(~msk),stmstate(~msk,:),tt(msk),'nearest');
   stmstate(isnan(stmstate)) = 0;
   
-  %sf = stmInfo(:,:,ft.stimulusPresenter.IDX_SIZEFACTOR);
+  %sf = stmInfo(:,:,xyT.stimulusPresenter.IDX_SIZEFACTOR);
   %stmstate = stmstate.*(sf>0); % stmmsk sets sf to zero
 
   % NOTE: some of the stmstates correspond to sf==0. These can be used for
@@ -129,7 +129,7 @@ if COMPUTE
     turn(i).stm.accummsk = accummsk;
 
     for f = {'IDX_SIZEFACTOR','IDX_SHIFTORI','IDX_SHIFT','IDX_XY','IDX_IDENTITYID'}
-      turn(i).stm.(lower(f{1}(5:end))) = stmInfo(stmtidx_start,i,ft.stimulusPresenter.(f{1}));
+      turn(i).stm.(lower(f{1}(5:end))) = stmInfo(stmtidx_start,i,xyT.stimulusPresenter.(f{1}));
     end
     turn(i).stm.acc_identityId = accumarray(accummsk,stmIdentityId(:,i)==i,[nstm+1,1],@nanmean);
     turn(i).stm.acc_len = accumarray(accummsk,1,[nstm+1,1],@sum);
@@ -184,19 +184,19 @@ if PLOT
   tend = res.t(istop);
 
   trange = [tstart tend];
-  rest = ft.getTrackingResults(trange,dagif);
-  centerLine = ft.getResField(rest,'centerLine',0);
+  rest = xyT.getTrackingResults(trange,dagif);
+  centerLine = xyT.getResField(rest,'centerLine',0);
   clx = permute(centerLine(:,:,1,:),[4,1,2,3]);
   cly = permute(centerLine(:,:,2,:),[4,1,2,3]);
   cic = rest.tracks.consecutiveInvisibleCount;
-  mclx = ft.interpolateInvisible(shiftdim(mean(clx,1),1),cic);
-  mcly =  ft.interpolateInvisible(shiftdim(mean(cly,1),1),cic);
-  turnt = ft.getTurningPoints(rest);
+  mclx = xyT.interpolateInvisible(shiftdim(mean(clx,1),1),cic);
+  mcly =  xyT.interpolateInvisible(shiftdim(mean(cly,1),1),cic);
+  turnt = xyT.getTurningPoints(rest);
 
 
   
-  col = jet(ft.nanimals);
-  for i = 1:ft.nanimals
+  col = jet(xyT.nbody);
+  for i = 1:xyT.nbody
     g  =[0.5,0.5,0.5];
     plot(clx(:,:,i),cly(:,:,i),'color',col(i,:)*0.8);
     hold on;
@@ -227,32 +227,32 @@ if PLOT
     end
   end
 
-  fs = ft.videoHandler.frameSize;
+  fs = xyT.videoHandler.frameSize;
   xlim([1,fs(2)])
   ylim([1,fs(1)]);
   
-  rectangle('position',ft.stimulusPresenter.screenBoundingBox,'edgecolor','r')
-  sbbox = ft.stimulusPresenter.screenBoundingBox;
+  rectangle('position',xyT.stimulusPresenter.screenBoundingBox,'edgecolor','r')
+  sbbox = xyT.stimulusPresenter.screenBoundingBox;
 
-  bw = ft.stimulusPresenter.borderWidth;
-  border = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([bw,bw,1-bw*2,1-bw*2]));
+  bw = xyT.stimulusPresenter.borderWidth;
+  border = xyT.stimulusPresenter.fromScreenBbox(xyT.stimulusPresenter.toScreenRect([bw,bw,1-bw*2,1-bw*2]));
   rectangle('position',border,'edgecolor','r','linestyle',':')
   
-  xreg = ft.stimulusPresenter.xRegions;
-  l1 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(1),bw,1-bw*2,1-bw*2]));
+  xreg = xyT.stimulusPresenter.xRegions;
+  l1 = xyT.stimulusPresenter.fromScreenBbox(xyT.stimulusPresenter.toScreenRect([xreg(1),bw,1-bw*2,1-bw*2]));
   plot([l1(1),l1(1)],[l1(2),l1(2)+l1(4)],'r--')
-  l2 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(2),bw,1-bw*2,1-bw*2]));
+  l2 = xyT.stimulusPresenter.fromScreenBbox(xyT.stimulusPresenter.toScreenRect([xreg(2),bw,1-bw*2,1-bw*2]));
   plot([l2(1),l2(1)],[l2(2),l2(2)+l2(4)],'r--')
   xlabel('X-position [px]')
   ylabel('Y-position [px]')
   
 
-  regscale = ft.stimulusPresenter.regSizeFactorScale;
+  regscale = xyT.stimulusPresenter.regSizeFactorScale;
   g = [];amount = 10000;
   for ii = 1:length(regscale)
-    gmu = ft.stimulusPresenter.stmSizeFactor*ones(amount,1)*regscale(ii);
-    gCV = ft.stimulusPresenter.stmSizeFactorCV;
-    g(:,ii) = ft.stimulusPresenter.grand(gmu,gCV);
+    gmu = xyT.stimulusPresenter.stmSizeFactor*ones(amount,1)*regscale(ii);
+    gCV = xyT.stimulusPresenter.stmSizeFactorCV;
+    g(:,ii) = xyT.stimulusPresenter.grand(gmu,gCV);
   end
 
   box on;
@@ -280,30 +280,30 @@ if PLOT
   
 
   %% plot velocity probmap
-  szFrame = ft.videoHandler.frameSize;
-  for i = 1:ft.nanimals
+  szFrame = xyT.videoHandler.frameSize;
+  for i = 1:xyT.nbody
     aa = xy.helper.subsubplot(1,4,4,4,1,i);
-    P1 = ft.plotVelocityMap(timeRange,i,[0,0.5]);
-    P2 = ft.plotVelocityMap(timeRange,i,[0.5,0.99]);
+    P1 = xyT.plotVelocityMap(timeRange,i,[0,0.5]);
+    P2 = xyT.plotVelocityMap(timeRange,i,[0.5,0.99]);
     
     Z = imfilter(P2-P1,fspecial('Gaussian',[5,5],1),'same');
     imagesc(1:szFrame(2),1:szFrame(1),Z,[-0.6,0.6]);
     hold on;
-    fs = ft.videoHandler.frameSize;
+    fs = xyT.videoHandler.frameSize;
     xlim([1,fs(2)])
     ylim([1,fs(1)]);
     
-    rectangle('position',ft.stimulusPresenter.screenBoundingBox,'edgecolor','r')
-    sbbox = ft.stimulusPresenter.screenBoundingBox;
+    rectangle('position',xyT.stimulusPresenter.screenBoundingBox,'edgecolor','r')
+    sbbox = xyT.stimulusPresenter.screenBoundingBox;
     
-    bw = ft.stimulusPresenter.borderWidth;
-    border = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([bw,bw,1-bw*2,1-bw*2]));
+    bw = xyT.stimulusPresenter.borderWidth;
+    border = xyT.stimulusPresenter.fromScreenBbox(xyT.stimulusPresenter.toScreenRect([bw,bw,1-bw*2,1-bw*2]));
     rectangle('position',border,'edgecolor','r','linestyle',':')
     
-    xreg = ft.stimulusPresenter.xRegions;
-    l1 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(1),bw,1-bw*2,1-bw*2]));
+    xreg = xyT.stimulusPresenter.xRegions;
+    l1 = xyT.stimulusPresenter.fromScreenBbox(xyT.stimulusPresenter.toScreenRect([xreg(1),bw,1-bw*2,1-bw*2]));
     plot([l1(1),l1(1)],[l1(2),l1(2)+l1(4)],'r--')
-    l2 = ft.stimulusPresenter.fromScreenBbox(ft.stimulusPresenter.toScreenRect([xreg(2),bw,1-bw*2,1-bw*2]));
+    l2 = xyT.stimulusPresenter.fromScreenBbox(xyT.stimulusPresenter.toScreenRect([xreg(2),bw,1-bw*2,1-bw*2]));
     plot([l2(1),l2(1)],[l2(2),l2(2)+l2(4)],'r--')
     
     ylabel('');
@@ -340,7 +340,7 @@ if PLOT
   if VELTRIGGERPLOT
     figure;
     r1 = 2;
-    r2 = ft.nanimals;
+    r2 = xyT.nbody;
     for i = 1:length(turn)
 
       
@@ -378,7 +378,7 @@ if PLOT
       
 
       len(len>500) = NaN;
-      z = vel0/ft.fishlength;
+      z = vel0/xyT.bodylength;
 
       z( xy(:,1)<b | xy(:,1)>1-b) = NaN;
       
@@ -399,8 +399,8 @@ if PLOT
       colormap(C);
       
       hold on;
-      fl = ft.fishlength*0.5;
-      fw = ft.fishwidth*0.5;
+      fl = xyT.bodylength*0.5;
+      fw = xyT.bodywidth*0.5;
       rectangle('position',[-fw/2,-fl/2,fw,fl],...
                 'curvature',1,'facecolor',[1,1,1]*.5,'edgecolor','none')
       
@@ -409,10 +409,10 @@ if PLOT
         ylabel('Y  rel. shift [px]','fontsize',10);
       end
       
-      col = jet(ft.nanimals);
-      title(sprintf('Fish #%d',i),'color',col(i,:));
+      col = jet(xyT.nbody);
+      title(sprintf(' #%d',i),'color',col(i,:));
 
-      if i==ft.nanimals
+      if i==xyT.nbody
         h = xy.helper.smallcolorbar;
         xy.helper.shiftaxes(h,[0.1]);
         ylabel(h,'Difference speed [BL/sec]')
@@ -426,10 +426,10 @@ if PLOT
       subplot(r1,r2,r2+i);cla;
 
       sfthres = 1;
-      vel = avelocity(:,i)/ft.fishlength;
+      vel = avelocity(:,i)/xyT.bodylength;
 
       % interpolate
-      dt = 1/ft.videoHandler.frameRate;
+      dt = 1/xyT.videoHandler.frameRate;
       msk = ~isnan(vel);
       %ivel = interp1(res.tabs(msk),vel(msk),(res.tabs(1):dt:res.tabs(end))','next');
       %istmx = interp1(res.tabs(msk),stmxy(msk,i,1),(res.tabs(1):dt:res.tabs(end))','next');
@@ -444,12 +444,12 @@ if PLOT
       mvel = [];svel = [];
       tlen = turn(i).stm.tlen;
       s = 0;
-      b = ft.stimulusPresenter.borderWidth;
+      b = xyT.stimulusPresenter.borderWidth;
       for indmsk = {sf==0,sf>0 & sf<sfthres, sf>=sfthres}
         s = s+1;
         
         msk = indmsk{1} & ~(xy(:,1)<b | xy(:,1)>1-b | velid< ...
-                            ft.stimulusPresenter.stmVelThres| tlen<0.5);
+                            xyT.stimulusPresenter.stmVelThres| tlen<0.5);
         
         tidx1 = tidx(msk)+toffs;
         tidx1_stop = tidx_stop(msk)+toffs;
@@ -473,7 +473,7 @@ if PLOT
       end
       
       %mvel = bsxfun(@minus,mvel,avelregion(i,:));
-% $$$     xreg = [0,ft.stimulusPresenter.xRegions,1];
+% $$$     xreg = [0,xyT.stimulusPresenter.xRegions,1];
 % $$$     for j = 1:length(xreg)-1
 % $$$       msk1 = (accmsk==mxt+1 & istmx>xreg(j) & istmx<=xreg(j+1) & istmx>b & istmx<1-b);
 % $$$       mvel(:,j) = mvel(:,j) - nanmedian(ivel(msk1));

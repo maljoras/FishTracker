@@ -1,8 +1,8 @@
-function nanimals = chooseNFish(fname,nanimals)
+function nbody = chooseNBody(fname,nbody)
   if xy.helper.hasOpenCV
-    vid = xy.core.FishVideoReader(fname);
+    vid = xy.core.VideoReader(fname);
   else
-    vid = xy.core.FishVideoReaderMatlab(fname);
+    vid = xy.core.VideoReaderMatlab(fname);
   end
   
   frame = readFrame(vid);
@@ -10,7 +10,7 @@ function nanimals = chooseNFish(fname,nanimals)
   f = figure;
   p1 = get(f,'position');
   %p1(4) = p1(3)/2;
-  set(f,'name','Choose the number of fish:','WindowStyle','modal');
+  set(f,'name','Choose the number of identity:','WindowStyle','modal');
 
   a = subplot(1,2,1);
   image(frame);
@@ -24,12 +24,12 @@ function nanimals = chooseNFish(fname,nanimals)
   set(a,'pos',p1);
 
   
-  title('Choose the number of fish:');
+  title('Choose the number of identity:');
   
   gap = 0.02;
   bw = 0.07;
   p2 = [p1(1)+p1(3)+gap, p1(2), 1-p1(3)-p1(1)-2*gap, p1(4)];
-  handles.sld = uicontrol('Style', 'listbox', 'Min',1,'Max',1,'Value',nanimals,...
+  handles.sld = uicontrol('Style', 'listbox', 'Min',1,'Max',1,'Value',nbody,...
                           'units','normalized','Position', p2,...
                           'String',num2cell([1:50]),'Fontsize',18,...
                   'Callback', @subCallbackList); 
@@ -51,9 +51,9 @@ function nanimals = chooseNFish(fname,nanimals)
   
   handles = get(f,'UserData');
   if handles.cancel
-    nanimals= [];
+    nbody= [];
   else
-    nanimals = handles.sld.Value;
+    nbody = handles.sld.Value;
   end
   close(f);
   

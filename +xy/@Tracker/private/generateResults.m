@@ -3,7 +3,7 @@ function generateResults(self)
   
   if isempty(self.savedTracks.id) 
     xy.helper.verbose('WARNING: cannot generate results!')
-    xy.helper.verbose('WARNING: not all fish detected. Maybe adjust "nanimals" setting.');
+    xy.helper.verbose('WARNING: not all identity detected. Maybe adjust "nbody" setting.');
     return;
   end
 
@@ -21,7 +21,7 @@ function generateResults(self)
     end
   end
   
-  nFrames = size(self.savedTracks.id,3)/self.nanimals;
+  nFrames = size(self.savedTracks.id,3)/self.nbody;
   if self.currentFrame~=nFrames
     xy.helper.verbose(['WARNING: %d frames got lost (premature abort while ' ...
              'tracking?)'],self.currentFrame-nFrames);
@@ -114,7 +114,7 @@ function generateResults(self)
     % ASSUMES IDX MAT IS SAME AS ID MSK (no track deletion)
 
     MINOVERLAP = ceil(self.videoHandler.frameRate/2); 
-    PROBTHRES = 0;%self.maxClassificationProb*self.opts.tracks.probThresForFish;
+    PROBTHRES = 0;%self.maxClassificationProb*self.opts.tracks.probThresForIdentity;
     
     eqmsk = bsxfun(@eq,df2t,permute(df2t,[1,3,2]));
 
@@ -122,31 +122,31 @@ function generateResults(self)
     se = ones(MINOVERLAP,1);
     tmp = imdilate(imerode(eqmsk(:,:),se),se);
     %tmp = imerode(imdilate(eqmsk(:,:),se),se);
-    eqmsk = reshape(tmp,[],self.nanimals,self.nanimals);
+    eqmsk = reshape(tmp,[],self.nbody,self.nbody);
 
-    idx = find(tril(ones(self.nanimals),-1));
+    idx = find(tril(ones(self.nbody),-1));
     ieqmsk = eqmsk(:,idx);
     noverlap = sum(ieqmsk,2);    
     doverlap = sum(eqmsk,3)>2; % double overlaps    
     
 
     % get the positions that were lost in DAG
-    lostmsk = bsxfun(@eq,1:self.nanimals,permute(df2t,[1,3,2]));
+    lostmsk = bsxfun(@eq,1:self.nbody,permute(df2t,[1,3,2]));
     tmp = imdilate(imerode(lostmsk(:,:),se),se);
     %tmp = imerode(imdilate(tmp,se),se);
-    lostmsk = reshape(tmp,[],self.nanimals,self.nanimals);
+    lostmsk = reshape(tmp,[],self.nbody,self.nbody);
     lostmsk = all(~lostmsk,3);
 
     
     % note that their might be overlaps in DAG too because we used
     % the DAG switching methods... however, they should not be too
-    % long (except for fishupdate type of corrections...)
+    % long (except for bodyupdate type of corrections...)
     
 
     % ignore double and strange losses (more than 1) for now. 
     onelost = sum(lostmsk,2)==1;
     [~,idxlost] = max(lostmsk,[],2);
-    %idxlost(~onelost) = self.nanimals+1; % no need. only between start:stop
+    %idxlost(~onelost) = self.nbody+1; % no need. only between start:stop
     
     msk = bsxfun(@and,ieqmsk,onelost & all(~doverlap,2));
 
@@ -156,8 +156,8 @@ function generateResults(self)
                    % no deletion)    
     
     % get the cl prob of the overlapping id
-    [~,idxeq] = max(ieqmsk,[],2); % this is now fishID
-    subeq = xy.helper.i2s([self.nanimals,self.nanimals],idxeq);
+    [~,idxeq] = max(ieqmsk,[],2); % this is now bodyID
+    subeq = xy.helper.i2s([self.nbody,self.nbody],idxeq);
     findo = (1:n)' + (subeq(:,1)-1)*n;
     ido  = df2t(findo); % also idx in cl
     indo = (1:n)' + (ido(:,1)-1)*n;
@@ -168,8 +168,8 @@ function generateResults(self)
     sz = size(self.savedTracks.(f{1}));
     d = length(sz); % at least 3
     tmp = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
-    tmp = reshape(tmp,[self.nanimals,n,sz(2),sz(1),sz(3:d-1)]);
-    classProb = reshape(permute(tmp,[2,1,3:d+1]),[],self.nanimals);
+    tmp = reshape(tmp,[self.nbody,n,sz(2),sz(1),sz(3:d-1)]);
+    classProb = reshape(permute(tmp,[2,1,3:d+1]),[],self.nbody);
 
     cll = classProb(indl,:);
     %idl = res.swb.tracks.id(indl);
@@ -179,7 +179,7 @@ function generateResults(self)
     
     for i = 1:length(idx)
       mski = msk(:,i);
-      [fid1,fid2] = ind2sub(self.nanimals([1,1]),idx(i));
+      [fid1,fid2] = ind2sub(self.nbody([1,1]),idx(i));
       
       % find onsets and offsets
       d = diff([0;mski;0]);
@@ -203,7 +203,7 @@ function generateResults(self)
       order21 = ~order12;
       diffprob = abs(s12-s21);
       probmsk = diffprob<PROBTHRES;
-      probmsk = probmsk | max(mcll1,mcll2)<self.maxClassificationProb*self.opts.tracks.probThresForFish;
+      probmsk = probmsk | max(mcll1,mcll2)<self.maxClassificationProb*self.opts.tracks.probThresForIdentity;
       order12(probmsk) = false;
       order21(probmsk) = false;
 
@@ -234,8 +234,8 @@ function generateResults(self)
   
   function [res] = subGenerateTracks(f2t);
     res = [];
-    trackIdMat = reshape(self.savedTracks.id,self.nanimals,nFrames);
-    for j = 1:self.nanimals
+    trackIdMat = reshape(self.savedTracks.id,self.nbody,nFrames);
+    for j = 1:self.nbody
       u = unique(trackIdMat(j,:));
       n = find(~isnan(u));
       L(j) = length(n);
@@ -254,7 +254,7 @@ function generateResults(self)
     end
 
     % fill in the gaps
-    order = (1:self.nanimals)';
+    order = (1:self.nbody)';
     msk = ~Loc;
     idx = find(any(msk,1));
     for i = 1:length(idx)
@@ -263,7 +263,7 @@ function generateResults(self)
       Loc(~loc,idx(i)) = rest;
     end
 
-    fridx = ones(1,self.nanimals)' * (1:nFrames);
+    fridx = ones(1,self.nbody)' * (1:nFrames);
     idx = xy.helper.s2i(size(Loc),[Loc(:),fridx(:)]);
     for f = fieldnames(self.savedTracks)'
       if isempty(self.savedTracks.(f{1}))
@@ -275,13 +275,13 @@ function generateResults(self)
       sz = size(self.savedTracks.(f{1}));
       d = length(sz); % at least 3
       trackdat = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
-      fishdat = reshape(trackdat(idx,:),[self.nanimals,nFrames,sz(2),sz(1),sz(3:d-1)]);
-      res.tracks.(f{1}) = permute(fishdat,[2,1,3:d+1]);
+      bodydat = reshape(trackdat(idx,:),[self.nbody,nFrames,sz(2),sz(1),sz(3:d-1)]);
+      res.tracks.(f{1}) = permute(bodydat,[2,1,3:d+1]);
     end
 
-    fishid =  (1:self.nanimals)' * ones(1,nFrames);
-    fishid(msk) = NaN;
-    res.tracks.identityId = fishid';
+    bodyid =  (1:self.nbody)' * ones(1,nFrames);
+    bodyid(msk) = NaN;
+    res.tracks.identityId = bodyid';
     
   end
   
@@ -292,7 +292,7 @@ function generateResults(self)
     if nargin>0 && ~isempty(assignedIdentityId)
       predIdentityIds = assignedIdentityId;
     else
-      predIdentityIds = [self.tracks.predIdentityId]; % use predFish. Can do Better ?!?
+      predIdentityIds = [self.tracks.predIdentityId]; % use predBody. Can do Better ?!?
     end
     if nargin<2
       force = 0;
@@ -301,11 +301,11 @@ function generateResults(self)
     %self.daGraph.checkOverlap([],1);
     
     %trackIdx  and trackids SHOULD be the same! (if with no deletion)
-    % at laest assert for last tracks (if 1:nanimals, all previous should be too)
-    assert(all([self.tracks.id] == 1:self.nanimals));
+    % at laest assert for last tracks (if 1:nbody, all previous should be too)
+    assert(all([self.tracks.id] == 1:self.nbody));
     
     % backtrace. 
-    [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nanimals,predIdentityIds);
+    [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nbody,predIdentityIds);
     postrace = permute(postrace,[1,3,2]);
     
     mt = size(postrace,3);

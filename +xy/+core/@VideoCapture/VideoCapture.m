@@ -1,5 +1,5 @@
-classdef FishVideoCapture < handle
-    % FISHVIDEOCAPTURE FishVideoCapture class. Slightly modfied from
+classdef VideoCapture < handle
+    % FISHVIDEOCAPTURE VideoCapture class. Slightly modfied from
     % cv.VideoCapture wrapper taken from the MexOpenCV toolbox
     % https://github.com/kyamagu/mexopencv
     %
@@ -7,7 +7,7 @@ classdef FishVideoCapture < handle
     % provides Matlab API for capturing video from cameras or for reading
     % video files. Here is how the class can be used:
     %
-    %    cap = FishVideoCapture(source);
+    %    cap = VideoCapture(source);
     %    pause(3); % Note below
     %    for t = 1:30
     %       imshow(cap.read);
@@ -16,8 +16,8 @@ classdef FishVideoCapture < handle
     %
     % ## Note
     % In some environment, there is a concurrency issue during camera
-    % initialization. To avoid unexpected crash, pause for seconds after
-    % the initialization of FishVideoCapture object.
+    % initialization. To avoid unexpected crash, pause for seconds axyTer
+    % the initialization of VideoCapture object.
     %
 
     properties (SetAccess = private)
@@ -26,7 +26,7 @@ classdef FishVideoCapture < handle
 
     methods(Static)
       function bool = installed();
-        bool = ~~exist('FishVideoCapture_');
+        bool = ~~exist('xyVideoCapture_');
       end
       
     end
@@ -34,13 +34,13 @@ classdef FishVideoCapture < handle
     
     
     methods
-        function this = FishVideoCapture(filename)
+        function this = VideoCapture(filename)
             if nargin < 1, filename = 0; end
-            this.id = FishVideoCapture_(filename);
+            this.id = xyVideoCapture_(filename);
         end
         
         function delete(this)
-            FishVideoCapture_(this.id, 'delete');
+            xyVideoCapture_(this.id, 'delete');
         end
         
         function varargout = read(this)
@@ -53,9 +53,9 @@ classdef FishVideoCapture < handle
             %
             %
             if nargout==1
-              varargout{1}  = FishVideoCapture_(this.id, 'read');
+              varargout{1}  = xyVideoCapture_(this.id, 'read');
             else
-              [varargout{1},varargout{2}]  = FishVideoCapture_(this.id, 'read');
+              [varargout{1},varargout{2}]  = xyVideoCapture_(this.id, 'read');
             end
           end
           
@@ -69,12 +69,12 @@ classdef FishVideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also FishVideoCapture_
+            % See also xyVideoCapture_
             %
             if nargout==1
-              varargout{1} = FishVideoCapture_(this.id, 'readScaledS', rgbvec_scale,rgbvec_delta);
+              varargout{1} = xyVideoCapture_(this.id, 'readScaledS', rgbvec_scale,rgbvec_delta);
             else
-              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readScaledS', rgbvec_scale,rgbvec_delta);
+              [varargout{1},varargout{2}] = xyVideoCapture_(this.id, 'readScaledS', rgbvec_scale,rgbvec_delta);
             end
             
           end
@@ -89,12 +89,12 @@ classdef FishVideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also FishVideoCapture
+            % See also VideoCapture
             %
             if nargout==1
-              varargout{1} = FishVideoCapture_(this.id, 'readScaledU', rgbvec_scale,rgbvec_delta);
+              varargout{1} = xyVideoCapture_(this.id, 'readScaledU', rgbvec_scale,rgbvec_delta);
             else
-              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readScaledU', rgbvec_scale,rgbvec_delta);
+              [varargout{1},varargout{2}] = xyVideoCapture_(this.id, 'readScaledU', rgbvec_scale,rgbvec_delta);
             end
             
           end
@@ -109,12 +109,12 @@ classdef FishVideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also FishVideoCapture
+            % See also VideoCapture
             %
             if nargout==1
-              varargout{1} = FishVideoCapture_(this.id, 'readSingle');
+              varargout{1} = xyVideoCapture_(this.id, 'readSingle');
             else
-              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readSingle');
+              [varargout{1},varargout{2}] = xyVideoCapture_(this.id, 'readSingle');
             end
           end
           
@@ -127,12 +127,12 @@ classdef FishVideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also FishVideoCapture
+            % See also VideoCapture
             %
             if nargout==1
-               varargout{1} = FishVideoCapture_(this.id, 'readGraySingle');
+               varargout{1} = xyVideoCapture_(this.id, 'readGraySingle');
             else
-              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readGraySingle');
+              [varargout{1},varargout{2}] = xyVideoCapture_(this.id, 'readGraySingle');
             end
             
         end
@@ -146,12 +146,12 @@ classdef FishVideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also FishVideoCapture
+            % See also VideoCapture
             %
             if nargout==1
-              varargout{1} = FishVideoCapture_(this.id, 'readInvertedGraySingle');
+              varargout{1} = xyVideoCapture_(this.id, 'readInvertedGraySingle');
             else
-              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readInvertedGraySingle');
+              [varargout{1},varargout{2}] = xyVideoCapture_(this.id, 'readInvertedGraySingle');
             end
           end
         
@@ -164,12 +164,12 @@ classdef FishVideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also FishVideoCapture
+            % See also VideoCapture
             %
             if nargout==1
-              varargout{1} = FishVideoCapture_(this.id, 'readGray');
+              varargout{1} = xyVideoCapture_(this.id, 'readGray');
             else
-              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readGray');
+              [varargout{1},varargout{2}] = xyVideoCapture_(this.id, 'readGray');
             end
           end
           
@@ -182,22 +182,22 @@ classdef FishVideoCapture < handle
             % The method captures the next video frame and return it. If
             % capturing fails, empty array will be returned instead.
             %
-            % See also FishVideoCapture
+            % See also VideoCapture
             %
             if nargout==1
-              varargout{1} = FishVideoCapture_(this.id, 'readInvertedGray');
+              varargout{1} = xyVideoCapture_(this.id, 'readInvertedGray');
             else
-              [varargout{1},varargout{2}] = FishVideoCapture_(this.id, 'readInvertedGray');
+              [varargout{1},varargout{2}] = xyVideoCapture_(this.id, 'readInvertedGray');
             end
 
         end
 
         function value = get(this, key)
-            %GET  Returns the specified FishVideoCapture property
+            %GET  Returns the specified VideoCapture property
             %
             %   value = cap.get(PropertyName)
             %
-            % The method returns a Property value of FishVideoCapture.
+            % The method returns a Property value of VideoCapture.
             % PropertyName can be one of the followings:
             %
             %    'PosMsec'       Current position of the video file in milliseconds or video capture timestamp.
@@ -219,15 +219,15 @@ classdef FishVideoCapture < handle
             %    'ConvertRGB'    Boolean flags indicating whether images should be converted to RGB.
             %    'Rectification' Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
           
-            value = FishVideoCapture_(this.id, 'get', key);
+            value = xyVideoCapture_(this.id, 'get', key);
         end
         
         function set(this, key, value)
-            %SET  Sets a property in the FishVideoCapture.
+            %SET  Sets a property in the VideoCapture.
             %
             %    cap.set(PropertyName, value)
             %
-            % The method set a Property value of FishVideoCapture.
+            % The method set a Property value of VideoCapture.
             % PropertyName can be one of the followings:
             %
             %    'PosMsec'       Current position of the video file in milliseconds or video capture timestamp.
@@ -249,32 +249,32 @@ classdef FishVideoCapture < handle
             %    'ConvertRGB'    Boolean flags indicating whether images should be converted to RGB.
             %    'Rectification' Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
             %
-            % See also FishVideoCapture
+            % See also VideoCapture
             %
-            FishVideoCapture_(this.id, 'set', key, value);
+            xyVideoCapture_(this.id, 'set', key, value);
         end
     end
 
     methods (Hidden = true)
         function successFlag = open(this, filename)
           if nargin < 1, filename = 0; end
-          successFlag = FishVideoCapture_(this.id, 'open', filename);
+          successFlag = xyVideoCapture_(this.id, 'open', filename);
         end
 
         function flag = isOpened(this)
-          flag = FishVideoCapture_(this.id, 'isOpened');
+          flag = xyVideoCapture_(this.id, 'isOpened');
         end
 
         function release(this)
-          FishVideoCapture_(this.id, 'release');
+          xyVideoCapture_(this.id, 'release');
         end
 
         function successFlag = grab(this)
-          successFlag = FishVideoCapture_(this.id, 'grab');
+          successFlag = xyVideoCapture_(this.id, 'grab');
         end
 
         function frame = retrieve(this)
-          frame = FishVideoCapture_(this.id, 'retrieve');
+          frame = xyVideoCapture_(this.id, 'retrieve');
         end
     end
 

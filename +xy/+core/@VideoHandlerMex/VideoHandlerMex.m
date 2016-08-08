@@ -1,8 +1,8 @@
-classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishVideoReader
+classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
 %FISHVIDEOHANDLER  wrapper class
 %
 % Class for video handling of the xy.Tracker. Inherits from
-% FishBlobAnalisys and FishVideoReader, since both video
+% BlobAnalisys and VideoReader, since both video
 % capturing/reading and blob analysis is done in a multi-threading
 % C++ code. 
 %
@@ -36,15 +36,15 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
 
   methods(Static)
     function bool = installed();
-      bool = ~~exist('FishVideoHandler_');
+      bool = ~~exist('xyVideoHandler_');
     end
   end
     
   
   methods 
     
-    function self = FishVideoHandlerMex(vidname,timerange,knnMethod,opts)
-    %VIDEOCAPTURE  Create a new FishVideoHandlerMex object. VIDNAME
+    function self = VideoHandlerMex(vidname,timerange,knnMethod,opts)
+    %VIDEOCAPTURE  Create a new VideoHandlerMex object. VIDNAME
     %can be either a videofile or a cell like {CAMIDX, WRITEFILE}
     %for online capture from point grey devices;
     %
@@ -64,13 +64,13 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
       else
         global_knnMethod = true;
       end
-      if ~exist('FishVideoHandler_')
+      if ~exist('xyVideoHandler_')
         error('Cannot find mex file. Forgot to run make ?');
       end
 
 
-      self@xy.core.FishVideoReader(vidname);       
-      self@xy.core.FishBlobAnalysis(opts);       
+      self@xy.core.VideoReader(vidname);       
+      self@xy.core.BlobAnalysis(opts);       
       if nargin >1
         self.timeRange = timerange;
       end
@@ -117,9 +117,9 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
     %
       
       if nargout<3 
-        [seg,timeStamp] = FishVideoHandler_(self.id, 'step');
+        [seg,timeStamp] = xyVideoHandler_(self.id, 'step');
       else
-        [seg,timeStamp,frame] = FishVideoHandler_(self.id, 'step');
+        [seg,timeStamp,frame] = xyVideoHandler_(self.id, 'step');
       end
       
       self.increaseCounters(timeStamp); % implicit read frame, so increase
@@ -139,42 +139,42 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
   
     
     function set.computeSegments(self,value)
-      FishVideoHandler_(self.id, 'set', 'computeSegments',value);
+      xyVideoHandler_(self.id, 'set', 'computeSegments',value);
     end
     
     function value = get.computeSegments(self)
-      value =FishVideoHandler_(self.id, 'get', 'computeSegments');
+      value =xyVideoHandler_(self.id, 'get', 'computeSegments');
     end
     
     function value = get.resizeif(self);
-      value = FishVideoHandler_(self.id, 'get', 'resizeif');
+      value = xyVideoHandler_(self.id, 'get', 'resizeif');
     end
     function set.resizeif(self,value);
-      FishVideoHandler_(self.id, 'set', 'resizeif',value);
+      xyVideoHandler_(self.id, 'set', 'resizeif',value);
     end
     
     function value = get.difffeature(self);
-      value = FishVideoHandler_(self.id, 'get', 'difffeature');
+      value = xyVideoHandler_(self.id, 'get', 'difffeature');
     end
     function set.difffeature(self,value);
-      FishVideoHandler_(self.id, 'set', 'difffeature',value);
+      xyVideoHandler_(self.id, 'set', 'difffeature',value);
     end
 
     function value = get.fixedSize(self);
-      value = FishVideoHandler_(self.id, 'get', 'fixedSize');
+      value = xyVideoHandler_(self.id, 'get', 'fixedSize');
     end
     
     function set.fixedSize(self,value);
-      FishVideoHandler_(self.id, 'set', 'fixedSize',value);
+      xyVideoHandler_(self.id, 'set', 'fixedSize',value);
     end
 
 
     function value = get.resizescale(self);
-      value = FishVideoHandler_(self.id, 'get', 'resizescale');
+      value = xyVideoHandler_(self.id, 'get', 'resizescale');
     end
     
     function set.resizescale(self,value);
-      FishVideoHandler_(self.id, 'set', 'resizescale',value);
+      xyVideoHandler_(self.id, 'set', 'resizescale',value);
     end
     
     
@@ -186,79 +186,79 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
       if nargin<3
         delta = self.delta;
       end
-      setToScaledFormat@xy.core.FishVideoReader(self,scale,delta);
+      setToScaledFormat@xy.core.VideoReader(self,scale,delta);
       
-      FishVideoHandler_(self.id, 'setScale', self.scale(1),self.scale(2),self.scale(3));
-      FishVideoHandler_(self.id, 'set','delta', sum(self.delta));
-      FishVideoHandler_(self.id, 'set', 'scaled',true);
+      xyVideoHandler_(self.id, 'setScale', self.scale(1),self.scale(2),self.scale(3));
+      xyVideoHandler_(self.id, 'set','delta', sum(self.delta));
+      xyVideoHandler_(self.id, 'set', 'scaled',true);
       self.useScaled = true;
     end
     
     function setToRGBFormat(self)
-      setToRGBFormat@xy.core.FishVideoReader(self);
+      setToRGBFormat@xy.core.VideoReader(self);
       self.useScaled = false;
-      FishVideoHandler_(self.id, 'set', 'scaled',false);
+      xyVideoHandler_(self.id, 'set', 'scaled',false);
     end
     
     function frame = getCurrentFrame(self);
-      frame = FishVideoHandler_(self.id,'getFrame');
+      frame = xyVideoHandler_(self.id,'getFrame');
     end
     
     function bwimg = getCurrentBWImg(self);
-      bwimg = FishVideoHandler_(self.id,'getBWImg');
+      bwimg = xyVideoHandler_(self.id,'getBWImg');
     end
 
     function value = get(self, key)
-      value = FishVideoHandler_(self.id, 'capget', key);
+      value = xyVideoHandler_(self.id, 'capget', key);
     end
     
     function set(self, key, value)
-      FishVideoHandler_(self.id, 'set', key, value);
+      xyVideoHandler_(self.id, 'set', key, value);
     end
     
     function value = get.history(self)
-      value = FishVideoHandler_(self.id, 'get', 'History');
+      value = xyVideoHandler_(self.id, 'get', 'History');
     end
     function set.history(self, value)
-      FishVideoHandler_(self.id, 'set', 'History', value);
+      xyVideoHandler_(self.id, 'set', 'History', value);
     end
 
     function value = get.DetectShadows(self)
-      value = FishVideoHandler_(self.id, 'get', 'DetectShadows');
+      value = xyVideoHandler_(self.id, 'get', 'DetectShadows');
     end
     function set.DetectShadows(self, value)
-      FishVideoHandler_(self.id, 'set', 'DetectShadows', value);
+      xyVideoHandler_(self.id, 'set', 'DetectShadows', value);
     end
     
     function value = get.nprobe(self)
-      value = FishVideoHandler_(self.id, 'get', 'nprobe');
+      value = xyVideoHandler_(self.id, 'get', 'nprobe');
     end
     function set.nprobe(self, value)
-      FishVideoHandler_(self.id, 'set', 'nprobe', value);
+      xyVideoHandler_(self.id, 'set', 'nprobe', value);
     end
     
     function value = get.nskip(self)
-      value = FishVideoHandler_(self.id, 'get', 'nskip');
+      value = xyVideoHandler_(self.id, 'get', 'nskip');
     end
     function set.nskip(self, value)
-      FishVideoHandler_(self.id, 'set', 'nskip', value);
+      xyVideoHandler_(self.id, 'set', 'nskip', value);
     end
     function value = get.adjustThresScale(self)
-      value = FishVideoHandler_(self.id, 'get', 'adjustThresScale');
+      value = xyVideoHandler_(self.id, 'get', 'adjustThresScale');
     end
     function set.adjustThresScale(self, value)
-      FishVideoHandler_(self.id, 'set', 'adjustThresScale', value);
+      xyVideoHandler_(self.id, 'set', 'adjustThresScale', value);
     end
 
     function value = get.knnMethod(self)
-      value = FishVideoHandler_(self.id, 'get', 'knnMethod');
+      value = xyVideoHandler_(self.id, 'get', 'knnMethod');
     end
     
     function value = get.inverted(self)
-      value = FishVideoHandler_(self.id, 'get', 'inverted');
+      value = xyVideoHandler_(self.id, 'get', 'inverted');
     end
     function set.inverted(self, value)
-      FishVideoHandler_(self.id, 'set', 'inverted', value);
+      xyVideoHandler_(self.id, 'set', 'inverted', value);
     end
 
     
@@ -270,7 +270,7 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
 
 % $$$ 
 % $$$       for i = 1:length(rp)
-% $$$ % $$$         img = rp(i).FishFeatureCRemap;
+% $$$ % $$$         img = rp(i).IdentityFeatureCRemap;
 % $$$ % $$$         sz = size(img);
 % $$$ % $$$         sz(1) = ceil(sz(1)/3);
 % $$$ % $$$         sz(2) = ceil(sz(2)/3);
@@ -281,8 +281,8 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
 % $$$ % $$$           dimg(:,:,j) = tmp(1:sz(1),1:sz(2));
 % $$$ % $$$         end
 % $$$ % $$$         
-% $$$ % $$$         rp(i).FishFeature = dimg;
-% $$$          rp(i).FishFeature = rp(i).FishFeatureCRemap;
+% $$$ % $$$         rp(i).IdentityFeature = dimg;
+% $$$          rp(i).IdentityFeature = rp(i).IdentityFeatureCRemap;
 % $$$       end
       
       segm = rp;
@@ -290,19 +290,19 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
     
     
     function resetBkg(self)
-      FishVideoHandler_(self.id, 'resetBkg');
+      xyVideoHandler_(self.id, 'resetBkg');
     end
     
     function plotting(self,bool)
-      FishVideoHandler_(self.id,'set','plotif',bool);      
+      xyVideoHandler_(self.id,'set','plotif',bool);      
     end
     
     function bool = isGrabbing(self);
-      bool = FishVideoHandler_(self.id,'get','camera') ; 
+      bool = xyVideoHandler_(self.id,'get','camera') ; 
     end
 
     function verbose(self);
-      verbose@xy.core.FishVideoReader(self);
+      verbose@xy.core.VideoReader(self);
       if self.knnMethod 
         xy.helper.verbose('Using KNN for foreground subtraction...');
       else
@@ -328,11 +328,11 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
             pause;
           end
           
-          self.id = FishVideoHandler_('camera',camidx,self.videoFile{2},knnMethod);      
+          self.id = xyVideoHandler_('camera',camidx,self.videoFile{2},knnMethod);      
         else
-          self.id = FishVideoHandler_(self.videoFile,knnMethod);      
+          self.id = xyVideoHandler_(self.videoFile,knnMethod);      
         end
-        FishVideoHandler_(self.id,'start');      
+        xyVideoHandler_(self.id,'start');      
         self.reader = self.id;
       end
     end
@@ -344,7 +344,7 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
     end
     
     function nframes = a_getNFrames(self);
-      nframes = FishVideoHandler_(self.id,'get','FrameCount');
+      nframes = xyVideoHandler_(self.id,'get','FrameCount');
       if nframes==0
         % strange. cannot find how many frames. Assume Inf. Maybe camera
         nframes = Inf;
@@ -353,12 +353,12 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
     end
     
     function frameRate = a_getFrameRate(self);
-      frameRate = FishVideoHandler_(self.id,'get','FPS');
+      frameRate = xyVideoHandler_(self.id,'get','FPS');
 
       if isnan(frameRate) % strange thing that this sometimes happens
         f = VideoReader(self.videoFile);
         frameRate = f.FrameRate;
-        FishVideoHandler_(self.id,'set','FPS',frameRate);
+        xyVideoHandler_(self.id,'set','FPS',frameRate);
         clear('f')
       end
       
@@ -366,27 +366,27 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
     
     function frameSize= a_getFrameSize(self);
       
-      frameSize = [ FishVideoHandler_(self.id,'get','FrameHeight'),...
-                    FishVideoHandler_(self.id,'get','FrameWidth')];
+      frameSize = [ xyVideoHandler_(self.id,'get','FrameHeight'),...
+                    xyVideoHandler_(self.id,'get','FrameWidth')];
     end
     
     function bool = a_hasFrame(self);
-      nextFrame = FishVideoHandler_(self.id,'get','PosFrames');
+      nextFrame = xyVideoHandler_(self.id,'get','PosFrames');
       bool = nextFrame<self.nFrames; % starts from 0!
     end
     
     
     function a_delete(self); %% overwrite VideoCapture.delete: do nothing
-      FishVideoHandler_(self.id,'delete');
+      xyVideoHandler_(self.id,'delete');
     end
     
     
     function a_setCurrentTime(self,time);
     % time is given in seconds
       nextFrame = max(floor(time*self.frameRate),0);
-      pos = FishVideoHandler_(self.id,'get','PosFrames');
+      pos = xyVideoHandler_(self.id,'get','PosFrames');
       if nextFrame~=pos 
-        FishVideoHandler_(self.id,'set','PosFrames',nextFrame);
+        xyVideoHandler_(self.id,'set','PosFrames',nextFrame);
       end
     end
 
@@ -466,16 +466,16 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
     function a_init(self);
     % pass all  the properties to the C-core
           
-    %a_init@xy.core.FishBlobAnalysis(self);
+    %a_init@xy.core.BlobAnalysis(self);
       
-      FishVideoHandler_(self.id, 'set','minArea',self.minArea);
-      FishVideoHandler_(self.id, 'set','maxArea',self.maxArea);
-      FishVideoHandler_(self.id, 'set','maxExtent',self.maxextent);
-      FishVideoHandler_(self.id, 'set','minExtent',self.minextent);
-      FishVideoHandler_(self.id, 'set','colorfeature',self.colorfeature || self.originalif);
-      FishVideoHandler_(self.id, 'set','minWidth',self.minWidth);
-      FishVideoHandler_(self.id, 'set','featureheight',self.featureheight);
-      FishVideoHandler_(self.id, 'set','featurewidth',self.featurewidth);
+      xyVideoHandler_(self.id, 'set','minArea',self.minArea);
+      xyVideoHandler_(self.id, 'set','maxArea',self.maxArea);
+      xyVideoHandler_(self.id, 'set','maxExtent',self.maxextent);
+      xyVideoHandler_(self.id, 'set','minExtent',self.minextent);
+      xyVideoHandler_(self.id, 'set','colorfeature',self.colorfeature || self.originalif);
+      xyVideoHandler_(self.id, 'set','minWidth',self.minWidth);
+      xyVideoHandler_(self.id, 'set','featureheight',self.featureheight);
+      xyVideoHandler_(self.id, 'set','featurewidth',self.featurewidth);
 
     end
     
@@ -495,7 +495,7 @@ classdef FishVideoHandlerMex < handle & xy.core.FishBlobAnalysis & xy.core.FishV
 % $$$     %
 % $$$     % See also cv.VideoCapture.open
 % $$$     %
-% $$$       FishVideoHandler_(self.id, 'release');
+% $$$       xyVideoHandler_(self.id, 'release');
 % $$$     end
 % $$$   end
   

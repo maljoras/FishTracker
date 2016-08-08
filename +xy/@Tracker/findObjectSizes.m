@@ -4,7 +4,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
     minAxisWidth = 3;
   end
 
-  xy.helper.verbose('Detect approx fish sizes (minAxisWidth=%g)...',minAxisWidth);
+  xy.helper.verbose('Detect approx body sizes (minAxisWidth=%g)...',minAxisWidth);
 
   self.videoHandler.reset();
   self.videoHandler.originalif = true;
@@ -30,7 +30,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   self.videoHandler.initialize(0);
   s = 0;
 
-  if self.displayif && self.opts.display.fishSearchResults
+  if self.displayif && self.opts.display.bodySearchResults
     figure;
   end
   
@@ -39,7 +39,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
     [segm] = self.videoHandler.step();
     xy.helper.verbose('%1.1f%%\r',i/n*100); % some output
 
-    if self.displayif && self.opts.display.fishSearchResults && ~mod(i,5)
+    if self.displayif && self.opts.display.bodySearchResults && ~mod(i,5)
       imagesc(self.videoHandler.getCurrentBWImg);
       drawnow;
     end
@@ -59,14 +59,14 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   end
 
   nObjects = median(count);
-  objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % fish are bending
-  xy.helper.verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
+  objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % body are bending
+  xy.helper.verbose('Detected %d objects of size %1.0fx%1.0f pixels.',nObjects, objectSize);
 
-  if self.displayif && self.opts.display.fishSearchResults
+  if self.displayif && self.opts.display.bodySearchResults
     clf;
     bwmsk = self.videoHandler.getCurrentBWImg();
     imagesc(bwmsk);
-    title(sprintf('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize));
+    title(sprintf('Detected %d objects of size %1.0fx%1.0f pixels.',nObjects, objectSize));
   end
 
 

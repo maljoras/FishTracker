@@ -1,4 +1,4 @@
-classdef FishBlobAnalysis < handle;
+classdef BlobAnalysis < handle;
   
   properties 
     
@@ -6,12 +6,12 @@ classdef FishBlobAnalysis < handle;
 
     computeMSER = 0;
     minMSERDistance = 3; % in pixels
-    computeMSERthres = 3; % when to compute MSER (extent larger than computerMSERthres*fishwidth*fishlength)
+    computeMSERthres = 3; % when to compute MSER (extent larger than computerMSERthres*bodywidth*bodylength)
     overlapthres = 0.8;
 
-    fishwidth = 20;% approximate value in pixels
-    fishlength = 100; 
-    headprop = 0.6; % proportion of fishlength to use as feature;
+    bodywidth = 20;% approximate value in pixels
+    bodylength = 100; 
+    headprop = 0.6; % proportion of bodylength to use as feature;
     
     interpif = 1; % much better effect it seems
     readjustposition = false;
@@ -332,8 +332,8 @@ classdef FishBlobAnalysis < handle;
         region.MSERregions = []; % field is expected by some functions...
         region.MSERregionsOffset = [];
 
-        if self.computeMSER &&  bb(3)*bb(4)>self.computeMSERthres*self.fishwidth*self.fishlength
-          xy.helper.verbose('%d>%f1.0\r',bb(3)*bb(4),self.computeMSERthres*self.fishwidth*self.fishlength)
+        if self.computeMSER &&  bb(3)*bb(4)>self.computeMSERthres*self.bodywidth*self.bodylength
+          xy.helper.verbose('%d>%f1.0\r',bb(3)*bb(4),self.computeMSERthres*self.bodywidth*self.bodylength)
           region = self.a_computeMSERregions(region,bb2);
         end
         
@@ -453,7 +453,7 @@ classdef FishBlobAnalysis < handle;
     
     
     
-    function segments = getFishFeatures(self,segments);
+    function segments = getIdentityFeatures(self,segments);
       
       plotif = self.plotif; % for debugging
 
@@ -462,8 +462,8 @@ classdef FishBlobAnalysis < handle;
         figure(1);
       end
 
-      fixedwidth = self.fishwidth*3;
-      fixedheight = self.fishlength;
+      fixedwidth = self.bodywidth*3;
+      fixedheight = self.bodylength;
 
       smallerwidth = self.featurewidth;
       smallerheight = self.featureheight;
@@ -474,7 +474,7 @@ classdef FishBlobAnalysis < handle;
       for i = 1:length(segments)
         seg = segments(i);
 
-        segments(i).FishFeature = [];
+        segments(i).IdentityFeature = [];
         segments(i).bendingStdValue = [];
 
         
@@ -576,7 +576,7 @@ classdef FishBlobAnalysis < handle;
         
         % maybe use BB to check whether fixed width is good choice
         if  fixedheight/2 < bb(4)/2
-          %xy.helper.verbose('WARNING: Fishheight probably too small')
+          %xy.helper.verbose('WARNING: Identityheight probably too small')
         end
         
         startidx = max(find(any(msk,2),1,'first')-2,1);
@@ -687,9 +687,9 @@ classdef FishBlobAnalysis < handle;
 
         if self.colorfeature
           final_oimg_col = doimg_col(min(idx1,end),min(idx2,end),:);
-          segments(i).FishFeature = final_oimg_col;
+          segments(i).IdentityFeature = final_oimg_col;
         else
-          segments(i).FishFeature = final_oimg;
+          segments(i).IdentityFeature = final_oimg;
         end
         
         %final_oimg = (final_oimg(:,1:smallerwidth/2) + final_oimg(:,end:-1:smallerwidth/2+1))/2;
@@ -703,8 +703,8 @@ classdef FishBlobAnalysis < handle;
 
           subplot(2,length(segments)*2,2*(i-1)+length(segments)*2+1);
           
-          if isfield(seg,'FishFeatureC')
-            imagesc(seg.FishFeatureCRemap);
+          if isfield(seg,'IdentityFeatureC')
+            imagesc(seg.IdentityFeatureCRemap);
             title('C')
           else
             
@@ -754,7 +754,7 @@ classdef FishBlobAnalysis < handle;
       rp = self.splitRegions(rp,Iframe, Cframe);
       %goodmsk = self.getGoodMsk(rp);
       %rp = rp(goodmsk);
-      rp = self.getFishFeatures(rp);
+      rp = self.getIdentityFeatures(rp);
 
       
       segm = rp;
@@ -765,7 +765,7 @@ classdef FishBlobAnalysis < handle;
 
   methods
     
-    function self = FishBlobAnalysis(varargin) % constructor
+    function self = BlobAnalysis(varargin) % constructor
       
       self = self@handle();
      
@@ -817,21 +817,21 @@ classdef FishBlobAnalysis < handle;
       if ~exist('verboseif','var')
         verboseif = 1;
       end
-      if isempty(self.fishwidth)
-        self.fishwidth = 20; % random guess. Can be set afterwords;
+      if isempty(self.bodywidth)
+        self.bodywidth = 20; % random guess. Can be set axyTerwords;
       end
-      if isempty(self.fishlength)
-        self.fishlength = 100; % random guess. Can be set afterwords;
+      if isempty(self.bodylength)
+        self.bodylength = 100; % random guess. Can be set axyTerwords;
       end
       if isempty(self.headprop)
-        self.headprop = 0.6; % random guess. Can be set afterwords;
+        self.headprop = 0.6; % random guess. Can be set axyTerwords;
       end
       
-      setFishSize(self,self.fishlength,self.fishwidth,self.headprop,verboseif);
+      setSize(self,self.bodylength,self.bodywidth,self.headprop,verboseif);
     end
     
     
-    function setFishSize(self,fishlength,fishwidth,headprop,verboseif)
+    function setSize(self,bodylength,bodywidth,headprop,verboseif)
     % adjust paremeters according to the fishsize
       
       if ~exist('verboseif','var')
@@ -842,31 +842,31 @@ classdef FishBlobAnalysis < handle;
       end
       self.headprop = headprop;
 
-      if ~isempty(fishlength)
-        self.fishlength = fishlength;
+      if ~isempty(bodylength)
+        self.bodylength = bodylength;
       end
-      if ~isempty(fishwidth)
-        self.fishwidth = fishwidth;        
+      if ~isempty(bodywidth)
+        self.bodywidth = bodywidth;        
       end
 
-      if ~isempty(self.fishlength) && ~isempty(self.fishwidth) 
+      if ~isempty(self.bodylength) && ~isempty(self.bodywidth) 
         if verboseif
           xy.helper.verbose('Initiated %s with fish features.',upper(class(self)))
-          xy.helper.verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.fishlength, self.fishwidth)
+          xy.helper.verbose('Assumed approx. fish dimensions in pixels: %d x %d',self.bodylength, self.bodywidth)
         end
       else
         error('Provide valid fishsizes');
       end
 
 
-      self.featurewidth = self.fishwidth;
-      self.featureheight = floor(self.fishlength*headprop);
+      self.featurewidth = self.bodywidth;
+      self.featureheight = floor(self.bodylength*headprop);
 
-      self.maxextent = 5*(self.fishlength+self.fishwidth);
-      self.minextent = 0.05*(self.fishlength+self.fishwidth);
-      self.minWidth = 0.05*self.fishwidth;
-      self.minArea  = 0.05*self.fishlength*self.fishwidth;
-      self.maxArea  = 5*self.fishlength*self.fishwidth;
+      self.maxextent = 5*(self.bodylength+self.bodywidth);
+      self.minextent = 0.05*(self.bodylength+self.bodywidth);
+      self.minWidth = 0.05*self.bodywidth;
+      self.minArea  = 0.05*self.bodylength*self.bodywidth;
+      self.maxArea  = 5*self.bodylength*self.bodywidth;
       self.a_init();
     end
       

@@ -2,8 +2,9 @@
 Online tracking of groups of small animals in a planar environment in real time. 
 
 
-xyTracker is a modular Matlab platform form fast tracking of fish for group learning experiments. 
-It tracks fish in real time and performs a online classification of the fish identity to ensure that fish identity 
+xyTracker is a modular Matlab platform for real-time tracking of
+animals for group learning experiments in planar environments. 
+It tracks animals in real time and performs an online classification of the animal identity to ensure that animal identity 
 is not lost for long tracking experiments. 
 
 ##Installation
@@ -12,7 +13,7 @@ The tracking system includes 3 versions (in order of increasing performance): A 
 
 For the matlab-based version, only matlab (including the image processing toolbox) has to be installed. For the OpenCV versions, one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Additionally, for grabbing form ptGray cameras one needs to have installed the FlyCapture SDK. 
 
-For stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and in the matlab path. Note, that the FishTracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
+For stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and in the matlab path. Note, that the xy.Tracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 
 For compilation, one needs to specify the Matlab path and the path to mexpoencv (if available) and the path to FlycaptureSDK (if available) to compile with  
 ~~~~
@@ -29,53 +30,53 @@ alias matlab='LD_PRELOAD=$PRELOAD_LIBS /opt/MATLAB/R2014b/bin/matlab '
 ##Test
 One can test the installation by running 
 ~~~~
->> fish.Tracker.runTest();
+>> xy.Tracker.runTest();
 ~~~~
 
 ##Usage 
-In MATLAB your need to add the path where the +fish package folder is located. Then, try (without arguments) to get some documentation about the parameters: 
+In MATLAB your need to add the path where the +xy package folder is located. Then, try (without arguments) to get some documentation about the parameters: 
 ~~~~
->> fish.Tracker;  
+>> xy.Tracker;  
 ~~~~
 
 To track a video file (with ui-dialog and automatic detection of the
-number if fish) :
+number of bodies :
 ~~~~
->> ft = fish.Tracker([]);  
->> ft.track();   
->> ft.plot(); % make some result plots  
->> ft.save(); % save the ft object and all results  
+>> xyT = xy.Tracker([]);  
+>> xyT.track();   
+>> xyT.plot(); % make some result plots  
+>> xyT.save(); % save the xyT object and all results  
 ~~~~
 
-To track video file 'myvideo.avi' having 3 fish write (use 'nfish',-1
-for GUI selection, default is 'nfish', [] for auto selection of the
-number of fish) and known approximate length (e.g. 100 px) and width
+To track video file 'myvideo.avi' having 3 animals, write (use 'nbody',-1
+for GUI selection, default is 'nbody', [] for auto selection of the
+number of animals) and known approximate length (e.g. 100 px) and width
 (e.g. 30 px), do 
 ~~~~
->> ft = fish.Tracker('myvideo.avi','nfish',3,'fishwidth',30,'fishlength',100);  
+>> xyT = xy.Tracker('myvideo.avi','nbody',3,bodywidth',30,'bodylength',100);  
 ~~~~
 
 Set higher level of display and track first 20 seconds  
 ~~~~
->> ft.setDisplay(3)  
->> ft.track([0,20])  
+>> xyT.setDisplay(3)  
+>> xyT.track([0,20])  
 ~~~~
 
-![Tracking screenshot](https://github.com/maljoras/FishTracker/blob/master/pics/track.png)
+![Tracking screenshot](https://github.com/maljoras/xyTracker/blob/master/pics/track.png)
 
 Or turn off the display for fastest tracking. 
 ~~~~
->> ft.setDisplay(0)  
->> ft.track()
+>> xyT.setDisplay(0)  
+>> xyT.track()
 ~~~~
 
-For further analysis the results of the tracking process are saved in the ft.res field which can be obtained by
+For further analysis the results of the tracking process are saved in the xyT.res field which can be obtained by
 ~~~~
->> res = ft.getTrackingResults();
+>> res = xyT.getTrackingResults();
 ~~~~
 
-res.pos is a [nFrames x [x,y] x nFish] array of the position of the fish with unique ID.
-res.tracks has a number of fields (controlled be the property ft.saveFields and changed by the methods ft.addSaveFields/ft.removeSaveField).   
+res.pos is a [nFrames x [x,y] x nbody] array of the position of the animal with unique ID.
+res.tracks has a number of fields (controlled be the property xyT.saveFields and changed by the methods xyT.addSaveFields/xyT.removeSaveField).   
 For example:
 
 ~~~~
@@ -96,42 +97,44 @@ For example:
       segment_MinorAxisLength: [2101x5 double]  
       segment_MajorAxisLength: [2101x5 double]  
              segment_reversed: [2101x5 double]  
-                       fishId: [2101x5 double]  
+                   identityId: [2101x5 double]  
 ~~~~
 
-Each of the field as the dimensions [nFrames x nFish x nDims] where nDims are additional dimensions dependent on the field. For instance, to plot the x-velocity for each from and fish after tracking:
+Each of the field as the dimensions [nFrames x nbody x nDims] where
+nDims are additional dimensions dependent on the field. For instance,
+to plot the x-velocity for each tracked body after tracking:
 
 ~~~~
->> res = ft.getTrackingResults([0,20]);  
->> v = ft.getResField(res,'velocity',1); % 1 means delete "invisible" frames 
->> vx = squeeze(v(:,:,1)); % second dim is number fishId
+>> res = xyT.getTrackingResults([0,20]);  
+>> v = xyT.getResField(res,'velocity',1); % 1 means delete "invisible" frames 
+>> vx = squeeze(v(:,:,1)); 
 >> plot(res.t,vx);  
 ~~~~
 
 To plot the traces
 ~~~~
->> ft.plotTrace()
+>> xyT.plotTrace()
 ~~~~
 
-![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/trace.jpg)
+![Trace](https://github.com/maljoras/xyTracker/blob/master/pics/trace.jpg)
 
 
 Or in 3D (the centroid positions versus time), one can do the following:
 ~~~~
->> res = ft.getTrackingResults();
->> pos = ft.interpolateInvisible(res,'pos',5); % interpolate lost detections and Boxcar smooth with n=5 frames
+>> res = xyT.getTrackingResults();
+>> pos = xyT.interpolateInvisible(res,'pos',5); % interpolate lost detections and Boxcar smooth with n=5 frames
 >> plot3(res.t,squeeze(p(:,1,:)),squeeze(p(:,2,:)));
 >> xlabel('Time [s]'); ylabel('x-position [px]');zlabel('y-position [px]');
 ~~~~
 
-![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/trace3d.jpg)
+![Trace](https://github.com/maljoras/xyTracker/blob/master/pics/trace3d.jpg)
 
-Or a more fancy plot of the "centerline" the body-axis of the fish for each frame. Moments of large amount of "bending" of the fish's body are plotted in red. The position of the head is marked by a circle. 
+Or a more fancy plot of the "centerline" the body-axis of the bodies for each frame. Moments of large amount of "bending" of the fish's body are plotted in red. The position of the head is marked by a circle. 
 
 ~~~~
->> ft.plotCenterLine([10,20]) % 10 to 20 seconds for all fish   
+>> xyT.plotCenterLine([10,20]) % 10 to 20 seconds for all identities   
 ~~~~
-![Trace](https://github.com/maljoras/FishTracker/blob/master/pics/centerline.jpg)
+![Trace](https://github.com/maljoras/xyTracker/blob/master/pics/centerline.jpg)
 
 
 
@@ -142,14 +145,14 @@ Further examples can be found in the 'exps' and 'figs' directories.
 For Video grabbing and online tracking currently only
 [PointGrey](https://www.ptgrey.com) cameras are supported via the
 FlyCaptureSDK library. After installation and compilation (edit the
-Makefile to add the directories) fish can be tracked from a camera with
+Makefile to add the directories) animals can be tracked from a camera with
 camera index CamIdx and simultaneously saved to raw video file
 'myfile.avi' (camera index and ROI can be set with the flycap2 tool)
 
 ~~~~
->> ft = fish.Tracker({0,'myfile.avi'});   
->> ft.track(); % tracks indefintely. Close tracking window for stop or set end time  
->> ft.save();  
+>> xyT = xy.Tracker({0,'myfile.avi'});   
+>> xyT.track(); % tracks indefintely. Close tracking window for stop or set end time  
+>> xyT.save();  
 >> clear ft; % to stop the background video recording  
 ~~~~
 
@@ -157,46 +160,46 @@ Tracking stops when the tracking display window is closed and results
 are saved. Note that the video is continuously recorded in the
 background until the ft object is cleared.
 
-Although FishTracker is currently only tested with ptGrey cameras, it should be
+Although xyTracker is currently only tested with ptGrey cameras, it should be
 also possible to use the OpenCV VideoCapture method for video grabbing. That is, try
 (with camara index 0) 
 
 ~~~~
->> ft = fish.Tracker(0);
->> ft.track();
+>> xyT = xy.Tracker(0);
+>> xyT.track();
 ~~~~
 
 
 
 ## Stimulation
 
-Using the Matlab PsychToolbox it is possible to do online feedback experiments. To perform a new experiment one has to derive a class from fish.stimulus.Presenter and overload (at least) the "stepStimulus" method. See fish.stimulus.PresenterFlash for an example
+Using the Matlab PsychToolbox it is possible to do online feedback experiments. To perform a new experiment one has to derive a class from xy.stimulus.Presenter and overload (at least) the "stepStimulus" method. See xy.stimulus.PresenterFlash for an example
 
 To perform the experiment:  
 
 ~~~~
 >> opts = [];   
->> opts.stimulus.presenter  = 'fish.stimulus.Presenter';  
+>> opts.stimulus.presenter  = xy.stimulus.Presenter';  
 >> opts.stmif = 1;  
->> opts.nfish = 3;  
+>> opts.nbody = 3;  
 >> opts.detector.inverted = 1; % tracking in IR  
 >> opts.stimulus.screen = 1; % X-window screen number  
->> opts.fishwidth = 30;  
->> opts.fishlength = 150;  % set approx. length and width if known to avoid auto-estimation
+>> opts.bodywidth = 30;  
+>> opts.bodylength = 150;  % set approx. length and width if known to avoid auto-estimation
 >>   
->> ft = fish.Tracker({0,'savevideo.avi'},opts);  
->> ft.setDisplay(0);  % to avoid displaying delays  
->> ft.track(); % tracks until fish.stimulus.Presenter/isFinished returns true.  
->> ft.save();  
->> clear ft; % stop background avi recording  
+>> xyT = xy.Tracker({0,'savevideo.avi'},opts);  
+>> xyT.setDisplay(0);  % to avoid displaying delays  
+>> xyT.track(); % tracks until xy.stimulus.Presenter/isFinished returns true.  
+>> xyT.save();  
+>> clear xyT; % stop background avi recording  
 ~~~~
 
 For debugging, stimulus presenter objects can be tested on
-simulated fish tracks without the need for calling the
-fish.Tracker.track() method:
+simulated animal tracks without the need for calling the
+xy.Tracker.track() method:
 
 ~~~~
->> fish.helper.stimulusSimulator('fish.stimulus.Presenter')
+>> xy.helper.stimulusSimulator(xy.stimulus.Presenter')
 ~~~~
 
 

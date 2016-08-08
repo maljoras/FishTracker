@@ -14,7 +14,7 @@ function out = deleteInvisible(self,res,field)
   if ischar(field) && strcmp(field,'pos')
     out(permute(cat(3,msk,msk),[1,3,2])) = NaN;
   elseif (size(out,1)==size(msk,1)) && (size(out,2)==size(msk,2))
-    % always nFrames x nanimals x nOther
+    % always nFrames x nbody x nOther
     sz = size(out);
     out = reshape(out,numel(msk),[]);
     out(msk,:) = NaN;

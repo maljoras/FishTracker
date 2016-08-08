@@ -16,7 +16,7 @@ function  save(self,savename,savepath,vname)
   [~,savename] = fileparts(savename);
   
   if ~exist('vname','var') || isempty(vname)
-    vname = 'ft';
+    vname = 'xyT';
   end
   eval([vname '=self;']);
 

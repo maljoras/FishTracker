@@ -22,7 +22,7 @@ function a =subsubplot(varargin)
   plotId = orgi;
   def_pos = get(phandle, 'DefaultAxesPosition');
   % This is the percent offset from the subplot grid of the plotbox.
-  inset = [.2, .18, .04, .1]; % [left bottom right top]
+  inset = [.2, .18, .04, .1]; % [lexyT bottom right top]
   
   row = (nRows - 1) - fix((plotId - 1) / nCols);
   col = rem(plotId - 1, nCols);

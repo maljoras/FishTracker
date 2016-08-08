@@ -1,5 +1,5 @@
 function timestamp = plotVPlane(self,x,inColor1,inColor2)
-% plots a vertical half plane at x with left size color1 right color2
+% plots a vertical half plane at x with lexyT size color1 right color2
   if ~exist('inColor1','var')
     inColor1 = self.defaultColor;
   end

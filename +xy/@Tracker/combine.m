@@ -9,7 +9,7 @@ function combinedObj = combine(self,varargin)
   end
 
   dt = 1/self.videoHandler.frameRate;
-  tbinsize = max(self.fishlength/self.maxVelocity,2*dt);
+  tbinsize = max(self.bodylength/self.maxVelocity,2*dt);
 
   objs = {self,varargin{:}};
 
@@ -35,13 +35,13 @@ function combinedObj = combine(self,varargin)
     
     % assert that two video files are the same
     assert(strcmp(combinedObj.videoHandler.videoFile,obj.videoHandler.videoFile));
-    assert(combinedObj.nanimals==obj.nanimals);
+    assert(combinedObj.nbody==obj.nbody);
 
     res = getTrackingResults(obj);
 
     if obj.timerange(1)> combinedObj.timerange(2)
       % no overlap
-      xy.helper.verbose('WARNING: no overlap. Fish IDs might get mixed up!!');
+      xy.helper.verbose('WARNING: no overlap. Identity IDs might get mixed up!!');
       keyboard
       % just append
       combinedRes.tracks = cat(1,combinedRes.tracks,res.tracks);
@@ -65,7 +65,7 @@ function combinedObj = combine(self,varargin)
       overlapedCombinedIdx = find(tCombined>= tObj(1) & ~any(isnan(combinedRes.pos(:,1,:)),3));
 
       if isempty(overlapedIdx)|| isempty(overlapedCombinedIdx)
-        warning(['no valid indices found for overlap. Fish IDs might get mixed up!!. Take all ' ...
+        warning(['no valid indices found for overlap. Identity IDs might get mixed up!!. Take all ' ...
                  'available. ']);
 
         % simply take all res
@@ -82,12 +82,12 @@ function combinedObj = combine(self,varargin)
       dim = size(overlappedPos,2); % 2-D for now;
       tstart = tCombined(overlapedCombinedIdx(1));
       tidxCombined = floor((tCombined(overlapedCombinedIdx) - tstart)/tbinsize)+1;
-      [X,Y] = ndgrid(tidxCombined,1:self.nanimals*dim);
-      overlappedCombinedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedCombinedPos(:),[],@mean),[],obj.nanimals);
+      [X,Y] = ndgrid(tidxCombined,1:self.nbody*dim);
+      overlappedCombinedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedCombinedPos(:),[],@mean),[],obj.nbody);
       
       tidx = min(max(floor((tObj(overlapedIdx) - tstart)/tbinsize)+1,1),tidxCombined(end));
-      [X,Y] = ndgrid(tidx,1:self.nanimals*dim);
-      overlappedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedPos(:),[tidxCombined(end),self.nanimals*dim],@mean),[],obj.nanimals);
+      [X,Y] = ndgrid(tidx,1:self.nbody*dim);
+      overlappedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedPos(:),[tidxCombined(end),self.nbody*dim],@mean),[],obj.nbody);
 
       % now the two position vectors can be compared. 
       cost = pdist2(overlappedCombinedPosInterp',overlappedPosInterp','correlation');

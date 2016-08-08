@@ -1,4 +1,4 @@
-classdef FishForegroundDetector < handle;
+classdef ForegroundDetector < handle;
   
 
   
@@ -63,7 +63,7 @@ classdef FishForegroundDetector < handle;
       self.history = value;
     end
     
-    function self = FishForegroundDetector(varargin)
+    function self = ForegroundDetector(varargin)
       self = self@handle();
       
       nargs = length(varargin);

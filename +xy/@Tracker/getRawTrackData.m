@@ -6,11 +6,11 @@ function res = getRawTrackData(self)
   
   if isempty(self.savedTracks.id) 
     xy.helper.verbose('WARNING: cannot generate results!')
-    xy.helper.verbose('WARNING: not all fish detected. Maybe adjust "nanimals" setting.');
+    xy.helper.verbose('WARNING: not all body detected. Maybe adjust "nbody" setting.');
     return;
   end
 
-  nFrames = size(self.savedTracks.id,3)/self.nanimals;
+  nFrames = size(self.savedTracks.id,3)/self.nbody;
   if self.currentFrame~=nFrames
     xy.helper.verbose(['WARNING: %d frames got lost (premature abort while ' ...
              'tracking?)'],self.currentFrame-nFrames);
@@ -25,7 +25,7 @@ function res = getRawTrackData(self)
       sz = size(self.savedTracks.(f{1}));
       d = length(sz); % at least 3
       trackdat = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
-      fishdat = reshape(trackdat(:,:),[self.nanimals,nFrames,sz(2),sz(1),sz(3:d-1)]);
-      res.(f{1}) = permute(fishdat,[2,1,3:d+1]);
+      bodydat = reshape(trackdat(:,:),[self.nbody,nFrames,sz(2),sz(1),sz(3:d-1)]);
+      res.(f{1}) = permute(bodydat,[2,1,3:d+1]);
     end
 end

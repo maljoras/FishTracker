@@ -15,7 +15,7 @@ function plotByType(self,plottype,plotTimeRange,identityIds)
   end
 
   if ~exist('identityIds','var') || isempty(identityIds)
-    identityIds = 1:self.nanimals;
+    identityIds = 1:self.nbody;
   end
 
   if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
@@ -105,7 +105,7 @@ function plotByType(self,plottype,plotTimeRange,identityIds)
         colormap(jet(size(P,3)+1));
         xlabel('x-Position [px]')
         ylabel('y-Position [px]')
-        title('Domain of fish')
+        title('Domain of animal')
         axis xy;
       end
       

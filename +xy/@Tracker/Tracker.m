@@ -5,9 +5,9 @@ classdef Tracker < handle;
     timerange= [];    
     maxVelocity = [];        
     avgVelocity = [];
-    fishlength = [];
-    fishwidth = [];
-    nanimals = [];
+    bodylength = [];
+    bodywidth = [];
+    nbody = [];
     opts = struct([]);
   end
 
@@ -33,7 +33,7 @@ classdef Tracker < handle;
     videoWriter = [];
     stimulusPresenter = [];
     
-    fishClassifier = [];
+    identityClassifier = [];
     daGraph = [];
     tracks = [];
     res = [];
@@ -73,7 +73,7 @@ classdef Tracker < handle;
     meanCost = ones(4,1);
     pos = [];
     tabs = [];
-    uniqueFishFrames = 0;
+    uniqueIdentityFrames = 0;
     
     assignments = [];
     unassignedTracks = [];
@@ -113,7 +113,7 @@ classdef Tracker < handle;
     lastTimeStamp = [];
     dt = [];
     
-    %    MAXCROSSFISH = 10; % MAX number of cross for many fish....DEVELOPMENTAL
+    %    MAXCROSSBODY = 10; % MAX number of cross for many body....DEVELOPMENTAL
   end
 
   
@@ -128,7 +128,7 @@ classdef Tracker < handle;
       deleted_fields = {'saveFieldSub'};
 
       if isstruct(S)
-        % compatibility with old FishTracker files
+        % compatibility with old BodyTracker files
         opts = S.opts;
         for f = fieldnames(S.opts)'
           if ~isstruct(S.opts.(f{1})) && isfield(S,f{1})
@@ -189,33 +189,33 @@ classdef Tracker < handle;
       opts = opts1;
       
       opts = xy.helper.setfield(opts,parname,parvalue);
-      opts.nanimals = 5;
+      opts.nbody = 5;
       opts.verbosity = 3;
       
       xy.helper.verbose('Start parameter variation: %s = %f',parname,parvalue);
       
-      ft = [];
-      [~,t_elapsed,~,idpos, ft] = xy.Tracker.runTest(tmax,opts,[],[],0);
+      xyT = [];
+      [~,t_elapsed,~,idpos, xyT] = xy.Tracker.runTest(tmax,opts,[],[],0);
       
-      r = ft.getDagTrackingResults();
-      ftposdag = r.pos;
+      r = xyT.getDagTrackingResults();
+      xyTposdag = r.pos;
       
-      ddag = squeeze(sqrt(sum((ftposdag - idpos).^2,2)));
-      r = ft.getSwitchBasedTrackingResults();
-      ftpos = r.pos;
-      d = squeeze(sqrt(nansum((ftpos - idpos).^2,2)));
-      fL = ft.fishlength;
+      ddag = squeeze(sqrt(sum((xyTposdag - idpos).^2,2)));
+      r = xyT.getSwitchBasedTrackingResults();
+      xyTpos = r.pos;
+      d = squeeze(sqrt(nansum((xyTpos - idpos).^2,2)));
+      fL = xyT.bodylength;
       
       if nargin>4 && ~isempty(dfname)
         VERBOSEDIARY = 0;
       end
     end
 
-    function res = parameterVariations(pv,ftopts,varargin)
-    % RES=PARAMETERVARIATIONS(PV,FTOPTS,...) computes parameter variations for
+    function res = parameterVariations(pv,xyTopts,varargin)
+    % RES=PARAMETERVARIATIONS(PV,XYTOPTS,...) computes parameter variations for
     % given parameters and checks how the runTest performs. PV is a struc of
     % field names like parmeters in xy.Tracker. The field contains the array
-    % to loop over. FTOPTS is an options structure for other paramters to be
+    % to loop over. XYTOPTS is an options structure for other paramters to be
     % fixed.
     % 
     % EXAMPLE: 
@@ -226,7 +226,7 @@ classdef Tracker < handle;
 
       
       def.pv = [];
-      def.ftopts = [];
+      def.xyTopts = [];
       def.opts.diaryif = 0;
       def.opts.diarypath = 'diary';
       def.opts.tmax = [];
@@ -273,7 +273,7 @@ classdef Tracker < handle;
             end
             
             
-            res.f(s) = parfeval(@xy.Tracker.parameterfun,4,res.ftopts,pars{i},pararr{i}(j),res.opts.tmax,fn);
+            res.f(s) = parfeval(@xy.Tracker.parameterfun,4,res.xyTopts,pars{i},pararr{i}(j),res.opts.tmax,fn);
             res.translate{s} = [i,j];
           end
         end
@@ -283,18 +283,18 @@ classdef Tracker < handle;
         return
       end
 
-      if isempty(res.dat) || numel(cat(1,res.dat.fishLength))<numel(res.translate)
+      if isempty(res.dat) || numel(cat(1,res.dat.bodyLength))<numel(res.translate)
         % get output
         xy.helper.verbose('Waiting for results..');
         for k = 1:length(res.f)
           
           ONLINE = 0;%isempty(res.dat);
           if ONLINE
-              [completedIdx, d, ddag, fishLength,t_elapsed] = fetchNext(res.f);
+              [completedIdx, d, ddag, bodyLength,t_elapsed] = fetchNext(res.f);
           else
             completedIdx = k;
             try
-              [d, ddag , fishLength,t_elapsed] = fetchOutputs(res.f(k));
+              [d, ddag , bodyLength,t_elapsed] = fetchOutputs(res.f(k));
             catch
               disp(res.f(k))
               continue;
@@ -307,7 +307,7 @@ classdef Tracker < handle;
           res.dat(i,j).d = d;
           res.dat(i,j).ddag = ddag;
           res.dat(i,j).t_elapsed = t_elapsed;
-          res.dat(i,j).fishLength = fishLength;
+          res.dat(i,j).bodyLength = bodyLength;
           res.dat(i,j).parval = pararr{i}(j);
           res.dat(i,j).parname = pars{i};
           if opts.diaryif
@@ -332,15 +332,15 @@ classdef Tracker < handle;
       [r1,r2] = xy.helper.getsubplotnumber(size(res,1));
       %fun = @(x)nanmax(x,[],2);
       %fun = @(x)nanmean(x,2);
-      fun = @(x)nansum(x>0.5,2); % across fish;
+      fun = @(x)nansum(x>0.5,2); % across body;
       
       dat = res.dat;
       nframes = size(dat(1,1).d,1);
-      nanimals = size(dat(1,1).d,2);
-      n = nframes*nanimals;
+      nbody = size(dat(1,1).d,2);
+      n = nframes*nbody;
       
       for i = 1:size(dat,1)
-        fL = cat(1,dat(i,:).fishLength); 
+        fL = cat(1,dat(i,:).bodyLength); 
         parr = cat(2,dat(i,:).parval);
         x  = bsxfun(@rdivide,cat(3,dat(i,:).d),permute(fL,[3,2,1]));
         x = x(init:end,:,:);
@@ -391,8 +391,8 @@ classdef Tracker < handle;
     %seconds. if PLOTIF==0 no output is given. PLOTIF==1 plots a result
     %plot and PLOTIF>1 displays the tracks currently tracked.
     %
-    % [..,FTPOS,IDPOS] = RUNTEST returns additionally the position results.
-    % [..,FT] = RUNTEST returns additionally the xy.Tracker object.
+    % [..,XYTPOS,IDPOS] = RUNTEST returns additionally the position results.
+    % [..,XYT] = RUNTEST returns additionally the xy.Tracker object.
     %  
     % Example: 
     % >> xy.Tracker.runTest(50,[],[],[],2); % with plotting
@@ -417,17 +417,17 @@ classdef Tracker < handle;
         end
         
         if ~exist('pathToVideo','var') || ~exist(pathToVideo,'file')
-          pathToVideo = [xy.helper.getFTRoot() 'data' filesep '5Zebrafish_nocover_22min.avi'];   
+          pathToVideo = [xy.helper.getXYTRoot() 'data' filesep '5Zebrafish_nocover_22min.avi'];   
         end
         if ~exist(pathToVideo,'file')
           error(['Please set PATHTOVIDEO to dowloaded video file available at "http://' ...
                  'www.cajal.csic.es/files/gpolavieja/5Zebrafish_nocover_22min.avi" ' ...
-                 'or put the downloaded avi-file into the "+fish/../data" directory.']);
+                 'or put the downloaded avi-file into the "+xy/../data" directory.']);
         end
       end
       
       if nargin<4 || isempty(pathToMat)
-        pathToMat = [xy.helper.getFTRoot() 'data' filesep 'trajectories.mat']; 
+        pathToMat = [xy.helper.getXYTRoot() 'data' filesep 'trajectories.mat']; 
       end
 
       if nargin<5
@@ -442,44 +442,44 @@ classdef Tracker < handle;
 
       % run benchmark
       xy.helper.verbose('Starting run test.');
-      ft = xy.Tracker(pathToVideo,'avgVelocity',5,'blob.colorfeature',false,args{:});
-      ft.setDisplay(max(plotif-1,0));
-      ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
+      xyT = xy.Tracker(pathToVideo,'avgVelocity',5,'blob.colorfeature',false,args{:});
+      xyT.setDisplay(max(plotif-1,0));
+      xyT.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
 
       tic;
-      ft.track(trange);
+      xyT.track(trange);
       t_elapsed=toc;
 
       
-      nanimals = ft.nanimals;
-      ftres = ft.getTrackingResults();
-      ftres.pos(end,:,:) = NaN; % why ? 
-      ftresnan = ftres;
-      ftresnan.pos = ft.deleteInvisible(ftres,'pos');
+      nbody = xyT.nbody;
+      xyTres = xyT.getTrackingResults();
+      xyTres.pos(end,:,:) = NaN; % why ? 
+      xyTresnan = xyTres;
+      xyTresnan.pos = xyT.deleteInvisible(xyTres,'pos');
       
-      dist = zeros(nanimals);
-      offs = size(idres.pos,1) - size(ftres.pos,1);
+      dist = zeros(nbody);
+      offs = size(idres.pos,1) - size(xyTres.pos,1);
       
       
-      for i = 1:nanimals
-        for j = 1:nanimals
-          dist(i,j) = nanmean(sqrt(sum((ftres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
+      for i = 1:nbody
+        for j = 1:nbody
+          dist(i,j) = nanmean(sqrt(sum((xyTres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
         end
       end
       assignments = xy.helper.assignDetectionsToTracks(dist,1e3);
       
-      ftpos = ftres.pos;
-      ftposnan = ftresnan.pos;
+      xyTpos = xyTres.pos;
+      xyTposnan = xyTresnan.pos;
       idpos = idres.pos(1:end-offs,:,assignments(assignments(:,1),2));
  
-      t = ftres.t(:,1);
-      d = sqrt(sum((ftpos(:,:,:) - idpos(:,:,:)).^2,2))/ft.fishlength;
+      t = xyTres.t(:,1);
+      d = sqrt(sum((xyTpos(:,:,:) - idpos(:,:,:)).^2,2))/xyT.bodylength;
       
       success = mean(nanmax(d,[],3)>1)<0.05;
 
-      varargout{1} = ftpos;
+      varargout{1} = xyTpos;
       varargout{2} = idpos;
-      varargout{3} = ft;
+      varargout{3} = xyT;
       
       if plotif
         figure;
@@ -506,9 +506,9 @@ classdef Tracker < handle;
         
         set(a(s),'fontsize',8);
         if MAXDISTANCE
-          ylabel(sprintf('Max distance\n[Fish length]'),'fontsize',10);
+          ylabel(sprintf('Max distance\n[Body length]'),'fontsize',10);
         else
-          ylabel(sprintf('Avg. distance\n[Fish length]'),'fontsize',10);
+          ylabel(sprintf('Avg. distance\n[Body length]'),'fontsize',10);
         end
         
         xlim(t([1,end]));
@@ -518,9 +518,9 @@ classdef Tracker < handle;
         s = s+1;
         a(end+1) = subplot(r1,r2,s,'align');
         nconv = 75;
-        ftnan = conv(sum(isnan(ftposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
+        xyTnan = conv(sum(isnan(xyTposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
         idnan = conv(sum(isnan(idpos(:,1,:)),3),ones(nconv,1)/nconv,'same');
-        plot(t,[ftnan,idnan]*100/ft.nanimals);
+        plot(t,[xyTnan,idnan]*100/xyT.nbody);
         xlim(t([1,end]))
         set(a(s),'fontsize',8);
         
@@ -535,7 +535,7 @@ classdef Tracker < handle;
         a(end+1) = subplot(r1,r2,s,'align');
         
         
-        cross = diff(ftres.tracks.lastFrameOfCrossing-ftres.tracks.firstFrameOfCrossing)>0;
+        cross = diff(xyTres.tracks.lastFrameOfCrossing-xyTres.tracks.firstFrameOfCrossing)>0;
         ccross = conv2(sum(double(cross),2),ones(nconv,1)/nconv,'same');
         plot(t(1:end-1),ccross,'k')
         set(a(s),'fontsize',8);
@@ -547,7 +547,7 @@ classdef Tracker < handle;
         % probability
         s = s+1;
         a(end+1) = subplot(r1,r2,s,'align');
-        clp = ftres.tracks.classProb;
+        clp = xyTres.tracks.classProb;
         dclp = zeros(size(clp,1),size(clp,2));
         mclp = zeros(size(clp,1),size(clp,2));
         for i =1:size(clp,2)
@@ -593,9 +593,9 @@ classdef Tracker < handle;
     % SCREENBOUNDINGBOX used for stimulus presentation.
     
       opts = [];
-      opts.nanimals = 4;
-      opts.fishlength = 100;
-      opts.fishwidth = 50;
+      opts.nbody = 4;
+      opts.bodylength = 100;
+      opts.bodywidth = 50;
       opts.stmif = 1;
       opts.stimulus.presenter = 'xy.stimulus.PresenterCalibration';
       opts.stimulus.screen =   screenIdx;
@@ -604,24 +604,24 @@ classdef Tracker < handle;
       opts.tracks.useDagResults = 0;
       opts.tracks.initBackground = 0;
       
-      ft = xy.Tracker({camIdx,''},opts);
+      xyT = xy.Tracker({camIdx,''},opts);
 
       if nargin<3
         plotif = 1;
       end
       
       if plotif>1
-        ft.setDisplay(1);
-        ft.setDisplay('tracks',1,'stimulusProgress',0);      
+        xyT.setDisplay(1);
+        xyT.setDisplay('tracks',1,'stimulusProgress',0);      
       else
-        ft.setDisplay(0);
+        xyT.setDisplay(0);
       end
       
-      ft.addSaveFields('bbox');
+      xyT.addSaveFields('bbox');
 
-      ft.stimulusPresenter.width = 50; % maybe needs to be adjusted
-      ft.stimulusPresenter.tmax = 30;
-      ft.stimulusPresenter.freq = 0.2;
+      xyT.stimulusPresenter.width = 50; % maybe needs to be adjusted
+      xyT.stimulusPresenter.tmax = 30;
+      xyT.stimulusPresenter.freq = 0.2;
 
       
       xy.helper.verbose(['\n\n****** \tStarting calibration. ' ...
@@ -630,18 +630,18 @@ classdef Tracker < handle;
       pause;
       
       % start detecting
-      ft.track(); % track the markings
-      ft.stimulusPresenter.flip(); % turn stim off
+      xyT.track(); % track the markings
+      xyT.stimulusPresenter.flip(); % turn stim off
       
-      res = ft.getTrackingResults();
+      res = xyT.getTrackingResults();
       
-      pos = permute(ft.interpolateInvisible(res,'centroid'),[1,3,2]);
-      bbox = ft.interpolateInvisible(res,'bbox');
-      [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,ft.videoHandler.frameSize);
+      pos = permute(xyT.interpolateInvisible(res,'centroid'),[1,3,2]);
+      bbox = xyT.interpolateInvisible(res,'bbox');
+      [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,xyT.videoHandler.frameSize);
       
       if plotif
         figure;
-        imagesc(ft.videoHandler.getCurrentFrame());
+        imagesc(xyT.videoHandler.getCurrentFrame());
         colormap('gray')
         hold on;
         plot(xyframe(:,:,1),xyframe(:,:,2),'linewidth',1);
@@ -721,7 +721,7 @@ classdef Tracker < handle;
     
     function [player] = newVideoPlayer(self,vidname)
       player = vision.VideoPlayer();
-      %player = xy.core.FishVideoPlayer();
+      %player = xy.core.VideoPlayer();
     end
     
     
@@ -733,18 +733,18 @@ classdef Tracker < handle;
       if nargin<4
         opts = self.opts;
       end
-      if self.useMex && xy.core.FishVideoHandlerMex.installed()
+      if self.useMex && xy.core.VideoHandlerMex.installed()
         self.useMex = 1;
         self.useOpenCV = 1;
-        handler = xy.core.FishVideoHandlerMex(vidname,timerange,self.useKNN,opts);
+        handler = xy.core.VideoHandlerMex(vidname,timerange,self.useKNN,opts);
       elseif xy.helper.hasOpenCV() && self.useOpenCV
         self.useMex = 0;
         self.useOpenCV = 1;
-        handler = xy.core.FishVideoHandler(vidname,timerange,self.useKNN,opts);
+        handler = xy.core.VideoHandler(vidname,timerange,self.useKNN,opts);
       else
         self.useMex = 0;
         self.useOpenCV = 0;
-        handler = xy.core.FishVideoHandlerMatlab(vidname,timerange,self.useKNN,opts);
+        handler = xy.core.VideoHandlerMatlab(vidname,timerange,self.useKNN,opts);
       end
       timerange = handler.timeRange;
 
@@ -786,7 +786,7 @@ classdef Tracker < handle;
       end
       
       %% setting
-      self.fishClassifier.plotif = ~~dopts.classifier && self.displayif;
+      self.identityClassifier.plotif = ~~dopts.classifier && self.displayif;
       self.videoHandler.plotting(~~dopts.videoHandler && self.displayif);
                 
       if self.stmif
@@ -799,8 +799,8 @@ classdef Tracker < handle;
     
     function predictor = newPredictor(self,centroid);
     % Create a Kalman filter object.
-      vel = 1/(self.avgTimeScale)*self.fishlength;
-      predictor = configureKalmanFilter('ConstantVelocity', centroid, [self.fishlength, self.fishlength], [vel,vel], 1);
+      vel = 1/(self.avgTimeScale)*self.bodylength;
+      predictor = configureKalmanFilter('ConstantVelocity', centroid, [self.bodylength, self.bodylength], [vel,vel], 1);
     end
 
     
@@ -849,31 +849,31 @@ classdef Tracker < handle;
     function initBackgroundAndObjects(self)
 
       %% look for objects 
-      if isempty(self.nanimals) || isempty(self.fishlength) || isempty(self.fishwidth) || self.useScaledFormat  
+      if isempty(self.nbody) || isempty(self.bodylength) || isempty(self.bodywidth) || self.useScaledFormat  
 
-        [nanimals,fishSize] = self.findObjectSizes();
+        [nbody,bodySize] = self.findObjectSizes();
         
         
-        if (nanimals>100 || ~nanimals) && isempty(self.nanimals)% too many... something wrong
-          xy.helper.verbose('WARNING: The fish size and number cannot be determined')
-          if self.displayif && self.opts.display.fishSearchResults
-            self.nanimals = xy.helper.chooseNanimals(vid,1); % only if interactively
-            fishSize = [100,20]; % wild guess;
+        if (nbody>100 || ~nbody) && isempty(self.nbody)% too many... something wrong
+          xy.helper.verbose('WARNING: The bodies size and number cannot be determined')
+          if self.displayif && self.opts.display.bodySearchResults
+            self.nbody = xy.helper.chooseNbody(vid,1); % only if interactively
+            bodySize = [100,20]; % wild guess;
             close(gcf);
           else
-            error('Please manual provide fishlength, fishwidth and nanimals');
+            error('Please manual provide bodylength, bodywidth and nbody');
           end
         end
         
         
-        if isempty(self.opts.fishlength) % otherwise already set by hand
-          self.fishlength = fishSize(1);
+        if isempty(self.opts.bodylength) % otherwise already set by hand
+          self.bodylength = bodySize(1);
         end
-        if isempty(self.opts.fishwidth) 
-          self.fishwidth = fishSize(2); 
+        if isempty(self.opts.bodywidth) 
+          self.bodywidth = bodySize(2); 
         end
-        if isempty(self.opts.nanimals) 
-          self.nanimals = nanimals;
+        if isempty(self.opts.nbody) 
+          self.nbody = nbody;
         end
         
       else
@@ -912,8 +912,8 @@ classdef Tracker < handle;
       self.videoHandler.timeRange = self.timerange;                       
       self.timerange = self.videoHandler.timeRange; % to get the boundaries right;
       self.videoHandler.setCurrentTime(self.timerange(1));
-      self.videoHandler.fishlength = self.fishlength;
-      self.videoHandler.fishwidth = self.fishwidth;
+      self.videoHandler.bodylength = self.bodylength;
+      self.videoHandler.bodywidth = self.bodywidth;
       self.videoHandler.headprop = self.opts.blob.headprop;
 
       self.timeStamp = self.videoHandler.getCurrentTime();
@@ -927,7 +927,7 @@ classdef Tracker < handle;
       
       % initialize graph
       self.daGraph = [];
-      self.daGraph = xy.core.FishDAGraph(self.nanimals,self.nanimals);
+      self.daGraph = xy.core.DAGraph(self.nbody,self.nbody);
 
       self.checkOpts();
       self.setOpts();
@@ -950,9 +950,9 @@ classdef Tracker < handle;
         self.videoWriter = [];
       end
 
-      %% get new fish classifier 
-      self.fishClassifier = newFishClassifier(self,self.opts.classifier);
-      self.isInitClassifier = isInit(self.fishClassifier);
+      %% get new identity classifier 
+      self.identityClassifier = newClassifier(self,self.opts.classifier);
+      self.isInitClassifier = isInit(self.identityClassifier);
 
       
       %% set the display  (before stimPresenter.reset)
@@ -972,7 +972,7 @@ classdef Tracker < handle;
         self.videoPlayer.show();
       end
 
-      self.identityId2TrackId = nan(250,self.nanimals);
+      self.identityId2TrackId = nan(250,self.nbody);
       self.pos = [];
       self.res = [];
       self.tracks = [];
@@ -987,7 +987,7 @@ classdef Tracker < handle;
 
       self.tracks = self.initializeTracks(); % Create an empty array of tracks.
       self.nextId = 1;
-      self.uniqueFishFrames = 0;
+      self.uniqueIdentityFrames = 0;
       self.meanCost(:) = 1;
       self.meanAssignmentCost = 1;
 
@@ -1072,7 +1072,7 @@ classdef Tracker < handle;
         overlap(1:length(segm)+1:end) = 0;
         [i,j] =  find(overlap);
         
-        while ~isempty(i) && length(self.segments)>self.nanimals
+        while ~isempty(i) && length(self.segments)>self.nbody
 
           if segm(i(1)).Area > segm(j(1)).Area
             deli = j(1);
@@ -1097,7 +1097,7 @@ classdef Tracker < handle;
           self.bboxes(deli,:)= [];
           
           % recompute
-          overlap = getBBoxOverlap(self.bboxes,self.bboxes,self.fishwidth);
+          overlap = getBBoxOverlap(self.bboxes,self.bboxes,self.bodywidth);
           overlap(1:length(segm)+1:end) = 0;
           [i,j] =  find(overlap);
         end
@@ -1145,7 +1145,7 @@ classdef Tracker < handle;
         
         
         % features
-        idfeat = permute(cat(4,segm.FishFeature),[4,1,2,3]);
+        idfeat = permute(cat(4,segm.IdentityFeature),[4,1,2,3]);
         self.idfeatures =  idfeat;
         
         for ct = self.featurecosttypes
@@ -1153,7 +1153,7 @@ classdef Tracker < handle;
         end
         
         
-        self.classProb = predict(self.fishClassifier,self.idfeatures(:,:));
+        self.classProb = predict(self.identityClassifier,self.idfeatures(:,:));
         self.classProbNoise = double(cat(1,segm.bendingStdValue));
       
       else
@@ -1178,10 +1178,10 @@ classdef Tracker < handle;
     % ClASSIFICATION
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    function cla = newFishClassifier(self,opts);
+    function cla = newClassifier(self,opts);
     % Create Classifier objects
       featdim = [self.videoHandler.getFeatureSize()];
-      cla = xy.core.FishBatchClassifier(self.nanimals,featdim);
+      cla = xy.core.BatchClassifier(self.nbody,featdim);
       
       % set proporties
       for f = fieldnames(opts)'
@@ -1207,7 +1207,7 @@ classdef Tracker < handle;
     
     function [nc,ncidx] = connectedComponents(self,trackIndices,assignedIdentityIds)
       oldIdentityIds = [self.tracks(trackIndices).identityId];
-      A = zeros(self.nanimals);
+      A = zeros(self.nbody);
       A(sub2ind(size(A),oldIdentityIds,assignedIdentityIds)) = 1;
       nc = xy.helper.networkComponents(A);
       % delete self-components
@@ -1235,18 +1235,18 @@ classdef Tracker < handle;
     end
 
     
-    function changed = fishClassifierUpdate(self,trackIndices,updateif)
-    % updates and tests the collected features according to the current fishIDs. It does NOT
+    function changed = identityClassifierUpdate(self,trackIndices,updateif)
+    % updates and tests the collected features according to the current identityIDs. It does NOT
     % force and update, update is only done if the batch is likly to come from the true
-    % fish. In case a valid permutation is detected and reassignProb is higher than a
-    % threshold, fishIDs are exchanged.
+    % identity. In case a valid permutation is detected and reassignProb is higher than a
+    % threshold, identityIDs are exchanged.
     %
     % resets the batchIdxs after update
       changed = 0;
       identityIds = cat(2,self.tracks(trackIndices).identityId);
 
       % test on the whole set of possible identityIds
-      [assignedIdentityIds prob steps probdiag] = self.predictFish(trackIndices,1:self.nanimals,...
+      [assignedIdentityIds prob steps probdiag] = self.predictIdentity(trackIndices,1:self.nbody,...
                                                         self.nFramesForSingleUpdate);
       same = assignedIdentityIds==identityIds; 
 
@@ -1254,16 +1254,16 @@ classdef Tracker < handle;
         % do not update if classes might be mixed up (wait for more data)
         % change classifier
         feat = self.getFeatureDataFromTracks(trackIndices);
-        [assignedIdentityIds prob] = self.fishClassifier.batchUpdate(identityIds,feat,1); % force
+        [assignedIdentityIds prob] = self.identityClassifier.batchUpdate(identityIds,feat,1); % force
         self.resetBatchIdx(trackIndices);
-        self.uniqueFishFrames = 0;
+        self.uniqueIdentityFrames = 0;
         changed  = 1;
         return
       end
       
       %we here also check whether some unaccounted switching occurred (maybe outside of
       %a crossing)
-      if length(same)>1 && ~all(same) && self.enoughEvidenceForAllFishSwitch(prob,steps,probdiag)
+      if length(same)>1 && ~all(same) && self.enoughEvidenceForAllIdentitySwitch(prob,steps,probdiag)
         % we have some mixed classes 
 
         % might be some NaNs...
@@ -1286,11 +1286,11 @@ classdef Tracker < handle;
               && (self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx)))
 
             % only permute if true permutation and enough evidence
-            xy.helper.verbose('Switching fish with fishClassifierUpdate [%1.2f,%d]',min(prob(idx)),min(steps(idx)))
+            xy.helper.verbose('Switching identity with identityClassifierUpdate [%1.2f,%d]',min(prob(idx)),min(steps(idx)))
 
-            switchFish(self,trackIndices(idx),assignedIdentityIds(idx),0);
+            switchIdentity(self,trackIndices(idx),assignedIdentityIds(idx),0);
             changed = 1;
-            self.uniqueFishFrames = 0;
+            self.uniqueIdentityFrames = 0;
           end
         end
       end
@@ -1299,22 +1299,22 @@ classdef Tracker < handle;
 
     
     function updatePos(self)
-    % save current track->fishID
+    % save current track->identityID
       t = self.currentFrame;
       identityIds = cat(1,self.tracks.identityId);
       tracks = self.tracks(~isnan(identityIds));
 
       if size(self.identityId2TrackId,1)< t
-        self.identityId2TrackId = cat(1,self.identityId2TrackId,nan(self.nFramesExtendMemory,self.nanimals));
+        self.identityId2TrackId = cat(1,self.identityId2TrackId,nan(self.nFramesExtendMemory,self.nbody));
       end
       % save track positions
       if isempty(self.pos)
-        self.pos = nan(2,self.nanimals,self.nFramesExtendMemory);
+        self.pos = nan(2,self.nbody,self.nFramesExtendMemory);
         self.tabs = nan(self.nFramesExtendMemory,1);
       end
 
       if size(self.pos,3)<t
-        self.pos = cat(3,self.pos,nan(2,self.nanimals,self.nFramesExtendMemory));
+        self.pos = cat(3,self.pos,nan(2,self.nbody,self.nFramesExtendMemory));
       end
 
       if size(self.tabs,1)<t
@@ -1341,14 +1341,14 @@ classdef Tracker < handle;
 
       success = false;
       thres = 3;
-      if length(self.tracks)<self.nanimals 
+      if length(self.tracks)<self.nbody 
         if  self.currentFrame > thres*self.nFramesForInit
-          xy.helper.verbose(['nanimals setting might be wrong or some fish are lost\r'])
+          xy.helper.verbose(['nbody setting might be wrong or some identity are lost\r'])
         end
         return
       end
 
-      if self.uniqueFishFrames>self.nFramesForInit  || ...
+      if self.uniqueIdentityFrames>self.nFramesForInit  || ...
           self.currentFrame> thres*self.nFramesForInit % cannot wait for ages..
         
         identityIds = cat(2,self.tracks.identityId);      
@@ -1356,11 +1356,11 @@ classdef Tracker < handle;
         feat = self.getFeatureDataFromTracks(1:length(self.tracks));
         [~,sidx] = sort(identityIds);
         feat = feat(sidx);
-        batchsample = cell(1,self.nanimals);
+        batchsample = cell(1,self.nbody);
         [batchsample{:}] = deal([]);
         batchsample(1:length(feat)) = feat;
         
-        self.fishClassifier.init(batchsample);
+        self.identityClassifier.init(batchsample);
         self.currentCrossBoxLengthScale = self.opts.tracks.crossBoxLengthScale; % update
         self.resetBatchIdx(1:length(self.tracks));
         
@@ -1373,7 +1373,7 @@ classdef Tracker < handle;
         self.daGraph.reset(self.pos(:,:,self.currentFrame),self.currentFrame);
         
         
-        self.uniqueFishFrames  = 0;
+        self.uniqueIdentityFrames  = 0;
         success = true;
         
       elseif self.currentFrame < thres/2*self.nFramesForInit % cannot wait for ages..
@@ -1386,8 +1386,8 @@ classdef Tracker < handle;
       
     end
     
-    function  [assignedIdentityIds, prob, steps, probdiag] = predictFish(self,trackIndices,identityIdSet,maxSteps);
-    % predicts the fish according to the running probhist mean 
+    function  [assignedIdentityIds, prob, steps, probdiag] = predictIdentity(self,trackIndices,identityIdSet,maxSteps);
+    % predicts the identity according to the running probhist mean 
       
       C = zeros(length(trackIndices),length(identityIdSet));
 
@@ -1415,7 +1415,7 @@ classdef Tracker < handle;
       
       assignments = xy.helper.assignDetectionsToTracks(C',2);
       
-      assignedIdentityIds(assignments(:,2)) = identityIdSet(assignments(:,1)); % fishIDs have 1:nanimals order
+      assignedIdentityIds(assignments(:,2)) = identityIdSet(assignments(:,1)); % identityIDs have 1:nbody order
       for i = 1:size(assignments,1)
         prob(assignments(i,2)) = 1-C(assignments(i,2),assignments(i,1));
       end
@@ -1423,7 +1423,7 @@ classdef Tracker < handle;
     
     end
     
-    function bool = enoughEvidenceForAllFishSwitch(self,prob,steps,probdiag)
+    function bool = enoughEvidenceForAllIdentitySwitch(self,prob,steps,probdiag)
       if any(isnan(probdiag)) || self.meanClassificationProb-self.meanClassificationProbOther<self.opts.classifier.minOtherProbDiff
         bool = false;
       else
@@ -1442,7 +1442,7 @@ classdef Tracker < handle;
 
     
     function bool = enoughEvidenceForReassignment(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) || sum(prob)/length(prob)<self.opts.tracks.probThresForFish*self.maxClassificationProb
+      if any(isnan(probdiag)) || sum(prob)/length(prob)<self.opts.tracks.probThresForIdentity*self.maxClassificationProb
         bool = false;
       else
         bool = max(prob-probdiag)>self.opts.classifier.reassignProbThres*self.maxClassificationProb ...
@@ -1456,10 +1456,10 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForForcedUpdate(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) || (length(prob)<self.nanimals && length(prob)>1) ...
-          || sum(prob)/length(prob)<self.opts.tracks.probThresForFish*self.maxClassificationProb
+      if any(isnan(probdiag)) || (length(prob)<self.nbody && length(prob)>1) ...
+          || sum(prob)/length(prob)<self.opts.tracks.probThresForIdentity*self.maxClassificationProb
         bool = false;
-      elseif length(prob)==1 %&& self.nanimals>self.MAXCROSSFISH
+      elseif length(prob)==1 %&& self.nbody>self.MAXCROSSIDENTITY
         bool = true; % single update;
       else
         bool1 = min(steps) >= self.nFramesAfterCrossing;
@@ -1473,11 +1473,11 @@ classdef Tracker < handle;
         bool = false;
       else
         m =sum(probdiag)/length(probdiag); 
-        if m>self.opts.tracks.probThresForFish*self.maxClassificationProb
+        if m>self.opts.tracks.probThresForIdentity*self.maxClassificationProb
           
           bool = m>self.meanClassificationProb*self.opts.classifier.handledProbThresScale ...
                  || max(steps)>=self.nFramesForUniqueUpdate;
-          bool = bool || (self.nanimals>9 && length(prob)>self.nanimals/2); % crossing too big to be handled
+          bool = bool || (self.nbody>9 && length(prob)>self.nbody/2); % crossing too big to be handled
         else
           bool = true; % not enough evidence, but to inaccurate to be sure,  release
         end
@@ -1513,7 +1513,7 @@ classdef Tracker < handle;
       % 1)  only one trackindex. (numel(trackIndices)==1)
       %    in this case, we should check :
       %      a) whether the track is very likely a certain
-      %      fishID. If yes, we can erase it from the other tracks
+      %      identityID. If yes, we can erase it from the other tracks
       %      crossed track fields,
       %      otherwise, we should wait for the other tracks to
       %      finish. (for instance by just increasing the
@@ -1521,16 +1521,16 @@ classdef Tracker < handle;
       %      new crossing, then all crossed tracks will also enter this new
       %      crossing and the tracks will be handled later]
       % 2)  if there are more than one trackindex. We test them in
-      %     a permuted way, allowing for all fish currently in the
-      %     crossing. If it is not clear which fish left the crossing,
+      %     a permuted way, allowing for all identity currently in the
+      %     crossing. If it is not clear which identity left the crossing,
       %     we just leave it and wait for the other to finish. If
-      %      instead we find a true permutation of the fish that are
+      %      instead we find a true permutation of the identity that are
       %     leaving, we delete them out of the crossed fields of all
       %     others. 
-      % 3)  if there is only one fish in the crossed id field, then,
+      % 3)  if there is only one identity in the crossed id field, then,
       %     if it is the same trackid, it's OK. just delete it. If it
       %     is another trackid, we have a problem. One should force a
-      %     all fish update (maybe we could just put ALL fish into the
+      %     all identity update (maybe we could just put ALL identity into the
       %     crossID field and let it handle the next time.)
       
       for i = 1:length(u)
@@ -1546,16 +1546,16 @@ classdef Tracker < handle;
 
         assumedIdentityIds = identityIds(thisTrackIndices);
         
-        %this should no happen because fishIDs swapping should be blocked during crossing
+        %this should no happen because identityIDs swapping should be blocked during crossing
         assert(all(ismember(assumedIdentityIds,crossedIdentityIds)));
         
 
-        % we force the permutation to be in the valid fish only (otherwise too many errors for many fish)
-        [assignedIdentityIds prob steps probdiag] = self.predictFish(thisTrackIndices,crossedIdentityIds,...
+        % we force the permutation to be in the valid identity only (otherwise too many errors for many identity)
+        [assignedIdentityIds prob steps probdiag] = self.predictIdentity(thisTrackIndices,crossedIdentityIds,...
                                                           self.nFramesForUniqueUpdate); 
 
-        MAXCROSSFISH = max(10,self.nanimals/2);
-        if length(assumedIdentityIds)>MAXCROSSFISH && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
+        MAXCROSSIDENTITY = max(10,self.nbody/2);
+        if length(assumedIdentityIds)>MAXCROSSIDENTITY && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
           % cannot deal with large crossings
           subDeleteCrossedTrackIds(thisTrackIndices); 
           continue;
@@ -1566,7 +1566,7 @@ classdef Tracker < handle;
 
           if  all(ismember(assignedIdentityIds,assumedIdentityIds)) 
             % we have a valid assignment (note that it is always a permutation inside
-            % those that cross because that is guaranteed in predictFish)
+            % those that cross because that is guaranteed in predictIdentity)
 
             
             [nc ncidx] = self.connectedComponents(thisTrackIndices,assignedIdentityIds);
@@ -1586,7 +1586,7 @@ classdef Tracker < handle;
                 if self.enoughEvidenceForReassignment(prob(idx),steps(idx),probdiag(idx))
                   % enough evidence switch tracks and delete from others. 
                   xy.helper.verbose('valid permutation [%1.2f,%d]: switch...',min(prob(idx)),min(steps(idx)))
-                  switchFish(self,thisTrackIndices(idx),assignedIdentityIds(idx),true)
+                  switchIdentity(self,thisTrackIndices(idx),assignedIdentityIds(idx),true)
                   subDeleteCrossedTrackIds(thisTrackIndices(idx)); % always handle
                   
                 elseif self.enoughEvidenceForBeingHandled(prob(idx),steps(idx),probdiag(idx)) 
@@ -1601,7 +1601,7 @@ classdef Tracker < handle;
               subDeleteCrossedTrackIds(thisTrackIndices);
             else
             
-              % Still inside the fishID previously involved in the crossing. 
+              % Still inside the identityID previously involved in the crossing. 
               % We better put
               % the track back into the crossing
               if ~any(isnan(prob))
@@ -1614,7 +1614,7 @@ classdef Tracker < handle;
           end
 
             
-        else % NEW (no exit of individual fish from crossings)
+        else % NEW (no exit of individual identity from crossings)
 
           if length(assignedIdentityIds)==1
             subDeleteCrossedTrackIds(thisTrackIndices); % always handle;
@@ -1625,7 +1625,7 @@ classdef Tracker < handle;
                 % enough evidence switch tracks and delete from others. 
                 xy.helper.verbose('valid permutation [%1.2f,%d]: switch...',min(prob),min(steps))
 
-                switchFish(self,thisTrackIndices,assignedIdentityIds,true)
+                switchIdentity(self,thisTrackIndices,assignedIdentityIds,true)
                 subDeleteCrossedTrackIds(thisTrackIndices); % always handle;
                 
               elseif self.enoughEvidenceForBeingHandled(prob,steps,probdiag) % might need to be handled because too long
@@ -1705,7 +1705,7 @@ classdef Tracker < handle;
     
     function [bool,pdiff] = testTrackMisalignment(self,trackIndices);
 
-    %      if length(trackIndices)<self.MAXCROSSFISH
+    %      if length(trackIndices)<self.MAXCROSSIDENTITY
         identityIds = cat(1,self.tracks(trackIndices).identityId);
         clp = cat(1,self.tracks(trackIndices).clpMovAvg);
         [sz1,sz2] = size(clp);
@@ -1742,10 +1742,10 @@ classdef Tracker < handle;
       
       % update unique frames
       crossif = ~isempty(self.crossings);
-      if ~crossif && length(self.tracks)==self.nanimals
-        self.uniqueFishFrames = self.uniqueFishFrames + 1;
+      if ~crossif && length(self.tracks)==self.nbody
+        self.uniqueIdentityFrames = self.uniqueIdentityFrames + 1;
       else
-        self.uniqueFishFrames = 0;
+        self.uniqueIdentityFrames = 0;
       end
       
       if ~self.isInitClassifier
@@ -1773,32 +1773,32 @@ classdef Tracker < handle;
         [misif,pdiff] = self.testTrackMisalignment(handledIndices);
         if misif 
           xy.helper.verbose('Probably misaligned (%1.2f)..\r',pdiff);
-          self.fishClassifierUpdate(handledIndices,0); % use function for testing/switching 
+          self.identityClassifierUpdate(handledIndices,0); % use function for testing/switching 
         end
       end
       
           
       
-      %% unique fish update
-      if (self.uniqueFishFrames-1 > self.nFramesForUniqueUpdate)  && allhandled
-        if self.fishClassifierUpdate(1:length(self.tracks),1);
+      %% unique identity update
+      if (self.uniqueIdentityFrames-1 > self.nFramesForUniqueUpdate)  && allhandled
+        if self.identityClassifierUpdate(1:length(self.tracks),1);
           xy.helper.verbose('Performed unique frames update.\r')
         end
-        self.uniqueFishFrames = 0; % anyway reset;
+        self.uniqueIdentityFrames = 0; % anyway reset;
       end
 
       
-      %% single fish update
+      %% single identity update
       enoughData =  [self.tracks.nextBatchIdx] > self.nFramesForSingleUpdate;
       singleUpdateIdx = find(handled & enoughData);
       if ~isempty(singleUpdateIdx)
-        if ~self.fishClassifierUpdate(singleUpdateIdx,1) 
+        if ~self.identityClassifierUpdate(singleUpdateIdx,1) 
           if  allhandled
-            self.fishClassifierUpdate(1:length(self.tracks),0); % something might be wrong. Try all
+            self.identityClassifierUpdate(1:length(self.tracks),0); % something might be wrong. Try all
           end
           self.resetBatchIdx(singleUpdateIdx); % anyway reset          
         else
-          xy.helper.verbose('Performed single fish update.\r');          
+          xy.helper.verbose('Performed single identity update.\r');          
         end
       end
 
@@ -1810,7 +1810,7 @@ classdef Tracker < handle;
       
       trackIndices = 1:length(self.tracks);
       if ~isempty(trackIndices)
-        self.fishClassifierUpdate(trackIndices,0);
+        self.identityClassifierUpdate(trackIndices,0);
       end
 
     end
@@ -1882,7 +1882,7 @@ classdef Tracker < handle;
       elseif self.useMex && self.opts.tracks.centerLinePrediction
         % use centerLine head position
         vel = cat(1,self.tracks.velocity)*self.dt;
-        if size(vel,1)~=self.nanimals
+        if size(vel,1)~=self.nbody
           return;
         end
         cl = cat(3,self.tracks.centerLine);
@@ -1908,7 +1908,7 @@ classdef Tracker < handle;
       somewhatCostly = 2;
       
       if nDetections>0
-        maxDist = self.maxVelocity*self.dt*self.fishlength; % dist per frame
+        maxDist = self.maxVelocity*self.dt*self.bodylength; % dist per frame
     % $$$         minDist = 2;
     % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
     % $$$         %nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
@@ -1970,8 +1970,8 @@ classdef Tracker < handle;
                 dst = xy.helper.pdist2Euclidean(clProb,self.classProb);%correlation??!??
                 dst(isnan(dst)) = 1; 
                 
-                % prob for fish
-                msk = max(self.classProb,[],2)< self.opts.tracks.probThresForFish;
+                % prob for identity
+                msk = max(self.classProb,[],2)< self.opts.tracks.probThresForIdentity;
                 if ~any(isnan(msk))
                   dst(:,msk) = somewhatCostly;
                 end
@@ -2064,7 +2064,7 @@ classdef Tracker < handle;
           latestLocations = cat(1,self.tracks(trackIdx).location);
           velocity = sqrt(sum((locations - latestLocations).^2,2))./(nvis(trackIdx) +1)/self.dt;
           
-          idx = find(velocity>self.maxVelocity*self.fishlength);
+          idx = find(velocity>self.maxVelocity*self.bodylength);
 
           if ~isempty(idx) && self.dt
             self.unassignedTracks = [self.unassignedTracks; trackIdx(idx)];
@@ -2153,7 +2153,7 @@ classdef Tracker < handle;
         self.tracks(trackIdx).velocity = self.tracks(trackIdx).velocity*(1-1/tau) ...
             + 1/tau*(self.tracks(trackIdx).location-location)/self.dt;
         
-        %% detect whether the fish feature might be reversed
+        %% detect whether the identity feature might be reversed
         reversed = 0;
         if self.useMex
           thickness = self.thickness(detectionIdx,:);
@@ -2205,15 +2205,15 @@ classdef Tracker < handle;
           classprob = self.classProb(detectionIdx,:);
           probNoise = self.classProbNoise(detectionIdx);
         else
-          classprob = nan(1,self.nanimals);
+          classprob = nan(1,self.nbody);
           probNoise = NaN;
         end
 
 
         if reversed  && self.opts.classifier.discardPotentialReversed
-          % not update.. fishfeature reversed (cannot be changed outside of mex)
+          % not update.. identityfeature reversed (cannot be changed outside of mex)
           probNoise = NaN;
-          classprob = nan(1,self.nanimals);
+          classprob = nan(1,self.nbody);
         else
           self.tracks(trackIdx).classProb =  classprob; % only update classprob in tracks if not reversed
         end
@@ -2302,16 +2302,16 @@ classdef Tracker < handle;
         
 
         % only nan into history:
-        self.tracks(ind).classProbHistory.update(nan(1,self.nanimals),NaN);
+        self.tracks(ind).classProbHistory.update(nan(1,self.nbody),NaN);
         
       end
       
       %% update DAG
       if self.isInitClassifier % classifier should be init
-        self.daGraph.updateFromTracks(self.tracks,self.fishlength);
+        self.daGraph.updateFromTracks(self.tracks,self.bodylength);
 
         
-        %% predict fishIDs according to DAG
+        %% predict identityIDs according to DAG
         currentPredIdentityIds = [self.tracks.predIdentityId];
 
         predIdentityIds = self.daGraph.predictIdentityIds();
@@ -2319,8 +2319,8 @@ classdef Tracker < handle;
         if ~isempty(trackIndices)
           % switching!
           self.resetBatchIdx(trackIndices); 
-          if self.verbosity>1 && self.nanimals<10
-            xy.helper.verbose('Dag switched a fish...\r');
+          if self.verbosity>1 && self.nbody<10
+            xy.helper.verbose('Dag switched a identity...\r');
           end
         end
         for i = 1:length(trackIndices)
@@ -2371,26 +2371,26 @@ classdef Tracker < handle;
     
     
     function createNewTracks(self)
-    % create new tracks for unassigndetections (if less the number of fish)
+    % create new tracks for unassigndetections (if less the number of identity)
 
-      if length(self.tracks)>=self.nanimals
+      if length(self.tracks)>=self.nbody
         return
       end
       
-      availablefishids = setdiff(1:self.nanimals,cat(2,self.tracks.identityId));
-      if  ~self.opts.tracks.withTrackDeletion && ~length(availablefishids)
+      availableidentityids = setdiff(1:self.nbody,cat(2,self.tracks.identityId));
+      if  ~self.opts.tracks.withTrackDeletion && ~length(availableidentityids)
         return;
       end
       
       
       if self.isInitClassifier
-        % already have fish.  take only one detection with least
+        % already have identity.  take only one detection with least
         % assignment cost to the other classes
         unassignedDetections = self.unassignedDetections;
       else
         %take all at the beginning
 
-        if ~length(availablefishids)
+        if ~length(availableidentityids)
           return
         end
         unassignedDetections = self.unassignedDetections;
@@ -2403,10 +2403,10 @@ classdef Tracker < handle;
       s =0;
       for i = unassignedDetections(:)'
         s = s+1;
-        if s<=length(availablefishids)
-          newfishid = availablefishids(s);
+        if s<=length(availableidentityids)
+          newidentityid = availableidentityids(s);
         else
-          newfishid = NaN; 
+          newidentityid = NaN; 
           % just take the first detections. Maybe sort which to take?
           if ~self.opts.tracks.withTrackDeletion
             break
@@ -2428,7 +2428,7 @@ classdef Tracker < handle;
           clprob = self.classProb(i,:);
           clprobnoise = self.classProbNoise(i);
         else
-          clprob = nan(1,self.nanimals);
+          clprob = nan(1,self.nbody);
           clprobnoise = nan;
         end
         
@@ -2445,17 +2445,17 @@ classdef Tracker < handle;
           feat.(ct{1}) = self.features.(ct{1})(i,:);
         end
         
-        history = xy.core.FishClassProbHistory(self.nanimals);
+        history = xy.core.ClassProbHistory(self.nbody);
         % update the classprobhistory and set the parameters
-        history.lambda = self.fishlength/self.fishwidth;
+        history.lambda = self.bodylength/self.bodywidth;
         [~,w] = history.update(clprob,clprobnoise);
 
         
         % Create a new track.
         newTrack = struct(...
           'id',        self.nextId,       ...
-          'identityId',   newfishid,...
-          'predIdentityId',   newfishid,...
+          'identityId',   newidentityid,...
+          'predIdentityId',   newidentityid,...
           'bbox',      self.bboxes(i,:),  ...
           'centroid',  self.centroids(i,:),  ...
           'location',  self.locations(i,:),  ...
@@ -2504,7 +2504,7 @@ classdef Tracker < handle;
       end
 
       locations = cat(1,self.tracks.location);
-      dmsk = xy.helper.pdist2Euclidean(locations,locations)<self.currentCrossBoxLengthScale*self.fishlength;
+      dmsk = xy.helper.pdist2Euclidean(locations,locations)<self.currentCrossBoxLengthScale*self.bodylength;
 
       bbox = cat(1,self.tracks.bbox);
       bBoxXOverlap = bsxfun(@ge,bbox(:,1) + bbox(:,3), bbox(:,1)') & bsxfun(@lt,bbox(:,1), bbox(:,1)');
@@ -2519,7 +2519,7 @@ classdef Tracker < handle;
       nvis = [self.tracks.consecutiveInvisibleCount];
       vmsk = (assignmentCost>costThres) | (nvis>0);
       
-      if self.nanimals<=5
+      if self.nbody<=5
         crossmat = bsxfun(@and,(bBoxOverlap | dmsk), vmsk);
       else
         crossmat = (bBoxOverlap | dmsk) & bsxfun(@and,vmsk, vmsk'); % only when all above thres
@@ -2594,7 +2594,7 @@ classdef Tracker < handle;
       self.updatePos();
       self.updateClassifier();
 
-      if self.nanimals>length(self.tracks)
+      if self.nbody>length(self.tracks)
         self.createNewTracks();
       end
       
@@ -2642,7 +2642,7 @@ classdef Tracker < handle;
     function trackinfo = getCurrentTracks(self)
     % gets the track info 
       
-      if self.opts.tracks.keepFullTrackStruc && length(self.tracks)==self.nanimals 
+      if self.opts.tracks.keepFullTrackStruc && length(self.tracks)==self.nbody 
         % ignore initial times when not all tracks are created
         self.savedTracksFull = cat(1,self.savedTracksFull,self.tracks);
       end
@@ -2678,7 +2678,7 @@ classdef Tracker < handle;
       end
       
       % copy with mex
-      trackinfo = getCurrentTracks_(self.nanimals,self.tracks,self.saveFieldsIn,self.saveFieldsOut,self.saveFieldSegIf);
+      trackinfo = getCurrentTracks_(self.nbody,self.tracks,self.saveFieldsIn,self.saveFieldsOut,self.saveFieldSegIf);
 
     end
     
@@ -2708,7 +2708,7 @@ classdef Tracker < handle;
       
       [savepath,savename] = fileparts(vid);
       if isempty(savename)
-        savename = 'FishTrackerSave';
+        savename = 'TrackerSave';
       end
 
       if ~isempty(savepath)
@@ -2734,7 +2734,7 @@ classdef Tracker < handle;
     % Constructor
     %--------------------
     function self = Tracker(vid,varargin) 
-    % XY.TRACKER(VID,...) starts a FishTracker objects on a given video file
+    % XY.TRACKER(VID,...) starts a Tracker objects on a given video file
     % VID. If VID==[] a uidialog is opened to select the video file. 
     % 
     % Options can the set with XY.TRACKER(VID,OPTNAME1,OPTVALUE1,...) or
@@ -2749,9 +2749,9 @@ classdef Tracker < handle;
     %  >> xy.Tracker
     %
     % Example:
-    %  >> ft = xy.Tracker([],'nanimals',3);
-    %  >> ft.track([0,20]); 
-    %  >> ft.plot();
+    %  >> xyT = xy.Tracker([],'nbody',3);
+    %  >> xyT.track([0,20]); 
+    %  >> xyT.plot();
 
 
 
@@ -2760,13 +2760,13 @@ classdef Tracker < handle;
       
       %% properties
       
-      def.opts.nanimals = [];
-      doc.nanimals = {'Number of fish. Needs to be fixed ' '(*attempt* to be estimated if empty)'};
+      def.opts.nbody = [];
+      doc.nbody = {'Number of bodies. Needs to be fixed ' '(*attempt* to be estimated if empty)'};
       
-      def.opts.fishlength = [];
-      doc.fishlength = {'Approx length of fish in pixel (estimated if empty)'};
-      def.opts.fishwidth = [];
-      doc.fishwidth = {'Approx width of fish in pixel (estimated if empty)'};
+      def.opts.bodylength = [];
+      doc.bodylength = {'Approx length of bodies in pixel (estimated if empty)'};
+      def.opts.bodywidth = [];
+      doc.bodywidth = {'Approx width of bodies in pixel (estimated if empty)'};
 
       def.opts.maxVelocity = [];
       doc.maxVelocity = {'Maximal velocity in BL/sec (estimated if empty)'};
@@ -2785,7 +2785,7 @@ classdef Tracker < handle;
       doc.stmif = 'Use online visual stimulation';
 
       def.opts.useMex = true;
-      doc.useMex = {'Use the C++ version FishVideoHandler (FAST)'};
+      doc.useMex = {'Use the C++ version VideoHandler (FAST)'};
 
       def.opts.useOpenCV = true;
       doc.useOpenCV = 'uses mexopencv library (FAST)';
@@ -2833,7 +2833,7 @@ classdef Tracker < handle;
       doc.detector(1).history = 'Background update time constant [nFrames]';
       
       def.opts.detector.inverted = false;  
-      doc.detector.inverted = {'Set 1 for IR videos (white fish on dark background)'};
+      doc.detector.inverted = {'Set 1 for IR videos (white bodies on dark background)'};
       
       def.opts.detector.adjustThresScale = 0.95;   
       doc.detector.adjustThresScale = {'0.8..1.2 : change thres when detections too noisy (useKNN=0)',''};
@@ -2871,14 +2871,14 @@ classdef Tracker < handle;
 
       def.opts.classifier.allSwitchProbThres = 0.6; %0.2%0.45
       doc.classifier.allSwitchProbThres = {['minimal diff probability for ' ...
-                          'all fish reassignments']};
+                          'all identity reassignments']};
 
       def.opts.classifier.forcedUpdateProbThres = 0.4; %0.45
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
       def.opts.classifier.minOtherProbDiff = 0.3;
       doc.classifier.minOtherProbDiff = {'minimal runingavg class diff probability',...
-                          'to use all fish switches and updates'};
+                          'to use all identity switches and updates'};
 
       def.opts.classifier.handledProbThresScale = 0.5;
       doc.classifier.handledProbThresScale = {'mean class probability SCALE for crossing exits'};
@@ -2907,8 +2907,8 @@ classdef Tracker < handle;
       def.opts.tracks.crossingCostScale =  1;
       doc.tracks.crossingCostScale = {'Scaling of non-assignment cost during crossings'};
 
-      def.opts.tracks.probThresForFish = 0.05; 
-      doc.tracks.probThresForFish = {'Classification probability to ' 'assume a fish feature'};
+      def.opts.tracks.probThresForIdentity = 0.05; 
+      doc.tracks.probThresForIdentity = {'Classification probability to ' 'assume a identity feature'};
 
       def.opts.tracks.useDagResults = 0;
       doc.tracks.useDagResults = {'Sets default output results to ' 'DAG (1) or Switch (0) method',''};
@@ -2924,12 +2924,12 @@ classdef Tracker < handle;
       doc.classifier.timeToInit = {'Time to initialize the classifier [avgBLC]'};
 
       def.opts.classifier.timeAfterCrossing =  1; 
-      doc.classifier.timeAfterCrossing = {['When to check for permutations after ' ...
+      doc.classifier.timeAfterCrossing = {['When to check for permutations axyTer ' ...
                           'crossings [avgBLC]']};
       
       def.opts.classifier.timeForUniqueUpdate = 12; 
       doc.classifier.nFramesForUniqueUpdate = {['Unique frames needed for update all ' ...
-                          'fish simultaneously [avgBLC]']};
+                          'identity simultaneously [avgBLC]']};
 
       def.opts.classifier.clpMovAvgTau = 0.5; 
       doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [avgBLC].'};
@@ -2942,7 +2942,7 @@ classdef Tracker < handle;
       %% dag
       def.opts.dag.probScale = 0.5;
       doc.dag.probScale = {'DAGraph probScale. 1 means 50/50 weighting of ', ...
-                          'classprob with distance if points a fishLength apart',''};
+                          'classprob with distance if points a bodylength apart',''};
       
       %% stimulus
       def.opts.stimulus.presenter = [];
@@ -2962,7 +2962,7 @@ classdef Tracker < handle;
       doc.displayif = {'Turn on/off all displaying'};
 
       def.opts.display.displayEveryNFrame = 20;
-      doc.display.displayEveryNFrame = {'How often to update the track display window (SLOW)'};
+      doc.display.displayEveryNFrame = {'How oxyTen to update the track display window (SLOW)'};
 
       def.opts.display.tracks = true;
       doc.display.tracks = {'Whether to plot the tracking process'};
@@ -2973,14 +2973,14 @@ classdef Tracker < handle;
       def.opts.display.level = 3;
       doc.display.level = {'Level of details of the track plot'};
       
-      def.opts.display.fishSearchResults = false;
-      doc.display.fishSearchResults = {'Info plot nanimals auto-search'};
+      def.opts.display.bodySearchResults = false;
+      doc.display.bodySearchResults = {'Info plot nbody auto-search'};
 
       def.opts.display.stimulusProgress = true;
       doc.display.stimulusProgress = {'ProgressBar in case of stimulation'};
       
-      def.opts.display.switchFish = false;
-      doc.display.switchFish = {'Switch fish info plot (for DEBUGGING) '};
+      def.opts.display.switchIdentity = false;
+      doc.display.switchIdentity = {'Switch identity info plot (for DEBUGGING) '};
 
       def.opts.display.videoHandler = false;
       doc.display.videoHandler = {'Raw frames and bwmsk MEX only (for DEBUGGING) '};
@@ -3009,7 +3009,7 @@ classdef Tracker < handle;
       %%options depending on avgVelocity (will be set in init)
 
       opts.display.leakyAvgFrameTau = 50;
-      doc.display.leakyAvgFrameTau = {'Tau for switch fish plot'};
+      doc.display.leakyAvgFrameTau = {'Tau for switch identity plot'};
 
 
       %%options not really important or debug
@@ -3038,7 +3038,7 @@ classdef Tracker < handle;
       doc.blob.computeMSER = {'Whether to compute MSER'};
 
       opts.blob.difffeature = true; 
-      doc.blob.difffeature = {'Use background subtracted gray' 'images for fish feature'};
+      doc.blob.difffeature = {'Use background subtracted gray' 'images for identity feature'};
 
       opts.blob.interpif = 1;
       doc.blob.interpif = {'Whether to interpolate while','debending'};
@@ -3086,8 +3086,8 @@ classdef Tracker < handle;
         end
       end
       
-      if ~isempty(opts.nanimals) && opts.nanimals<0 && ~iscell(vid)
-        opts.nanimals = xy.helper.chooseNanimals(vname,1);
+      if ~isempty(opts.nbody) && opts.nbody<0 && ~iscell(vid)
+        opts.nbody = xy.helper.chooseNbody(vname,1);
       end
       
       if ~iscell(vid)
@@ -3140,10 +3140,10 @@ classdef Tracker < handle;
     % Previous tracking data will be overwritten.
     %
     % EXAMPLE:
-    %  >> ft = xy.Tracker(videoFile,'nanimals',3,'displayif',2);
-    %  >> ft.track([0,100]);
-    %  >> ft.plot();
-    %  >> ft.save();
+    %  >> xyT = xy.Tracker(videoFile,'nbody',3,'displayif',2);
+    %  >> xyT.track([0,100]);
+    %  >> xyT.plot();
+    %  >> xyT.save();
       
       if exist('writefile','var') && ~isempty(writefile)
         self.writefile = writefile;
@@ -3170,10 +3170,10 @@ classdef Tracker < handle;
       self.initTracking();
 
       if ~self.stmif
-        xy.helper.verbose('Start tracking of %d fish  in the time range [%1.0f %1.0f]...',...
-                            self.nanimals,self.timerange(1),self.timerange(2));
+        xy.helper.verbose('Start tracking of %d identities in the time range [%1.0f %1.0f]...',...
+                            self.nbody,self.timerange(1),self.timerange(2));
       else
-        xy.helper.verbose('Start tracking of %d fish with stimulation', self.nanimals);
+        xy.helper.verbose('Start tracking of %d identities with stimulation', self.nbody);
       end
       
       %% tracking loop
@@ -3192,7 +3192,7 @@ classdef Tracker < handle;
         %unnecessary function call
         self.currentFrame = self.currentFrame + 1;
         self.lastTimeStamp = self.timeStamp;
-        if self.displayif && self.opts.display.switchFish
+        if self.displayif && self.opts.display.switchIdentity
           [self.segments, self.timeStamp, frame] = self.videoHandler.step();
           self.computeLeakyAvgFrame(frame);
         else
@@ -3214,7 +3214,7 @@ classdef Tracker < handle;
         if self.opts.tracks.withTrackDeletion
           savedTracks(1:length(self.tracks),s) = self.getCurrentTracks();
         else
-          savedTracks(1:self.nanimals,s) = self.getCurrentTracks();
+          savedTracks(1:self.nbody,s) = self.getCurrentTracks();
         end
 
         if ~mod(s,self.nFramesAppendSavedTracks) 

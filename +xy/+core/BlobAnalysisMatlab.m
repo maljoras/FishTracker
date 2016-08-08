@@ -1,4 +1,4 @@
-classdef FishBlobAnalysisMatlab < xy.core.FishBlobAnalysis;
+classdef BlobAnalysisMatlab < xy.core.BlobAnalysis;
 % $$$   
    properties;
      range = [];
@@ -119,7 +119,7 @@ classdef FishBlobAnalysisMatlab < xy.core.FishBlobAnalysis;
     end
 
     function a_init(self)
-    %area = 1.5*self.fishwidth*self.fishlength;
+    %area = 1.5*self.bodywidth*self.bodylength;
     %self.range =  [self.minArea,self.minArea+10];
       self.range =  [self.minArea,self.maxArea];
       self.se = strel('disk',1);
@@ -129,10 +129,10 @@ classdef FishBlobAnalysisMatlab < xy.core.FishBlobAnalysis;
 
   methods
     
-    function self = FishBlobAnalysisMatlab(varargin) % constructor
+    function self = BlobAnalysisMatlab(varargin) % constructor
       
-      self = self@xy.core.FishBlobAnalysis(varargin{:});
-      %self.setFishSize([], []);
+      self = self@xy.core.BlobAnalysis(varargin{:});
+      %self.setSize([], []);
     end
   
   end

@@ -1,5 +1,5 @@
 function timestamp = plotHPlane(self,y,inColor1,inColor2)
-% plots a horizontal half plane at y with left size color1 right color2
+% plots a horizontal half plane at y with lexyT size color1 right color2
   if ~exist('inColor1','var')
     inColor1 = self.defaultColor;
   end

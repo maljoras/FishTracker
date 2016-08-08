@@ -17,7 +17,7 @@ classdef PresenterCalibration < xy.stimulus.Presenter;
     
       
     function tracks = step(self,tracks,framesize,t)
-    % this function will be called from FishTracker after each round
+    % this function will be called from Tracker axyTer each round
 
       w = self.width/self.windowSize(1);
       h = self.width/self.windowSize(2);

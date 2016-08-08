@@ -40,7 +40,7 @@ if COMPUTE
     pv.classifier.nFramesForUniqueUpdate = round(linspace(10,300,nbins));
     pv.classifier.tau = round(linspace(100,10000,nbins));
     pv.detector.history = round(linspace(10,5000,nbins));
-    pv.tracks.probThresForFish = linspace(0.01,1,nbins);
+    pv.tracks.probThresForIdentity = linspace(0.01,1,nbins);
     pv.classifier.clpMovAvgTau = linspace(1,50,nbins);
 
     pv.cost.CenterLine = linspace(0,50,nbins);
@@ -61,9 +61,9 @@ if COMPUTE
 
     opts = [];
     opts.verbosity = 3;
-    opts.nanimals = 5;
-    %opts.fishlength = 100;
-    %opts.fishwidth = 20;
+    opts.nbody = 5;
+    %opts.bodylength = 100;
+    %opts.bodywidth = 20;
     opts.classifier.npca = 40;
     
   end
@@ -131,7 +131,7 @@ if COLLECT
     %read log with: textread(res(i,j).log,'%s','delimiter','\n');
     xy.helper.verbose('Fetched %d/%d results.\r',k,length(f));
   end
-  save('~/ftparvars1.mat','res')
+  save('~/xyTparvars1.mat','res')
 end
 
   
@@ -146,8 +146,8 @@ if PLOT
   fun = @(x)nansum(x>0.5,2)>0;
   
   nframes = size(res(1,1).d,1);
-  nanimals = size(res(1,1).d,2);
-  n = nframes*nanimals;
+  nbody = size(res(1,1).d,2);
+  n = nframes*nbody;
   
   for i = 1:size(res,1)
     parr = cat(2,res(i,:).parval);

@@ -1,11 +1,11 @@
 function plotClassProb(self,plotTimeRange,identityIds);
 % PLOTCLASSPROB(SELF,PLOTTIMERANGE,IDENTITYIDS) plots the difference of
-% actualy classprob and the maximal classprob if fish are
+% actualy classprob and the maximal classprob if identity are
 % reordered. If there is a consistent difference for some time
 % range it might indicate a wrong classficiation.
 
   if ~exist('identityIds','var') || isempty(identityIds)
-    identityIds = 1:self.nanimals;
+    identityIds = 1:self.nbody;
   end
 
   if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
@@ -22,11 +22,11 @@ function plotClassProb(self,plotTimeRange,identityIds);
 
   prob = res.tracks.classProb(:,identityIds,identityIds);
   probid = nanmean(prob(:,1:length(identityIds)+1:end),2);
-  if self.nanimals<=5
-    p = perms(1:self.nanimals);
+  if self.nbody<=5
+    p = perms(1:self.nbody);
     probmax = probid;
     for i = 1:size(p)
-      idx = sub2ind([self.nanimals,self.nanimals],(1:self.nanimals)',p(i,:)');
+      idx = sub2ind([self.nbody,self.nbody],(1:self.nbody)',p(i,:)');
       probmax = nanmax(probmax,nanmean(prob(:,idx),2));
     end
   else

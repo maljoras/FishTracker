@@ -1,4 +1,4 @@
-classdef FishVideoReader < handle;
+classdef VideoReader < handle;
   
   
   
@@ -185,7 +185,7 @@ classdef FishVideoReader < handle;
       if ~xy.helper.hasOpenCV()
         error('Cannot find mexopencv toolbox..');
       end
-      self.reader = xy.core.FishVideoCapture(self.videoFile);
+      self.reader = xy.core.VideoCapture(self.videoFile);
     end
   
     function loadTFile(self,tfile);
@@ -209,7 +209,7 @@ classdef FishVideoReader < handle;
   methods
   
     
-    function self = FishVideoReader(vid,trange,varargin) 
+    function self = VideoReader(vid,trange,varargin) 
     % constructor
       self = self@handle();
 

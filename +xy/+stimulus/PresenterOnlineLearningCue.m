@@ -46,7 +46,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
 
     stmBorderThres = 0; % minimal distance to border for stimulation
     
-    % for "fishtextures"
+    % for "bodytextures"
     stmSizeFactor = 1; 
     stmShift = 0; % in px of fishtracker frame
     stmShiftOri = 0; % in RAD=0 means in front
@@ -78,9 +78,9 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
     stmState = [];
     textures = [];
 
-    fishTexturesBbox = [];
-    fishTextures = [];
-    fishVelocity = [];
+    bodyTexturesBbox = [];
+    bodyTextures = [];
+    bodyVelocity = [];
   end
     
 
@@ -193,7 +193,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
    function [stmbbox] = plotStimulus(self,x,y,t,identityIds,lrswitch)
 
      if length(x) ~= length(self.stmState)
-       % should only happen once in the beginning. (nanimals is constant)
+       % should only happen once in the beginning. (nbody is constant)
        self.stmState = ones(size(x));
      end
 
@@ -239,16 +239,16 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
        case 'vardots'
          stmbbox(lr,:) = self.plotVarDot(x(lr),y(lr),stmSize(lr),stmCol(lr,:));
        
-       case 'fishtextures'
+       case 'bodytextures'
 
-         lr = lr & (self.fishVelocity>self.stmVelThres);
+         lr = lr & (self.bodyVelocity>self.stmVelThres);
 
          for i = find(lr)'
-           Screen('drawTexture',self.window,self.fishTextures(i),[],...
-                  self.fishTexturesBbox(i,:),[],[],[],stmCol(i,:)*255);
+           Screen('drawTexture',self.window,self.bodyTextures(i),[],...
+                  self.bodyTexturesBbox(i,:),[],[],[],stmCol(i,:)*255);
          end
          
-         stmbbox(lr,:) = self.fishTexturesBbox(lr,:);
+         stmbbox(lr,:) = self.bodyTexturesBbox(lr,:);
        
        otherwise
          error('Unknown stmType');
@@ -266,12 +266,12 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
    function saveImageTextures(self,tracks);
 
      sbbox = self.screenBoundingBox;   
-     self.fishTexturesBbox = zeros(length(tracks),4);
+     self.bodyTexturesBbox = zeros(length(tracks),4);
 
-     for i = 1:length(self.fishTextures)
-       Screen('Close', self.fishTextures(i));
+     for i = 1:length(self.bodyTextures)
+       Screen('Close', self.bodyTextures(i));
      end
-     self.fishTextures = zeros(length(tracks),1);
+     self.bodyTextures = zeros(length(tracks),1);
      
      bodyori = zeros(length(tracks),1);
      for i = 1:length(tracks)
@@ -284,7 +284,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
          img = 0;
          bodyori(i) = 0;
        end
-       self.fishTextures(i) = Screen('makeTexture',self.window,img*255,0,0);
+       self.bodyTextures(i) = Screen('makeTexture',self.window,img*255,0,0);
      end
 
      % transform boxes
@@ -293,10 +293,10 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
      bboxes = cat(1,tracks.bbox);
      bodyori = -bodyori/180*pi+pi/2;
      vel = cat(1,tracks.velocity);
-     self.fishVelocity = sqrt(vel(:,1).^2 + vel(:,2).^2);
+     self.bodyVelocity = sqrt(vel(:,1).^2 + vel(:,2).^2);
      velori = atan2(vel(:,1),vel(:,2));
      bboxes = self.transformBbox(bboxes,velori,identityIds);
-     self.fishTexturesBbox = self.toScreenBbox(bboxes);
+     self.bodyTexturesBbox = self.toScreenBbox(bboxes);
 
    end
 
@@ -324,7 +324,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
    function tracks = step(self,tracks,framesize,t)
    % overloads step to get the textures
 
-     if strcmpi(self.stmType,'fishtextures')
+     if strcmpi(self.stmType,'bodytextures')
        self.saveImageTextures(tracks);
      end
 
@@ -337,7 +337,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
    function stmInfo = stepStimulus(self,x,y,t,identityIds)
    % stmInfo = stepStimulus(self,x,y,t,identityIds) this function will be
    % called from xy.stimulus.Presenter/step once for each frame. It
-   % plots an stimulus below the fish if fishID odd and on left side
+   % plots an stimulus below the body if IdentityID odd and on left side
    % and vice versa.
    %  
    % STMINFO: [STMIDX X Y T ]  

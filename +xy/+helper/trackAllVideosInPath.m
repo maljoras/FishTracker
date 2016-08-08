@@ -9,7 +9,7 @@ function trackAllVideosInPath(path,varargin)
   def.opts.excludeNames = {'toolboxes'};
   def.opts.extension = 'avi';
   def.opts.nameadd = 'a_';
-  def.opts.args = {'displayif',0}; % for FishTracker
+  def.opts.args = {'displayif',0}; % for IdentityTracker
   def.opts.parallelif = 1;
   
   xy.helper.parseInputs;
@@ -45,18 +45,18 @@ function trackAllVideosInPath(path,varargin)
       fname = [p{i} filesep d(j).name];
       [a,b,c] = fileparts(fname);
       matname = [p{i} filesep opts.nameadd, b,'.mat'];
-      nanimals = [];
+      nbody = [];
       if opts.excludeDone && exist(matname,'file');
         
         if opts.checkDone
           % check whether done correctly
           v = load(matname);
-          nanimals = v.ft.nanimals;
-          nanimals_selected = xy.helper.chooseNanimals(fname,nanimals);
-          if nanimals==nanimals_selected
+          nbody = v.xyT.nbody;
+          nbody_selected = xy.helper.chooseNbody(fname,nbody);
+          if nbody==nbody_selected
             continue;
           else
-            nanimals = nanimals_selected;
+            nbody = nbody_selected;
           end
           
         else
@@ -64,16 +64,16 @@ function trackAllVideosInPath(path,varargin)
         end
       end
       
-      if isempty(nanimals) && opts.selectManual
-        nanimals = xy.helper.chooseNanimals(fname,3);
-        if isempty(nanimals)
+      if isempty(nbody) && opts.selectManual
+        nbody = xy.helper.chooseNbody(fname,3);
+        if isempty(nbody)
           continue; % do not track this video
         end
         
       end
       
-      if ~isempty(nanimals)
-        add = {'nanimals',nanimals};
+      if ~isempty(nbody)
+        add = {'nbody',nbody};
       else
         add = {};
       end
@@ -93,6 +93,6 @@ function trackAllVideosInPath(path,varargin)
 
 function subTrack(fname,matname,varargin);
 
-  ft = xy.Tracker(fname,'displayif',0,varargin{:});
-  ft.track();
-  ft.save(matname)
+  xyT = xy.Tracker(fname,'displayif',0,varargin{:});
+  xyT.track();
+  xyT.save(matname)

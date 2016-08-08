@@ -8,13 +8,13 @@ TEST = 0;
 path = '/data/videos/onlinelearning/new';
 VIDID = 2;
 
-if LOAD && ~exist('ft','var')
+if LOAD && ~exist('xyT','var')
 
 
   opts = [];
-  opts.nanimals = 3;
+  opts.nbody = 3;
   
-  videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nanimals,VIDID)];
+  videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nbody,VIDID)];
 
   opts.detector.inverted = 1;
 
@@ -24,11 +24,11 @@ if LOAD && ~exist('ft','var')
   opts.stimulus.presenter = 'xy.stimulus.PresenterTrackTextureRegions';
   opts.detector.adjustThresScale = 1.05;
   
-  opts.fishwidth = 35;
-  opts.fishlength = 150;
+  opts.bodywidth = 35;
+  opts.bodylength = 150;
   opts.detector.history = 5000;
   
-  ft = xy.Tracker({0,videoFile},opts);
+  xyT = xy.Tracker({0,videoFile},opts);
 end
 
 
@@ -50,19 +50,19 @@ if COMPUTE
   ostm.screenBoundingBox = sbbox;  
   ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(ft.nanimals);
+  ostm.stmCol= parula(xyT.nbody);
   ostm.stmOnInt= 2; % in sec
   ostm.stmOnIntCV= 0.1;   
 
   ostm.stmOffInt= 4; % in sec
   ostm.stmOffIntCV= 0.5; 
   
-  ostm.stmSize = ft.fishlength;  
+  ostm.stmSize = xyT.bodylength;  
   ostm.regSizeFactorScale = [0,1,2];
   ostm.stmSizeFactor = 1;  
   ostm.xRegions = [1/3,2/3];
 
-  ostm.stmShift = ft.fishlength/4; % in px of xy.tracker frame
+  ostm.stmShift = xyT.bodylength/4; % in px of xy.tracker frame
   ostm.stmShiftOri = 0;
 
   ostm.stmShiftOriSTD = -1; % random;
@@ -85,19 +85,19 @@ if COMPUTE
   
   
   opts.stimulus = ostm;
-  ft.setOpts(opts);
+  xyT.setOpts(opts);
 
-  %ft.setDisplay(0);  
-  ft.setDisplay('tracks',false);  
+  %xyT.setDisplay(0);  
+  xyT.setDisplay('tracks',false);  
 
   if TEST
-    xy.helper.stimulusSimulator(ft.stimulusPresenter);
+    xy.helper.stimulusSimulator(xyT.stimulusPresenter);
   else
-    ft.track();
-    ft.save();
+    xyT.track();
+    xyT.save();
   end
   
-  clear ft;
+  clear xyT;
   
 
 end
@@ -107,12 +107,12 @@ end
 
 if PLOT
   dagresults = 1;
-  ft.setDefaultResultType(dagresults);
-  res = ft.getTrackingResults();
-  pos = ft.interpolateInvisible(res,'pos');
+  xyT.setDefaultResultType(dagresults);
+  res = xyT.getTrackingResults();
+  pos = xyT.interpolateInvisible(res,'pos');
   
   info = res.tracks.stmInfo;
-  stmmsk = info(:,1,1)==ft.stimulusPresenter.ID_STIMULUS;
+  stmmsk = info(:,1,1)==xyT.stimulusPresenter.ID_STIMULUS;
 
 
   som = nanmean(pos,3);
@@ -121,7 +121,7 @@ if PLOT
   return
   
   pos = res.pos;
-  velocity = ft.deleteInvisible(res,'velocity');
+  velocity = xyT.deleteInvisible(res,'velocity');
   vel = sqrt(velocity(:,:,1).^2+velocity(:,:,2).^2);
   
   mpos1 = squeeze(nanmean(pos(stmmsk,:,:),1));
@@ -149,7 +149,7 @@ if PLOT
   
   figure;
   a = subplot(2,1,1);
-  vel = ft.deleteInvisible(res,'velocity');
+  vel = xyT.deleteInvisible(res,'velocity');
   vabs = sqrt(vel(:,:,1).^2 + vel(:,:,2).^2);
   vabs(vabs>100) = NaN;
   

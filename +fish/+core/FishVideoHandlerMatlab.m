@@ -17,6 +17,7 @@ classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fis
 
   properties (SetAccess = private)
     detector;
+    bwmsk = [];
   end
   
   properties (Dependent)
@@ -86,8 +87,18 @@ classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fis
     function plotting(self,bool);
     % plotting not implemented...
     end
-
     
+    function bwmsk = getCurrentBWImg(self);
+      bwmsk = self.bwmsk;
+    end
+
+    function frame = getCurrentFrame(self);
+      frame = getCurrentFrame@fish.core.FishVideoReaderMatlab(self);
+      if self.resizeif
+        frame = imresize(frame,self.resizescale);
+      end
+    end
+
     function [segm,timeStamp,frame,varargout] = step(self)
     % STEP one frame
     %
@@ -114,6 +125,7 @@ classdef FishVideoHandlerMatlab < handle & fish.core.FishVideoReaderMatlab & fis
       timeStamp = self.currentTime;
       
       bwmsk = self.detector.step(frame);
+      self.bwmsk = bwmsk;
       if self.computeSegments
         segm = self.stepBlob(bwmsk,frame,oframe);
       else

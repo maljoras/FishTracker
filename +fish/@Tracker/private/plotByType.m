@@ -35,7 +35,6 @@ function plotByType(self,plottype,plotTimeRange,fishIds)
   centroidy = centroid(:,fishIds,2);
 
   pos = self.interpolateInvisible(res,'pos',3);
-  
   posx = squeeze(pos(:,1,fishIds));
   posy = squeeze(pos(:,2,fishIds));
 

@@ -8,7 +8,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
 
   self.videoHandler.reset();
   self.videoHandler.originalif = true;
-
+  
   if numel(self.useScaledFormat)==3 || numel(self.useScaledFormat)==6;
     % THIS IS JUST AN INITIAL GUESS
     scale = self.useScaledFormat(1:3);
@@ -24,16 +24,26 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   elseif numel(self.useScaledFormat)~=1
     error('useScaledFormat: Either provide scale RGB + delta values or set to true/false');
   end
-
+  
   n = min(floor(self.videoHandler.history/2),floor(self.videoHandler.timeRange(2)*self.videoHandler.frameRate));
   n = max(min(n,500),10);
   self.videoHandler.initialize(0);
   s = 0;
+
+  if self.displayif && self.opts.display.fishSearchResults
+    figure;
+  end
+  
   for i = 1:n
 
     [segm] = self.videoHandler.step();
     fish.helper.verbose('%1.1f%%\r',i/n*100); % some output
 
+    if self.displayif && self.opts.display.fishSearchResults && ~mod(i,5)
+      imagesc(self.videoHandler.getCurrentBWImg);
+      drawnow;
+    end
+    
     if isempty(segm)
       continue;
     end
@@ -53,7 +63,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   fish.helper.verbose('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize);
 
   if self.displayif && self.opts.display.fishSearchResults
-    figure;
+    clf;
     bwmsk = self.videoHandler.getCurrentBWImg();
     imagesc(bwmsk);
     title(sprintf('Detected %d fish of size %1.0fx%1.0f pixels.',nObjects, objectSize));

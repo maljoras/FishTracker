@@ -31,6 +31,7 @@ classdef FishVideoReader < handle;
     frameSize = [];
 
     tframe = [];
+    ntframe = [];
   end
   
   
@@ -191,6 +192,7 @@ classdef FishVideoReader < handle;
     % reads the txt file with the time information from SaveVideo
       tmp = dlmread(tfile);
       self.tframe = tmp(:,3);%-tmp(1,3);
+      self.ntframe = length(self.tframe);
     end
   
     function startReader(self)
@@ -256,14 +258,14 @@ classdef FishVideoReader < handle;
       
     function increaseCounters(self,timeStamp);
       self.currentFrame = self.currentFrame + 1;
-      if length(self.tframe) < self.currentFrame
+      if self.ntframe > self.currentFrame
+        self.currentTime = self.tframe(self.currentFrame);
+      else
         if nargin>1
           self.currentTime = timeStamp;
         else
           self.currentTime = self.currentTime + 1/self.frameRate;
         end
-      else
-        self.currentTime = self.tframe(self.currentFrame);
       end
     end
 
@@ -300,6 +302,7 @@ classdef FishVideoReader < handle;
       self.duration = self.a_getDuration();
       self.nFrames = self.a_getNFrames();
       self.frameSize = self.a_getFrameSize();
+      self.ntframe = length(self.tframe);
     end
 
     

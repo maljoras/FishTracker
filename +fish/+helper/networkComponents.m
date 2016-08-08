@@ -26,13 +26,16 @@
 % % Generate a 1000 node network adjacency matrix, A
 % A = floor(1.0015*rand(1000,1000)); A=A+A'; A(A==2)=1; A(1:1001:end) = 0;
 % % Call networkComponents function
-% [nComponents,sizes,members] = networkComponents(A);
+% [members] = networkComponents(A);
 % % get the size of the largest component
 % sizeLC = sizes(1);
 % % get a network adjacency matrix for ONLY the largest component
 % LC = A(members{1},members{1});
 
-function [nComponents,sizes,members] = networkComponents(A)
+
+
+
+function [members] = networkComponents(A)
 % Number of nodes
   N = size(A,1);
   % Remove diagonals
@@ -66,14 +69,14 @@ function [nComponents,sizes,members] = networkComponents(A)
       end
     end
   end
-  % number of components
-  nComponents = length(members);
-  for n=1:nComponents
-    % compute sizes of components
-    sizes(n) = length(members{n});
-  end
-
-  [sizes,idx] = sort(sizes,'descend');
-  members = members(idx);
+% $$$   % number of components
+% $$$   nComponents = length(members);
+% $$$   for n=1:nComponents
+% $$$     % compute sizes of components
+% $$$     sizes(n) = length(members{n});
+% $$$   end
+% $$$ 
+% $$$   [sizes,idx] = sort(sizes,'descend');
+% $$$   members = members(idx);
 
 end

@@ -635,14 +635,14 @@ void VideoHandler::findFishContours(Mat inBwImg, vector<vector<cv::Point> > * ne
   Mat srel = getStructuringElement(MORPH_ELLIPSE,Size(3,3));
 
   // get the bounding boxes and erode 
-  double mx =MAX(featureheight,15)*MAX(featurewidth,10)*4;
+  double mx =MAX(featureheight,30)*MAX(featurewidth,10)*4;
   for (int i=0;i<contours.size();i++) {
     if (!valid[i])
       continue;
     
     Rect bbox = boundingRect(contours[i]);
     double wh = bbox.width*bbox.height;
-    if ((wh > mx) && (bbox.width+bbox.height<maxExtent) ){
+    if ((wh > mx)){
       //try to split regions
       Mat roi;
       inBwImg(bbox).copyTo(roi); // make a true copy
@@ -745,12 +745,15 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     Mat img ;
     copyMakeBorder(segm->Image,img,nborder,nborder,nborder,nborder,BORDER_CONSTANT,0);
 
-    if ((segm->MinorAxisLength)>5) {
+    if ((segm->MinorAxisLength)>4) {
       //opening and closing
       dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
       erode(img,img,srel,Point(-1,-1),4,BORDER_CONSTANT,0);
       dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
-    }
+    } else{
+      dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
+      erode(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
+    }	    
     
     Mat F,L;
     distanceTransform(img,F,CV_DIST_L2, 3);
@@ -1475,7 +1478,7 @@ double  BackgroundThresholder::getThresScale() {
 }
 
 void BackgroundThresholder::setNSkip(int value) {
-   m_nskip = value;
+   m_nskip = MAX(value,1);
 }
 int BackgroundThresholder::getNSkip() {
    return m_nskip;
@@ -1516,28 +1519,23 @@ void BackgroundThresholder::apply(cv::Mat frame,cv::Mat *bwimg, cv::Mat *dframe)
     *bwimg = Mat::zeros(frame.size(),CV_8UC1);
     *dframe = Mat::zeros(frame.size(),CV_8UC1);
   }
-  
   //update mean
   if (m_istep==0) {
-    m_meanImage = floatframe - 127;
+    m_meanImage = floatframe - 255;
   }  else {
-    int n;
+    float n;
     if (m_istep<m_history) {
-      n = m_istep+1;
+      n = (float) m_istep+1;
     } else {
       if ((m_istep % m_nskip)==0) {
-	n = m_history/m_nskip;
+	n = ((float) m_history)/((float) m_nskip);
       }  else {
 	n = 0;
       }
     }
-
-    if (n!=0) {
+    if (n>1) {
       // update 
-      m_meanImage += 127;
-      m_meanImage *= n-1;
-      m_meanImage = (m_meanImage + floatframe)/n - 127;
-
+      m_meanImage = m_meanImage*((n-1)/n) + floatframe*(1./n) - (255./n);
     }
   }
 

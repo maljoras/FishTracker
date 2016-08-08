@@ -37,7 +37,7 @@ end
 
 if COMPUTE && NEWTRACK % for tracking again
   
-  ft = fish.Tracker(vid,'detector.adjustThresScale',1,'nfish',2,'detector.inverted',1);
+  ft = xy.Tracker(vid,'detector.adjustThresScale',1,'nanimals',2,'detector.inverted',1);
 
   ft.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
   ft.setDisplay(0);
@@ -84,8 +84,8 @@ if NEWTRACK && ~exist('stmres1','var')
   
   % make ordering correct
   dist = [];
-  for i = 1:ft.nfish
-    for j = 1:ft.nfish
+  for i = 1:ft.nanimals
+    for j = 1:ft.nanimals
       dist(i,j) = nanmean(sqrt(sum((ftpos(:,:,i) - stmpos1(:,:,j)).^2,2)));
     end
   end
@@ -235,10 +235,10 @@ if PLOT
   x = pos(:,1,:);
   edges = linspace(quantile(x(:),0.001),quantile(x(:),0.999),nbins);
 
-  for nfish = 1:length(ftstmall)
-    for i = 1:length(ftstmall{nfish})
-      pos = ftstmall{nfish}{i}.ft.res.pos;
-      res = ftstmall{nfish}{i}.ft.res.tracks;
+  for nanimals = 1:length(ftstmall)
+    for i = 1:length(ftstmall{nanimals})
+      pos = ftstmall{nanimals}{i}.ft.res.pos;
+      res = ftstmall{nanimals}{i}.ft.res.tracks;
 
       if size(pos,3)<=2 % SOMEHOW FOR VIDEO WITH 1 or 2 fish stimulus
                         % was reversed!!
@@ -256,12 +256,12 @@ if PLOT
       tt = res.t(:,1);
       idx = res.stmInfo(:,1,2) == left ;
       
-      Nl{nfish}(:,:,i) = histc(squeeze(pos(idx,1,:)),edges)/sum(idx);
-      Nl{nfish}(:,:,i) = bsxfun(@rdivide,Nl{nfish}(:,:,i),sum(Nl{nfish}(:,:,i),1));
+      Nl{nanimals}(:,:,i) = histc(squeeze(pos(idx,1,:)),edges)/sum(idx);
+      Nl{nanimals}(:,:,i) = bsxfun(@rdivide,Nl{nanimals}(:,:,i),sum(Nl{nanimals}(:,:,i),1));
 
       idx = res.stmInfo(:,1,2) == right ;
-      Nr{nfish}(:,:,i) = histc(squeeze(pos(idx,1,:)),edges)/sum(idx);
-      Nr{nfish}(:,:,i) = bsxfun(@rdivide,Nr{nfish}(:,:,i),sum(Nr{nfish}(:,:,i),1));
+      Nr{nanimals}(:,:,i) = histc(squeeze(pos(idx,1,:)),edges)/sum(idx);
+      Nr{nanimals}(:,:,i) = bsxfun(@rdivide,Nr{nanimals}(:,:,i),sum(Nr{nanimals}(:,:,i),1));
     end
   end
 

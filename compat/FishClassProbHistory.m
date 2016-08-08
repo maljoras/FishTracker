@@ -1,4 +1,4 @@
-classdef FishClassProbHistory
+classdef ClassProbHistory
 % dummy for loading the old objects
    
   
@@ -6,7 +6,7 @@ classdef FishClassProbHistory
   methods(Static)
     
     function obj = loadobj(S);
-      obj = fish.core.FishClassProbHistory.loadobj(S);
+      obj = xy.core.ClassProbHistory.loadobj(S);
     end
   end
 end

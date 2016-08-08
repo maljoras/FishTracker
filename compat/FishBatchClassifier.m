@@ -1,4 +1,4 @@
-classdef FishBatchClassifier
+classdef BatchClassifier
 % dummy for loading the old objects
    
   
@@ -6,7 +6,7 @@ classdef FishBatchClassifier
   methods(Static)
     
     function obj = loadobj(S);
-      obj = fish.core.FishBatchClassifier.loadobj(S);
+      obj = xy.core.BatchClassifier.loadobj(S);
     end
   end
 end

@@ -3,7 +3,7 @@ COMPUTE = 0;
 PLOT = 1;
 
 if ~exist('ft','var') || COMPUTE
-  [~,~,~,~,ft] = fish.Tracker.runTest(50);
+  [~,~,~,~,ft] = xy.Tracker.runTest(50);
 end
 
 

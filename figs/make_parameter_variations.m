@@ -52,16 +52,16 @@ if COMPUTE
     pv.cost.BoundingBox = linspace(0,50,nbins);    
     
     % re-format
-    pars= fish.helper.allfieldnames(pv)';
+    pars= xy.helper.allfieldnames(pv)';
     pararr = {};
     for i = 1:length(pars)
-      pararr{i} = fish.helper.getfield(pv,pars{i});
+      pararr{i} = xy.helper.getfield(pv,pars{i});
     end
   
 
     opts = [];
     opts.verbosity = 3;
-    opts.nfish = 5;
+    opts.nanimals = 5;
     %opts.fishlength = 100;
     %opts.fishwidth = 20;
     opts.classifier.npca = 40;
@@ -96,7 +96,7 @@ if COMPUTE
       translate{s} = [i,j];
     end
   end
-  fish.helper.verbose('Submitted %d tasks.',s);
+  xy.helper.verbose('Submitted %d tasks.',s);
 
   if ~CONTINUE
     res = [];
@@ -129,7 +129,7 @@ if COLLECT
     res(i,j).parname = pars{i};
     res(i,j).log = sprintf('%sdiary.%d.log',basepath,completedIdx);
     %read log with: textread(res(i,j).log,'%s','delimiter','\n');
-    fish.helper.verbose('Fetched %d/%d results.\r',k,length(f));
+    xy.helper.verbose('Fetched %d/%d results.\r',k,length(f));
   end
   save('~/ftparvars1.mat','res')
 end
@@ -140,14 +140,14 @@ if PLOT
   fL = 100; 
   init = 100;
   
-  [r1,r2] = fish.helper.getsubplotnumber(size(res,1));
+  [r1,r2] = xy.helper.getsubplotnumber(size(res,1));
   %fun = @(x)nanmax(x,[],2);
   %fun = @(x)nanmean(x,2);
   fun = @(x)nansum(x>0.5,2)>0;
   
   nframes = size(res(1,1).d,1);
-  nfish = size(res(1,1).d,2);
-  n = nframes*nfish;
+  nanimals = size(res(1,1).d,2);
+  n = nframes*nanimals;
   
   for i = 1:size(res,1)
     parr = cat(2,res(i,:).parval);
@@ -169,7 +169,7 @@ if PLOT
     
     a = subplot(r1,r2,i);
     nc = 5;
-    fish.helper.errorbarpatch(parr,imfilter([md,mdag],ones(nc,1)/nc,'same','replicate'),[sd,sdag]);
+    xy.helper.errorbarpatch(parr,imfilter([md,mdag],ones(nc,1)/nc,'same','replicate'),[sd,sdag]);
     ylabel('Mean-max dist');
 
     b = submargin(a,'MARGIN',0.008,'SPACE',0.2);

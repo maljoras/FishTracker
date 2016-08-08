@@ -27,10 +27,10 @@ if COMPUTE
   % stimulus presentations
   stmInfo = res.tracks.stmInfo; % this is sorted accroding to gloval estimate
                                 % of fishIDs (might include some ID switches)
-  stmFishId = stmInfo(:,:,ft.stimulusPresenter.IDX_FISHID);
+  stmIdentityId = stmInfo(:,:,ft.stimulusPresenter.IDX_IDENTITYID);
 
   pos = ft.interpolateInvisible(res,'pos',3);
-  velocity = [zeros(1,2,ft.nfish);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
+  velocity = [zeros(1,2,ft.nanimals);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
   avelocity = squeeze(sqrt(sum(velocity.^2,2)));
   maxvel = quantile(avelocity(:),0.99);
   dlmsk = avelocity>maxvel;
@@ -45,7 +45,7 @@ if COMPUTE
   velfishid = sqrt(sum(ft.getResField(res,'velocity').^2,3));
   trackid  = ft.getResField(res,'id');
 
-  rawfishid  = rawres.stmInfo(:,:,ft.stimulusPresenter.IDX_FISHID);
+  rawfishid  = rawres.stmInfo(:,:,ft.stimulusPresenter.IDX_IDENTITYID);
   velfishraw = sqrt(sum(rawres.velocity.^2,3));
   
   % msk includes boundary off (same as ~isnan(bbox(1)))'
@@ -128,10 +128,10 @@ if COMPUTE
     accummsk(~stmstatei) = nstm+1;
     turn(i).stm.accummsk = accummsk;
 
-    for f = {'IDX_SIZEFACTOR','IDX_SHIFTORI','IDX_SHIFT','IDX_XY','IDX_FISHID'}
+    for f = {'IDX_SIZEFACTOR','IDX_SHIFTORI','IDX_SHIFT','IDX_XY','IDX_IDENTITYID'}
       turn(i).stm.(lower(f{1}(5:end))) = stmInfo(stmtidx_start,i,ft.stimulusPresenter.(f{1}));
     end
-    turn(i).stm.acc_fishId = accumarray(accummsk,stmFishId(:,i)==i,[nstm+1,1],@nanmean);
+    turn(i).stm.acc_identityId = accumarray(accummsk,stmIdentityId(:,i)==i,[nstm+1,1],@nanmean);
     turn(i).stm.acc_len = accumarray(accummsk,1,[nstm+1,1],@sum);
 
     
@@ -195,8 +195,8 @@ if PLOT
 
 
   
-  col = jet(ft.nfish);
-  for i = 1:ft.nfish
+  col = jet(ft.nanimals);
+  for i = 1:ft.nanimals
     g  =[0.5,0.5,0.5];
     plot(clx(:,:,i),cly(:,:,i),'color',col(i,:)*0.8);
     hold on;
@@ -265,7 +265,7 @@ if PLOT
   shiftaxes(a,[-0.03,0,xoffset]);
   
   
-  a = fish.helper.inset(gca,'switchsides',1,'margin',0.15,'left',0.75,'lower',0.75);
+  a = xy.helper.inset(gca,'switchsides',1,'margin',0.15,'left',0.75,'lower',0.75);
   set(a,'visible','on')
   [N,edges] = hist(g,50);
   h = plot(edges,N/amount,'.','linewidth',1);
@@ -281,8 +281,8 @@ if PLOT
 
   %% plot velocity probmap
   szFrame = ft.videoHandler.frameSize;
-  for i = 1:ft.nfish
-    aa = fish.helper.subsubplot(1,4,4,4,1,i);
+  for i = 1:ft.nanimals
+    aa = xy.helper.subsubplot(1,4,4,4,1,i);
     P1 = ft.plotVelocityMap(timeRange,i,[0,0.5]);
     P2 = ft.plotVelocityMap(timeRange,i,[0.5,0.99]);
     
@@ -321,14 +321,14 @@ if PLOT
   
   xlabel('X-position [px]');
   set(aa,'xticklabelmode','auto');
-  h = fish.helper.smallcolorbar();
+  h = xy.helper.smallcolorbar();
   set(h,'fontsize',8)
   ylabel(h,'Diff. probability','fontsize',10)
 
 
   if SAVEIF
 
-    a = fish.helper.labelsubplot(gcf,'BA');
+    a = xy.helper.labelsubplot(gcf,'BA');
     shiftaxes(a(2),0.05)
     %set(gcf,'paperunits','centimeters')
     exportfig(gcf,'~/work/writings/papers/fishtracking/figs/turning1.eps','Color','rgb','width',10,'fontmode','fixed');
@@ -340,7 +340,7 @@ if PLOT
   if VELTRIGGERPLOT
     figure;
     r1 = 2;
-    r2 = ft.nfish;
+    r2 = ft.nanimals;
     for i = 1:length(turn)
 
       
@@ -409,12 +409,12 @@ if PLOT
         ylabel('Y  rel. shift [px]','fontsize',10);
       end
       
-      col = jet(ft.nfish);
+      col = jet(ft.nanimals);
       title(sprintf('Fish #%d',i),'color',col(i,:));
 
-      if i==ft.nfish
-        h = fish.helper.smallcolorbar;
-        fish.helper.shiftaxes(h,[0.1]);
+      if i==ft.nanimals
+        h = xy.helper.smallcolorbar;
+        xy.helper.shiftaxes(h,[0.1]);
         ylabel(h,'Difference speed [BL/sec]')
         %title(sprintf('Stimulus induced speed\n at first turning'))
         set(h,'ylim',[-clu,clu]);
@@ -467,7 +467,7 @@ if PLOT
         
         % avg turn-triggered velocity
         mvel(:,s) = accumarray(accmsk,vel,[mxt+1,1],@nanmedian);
-        svel(:,s) = accumarray(accmsk,vel,[mxt+1,1],@fish.helper.stderr);
+        svel(:,s) = accumarray(accmsk,vel,[mxt+1,1],@xy.helper.stderr);
         
         %mposx(:,s) = accumarray(accmsk,istmx,[mxt+1,1],@nanmedian);
       end
@@ -479,7 +479,7 @@ if PLOT
 % $$$       mvel(:,j) = mvel(:,j) - nanmedian(ivel(msk1));
 % $$$     end
       
-      h = fish.helper.errorbarpatch(((0:mxt-1)+toffs)*dt,mvel(1:end-1,:),svel(1:end-1,:));
+      h = xy.helper.errorbarpatch(((0:mxt-1)+toffs)*dt,mvel(1:end-1,:),svel(1:end-1,:));
       xlabel('Rel time [s]','fontsize',10)
       if i==1
         ylabel('Avg. velocity [BL/s]','fontsize',10);

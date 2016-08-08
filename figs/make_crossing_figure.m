@@ -7,14 +7,14 @@ SAVEIF = 1
 
 if LOAD || ~exist('ft1','var')
   v =  '/home/malte/Videos/5Zebrafish_nocover_22min.avi';
-  ft1 = fish.Tracker(v,'nfish',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
+  ft1 = xy.Tracker(v,'nanimals',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
                     'detector.adjustThresScale',1); 
 
   ft1.track([0,10]);
   
   clear reader;
   
-  reader = fish.core.FishVideoReader(v);
+  reader = xy.core.FishVideoReader(v);
   nframes = 200;
   bkgframe = 0;
   for i = 1:nframes
@@ -75,7 +75,7 @@ if PLOT
   a(s) = subplot(r1,r2,s,'align');
   
   f = mean(frame(:,:,iframes<=crossframe),3) + mean(frame(:,:,iframes>crossframe),3)*0.2;
-  fish.helper.imagescbw(f);
+  xy.helper.imagescbw(f);
   hold on;
   colororder = [rgb('green');rgb('blue')];
   set(a(s),'colororder',colororder);
@@ -112,9 +112,9 @@ if PLOT
   
   x = pos(1:crossframe+ceil(2.9*igap),:,1);
   y = pos(1:crossframe+ceil(2.9*igap),:,2);
-  xl = fish.helper.minmax(x(:)').*[0.9,1.1];
+  xl = xy.helper.minmax(x(:)').*[0.9,1.1];
   xlim( xl);
-  yl = fish.helper.minmax(y(:)').*[0.9,1.1];
+  yl = xy.helper.minmax(y(:)').*[0.9,1.1];
   ylim(yl);
 
   
@@ -249,7 +249,7 @@ if PLOT
   a(s) = subsubplot(r1,r2,s-1,1,1,1);
   
   f = mean(frame(:,:,iframes>crossframe),3) +  0.2*mean(frame(:,:,iframes<=crossframe),3);
-  fish.helper.imagescbw(f);
+  xy.helper.imagescbw(f);
   hold on;
   set(a(s),'colororder',colororder);
   plot(pos(:,:,1),pos(:,:,2),'.','linewidth',0.5,'MarkerSize',4);
@@ -281,9 +281,9 @@ if PLOT
   ylim(yl);
 % $$$   x = pos(crossframe-2*igap:end,:,1);
 % $$$   y = pos(crossframe-2*igap:end,:,2);
-% $$$   xl = fish.helper.minmax(x(:)').*[0.9,1.1];
+% $$$   xl = xy.helper.minmax(x(:)').*[0.9,1.1];
 % $$$   xlim( xl);
-% $$$   yl =fish.helper.minmax(y(:)').*[0.9,1.1];
+% $$$   yl =xy.helper.minmax(y(:)').*[0.9,1.1];
 % $$$   ylim(yl);
 
   set(a,'fontsize',10)

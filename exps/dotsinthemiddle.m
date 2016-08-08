@@ -9,19 +9,19 @@ if LOAD && ~exist('ft','var')
   opts = [];
   opts.detector.inverted = 1;
   
-  opts.nfish = 4;
+  opts.nanimals = 4;
 
   opts.stmif = 1;
   opts.display.videoHandler = true;
   opts.stimulus.screen = 1;
-  opts.stimulus.presenter = 'fish.stimulus.PresenterOnlineLearningCue';
+  opts.stimulus.presenter = 'xy.stimulus.PresenterOnlineLearningCue';
   opts.detector.adjustThresScale = 1.05;
   
   opts.fishwidth = 25;
   opts.fishlength =  90;
   
   
-  ft = fish.Tracker({0,videoFile},opts);
+  ft = xy.Tracker({0,videoFile},opts);
 end
 
 
@@ -40,21 +40,21 @@ if COMPUTE
   
   ostm = [];
   ostm.screenBoundingBox = sbbox;  
-  ostm.usePredFishId = false;
+  ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(ft.nfish);
+  ostm.stmCol= parula(ft.nanimals);
   ostm.stmLambda= 0.0;
   
-  ostm.stmSize = ones(ft.nfish,1)*ft.fishlength.*(1+rand(ft.nfish,1));  
+  ostm.stmSize = ones(ft.nanimals,1)*ft.fishlength.*(1+rand(ft.nanimals,1));  
 
   ostm.stmType = 'fishtextures';
   ostm.stmSizeFactor = 1.2;
-  ostm.stmShift = ft.fishlength; % in px of fish.tracker frame
+  ostm.stmShift = ft.fishlength; % in px of xy.tracker frame
   ostm.stmShiftOri = 0;
   ostm.stmVelThres = 2;
   ostm.stmBorderThres = 0.075;
   
-  ostm.funLRStm = @(fishIds) fishIds;
+  ostm.funLRStm = @(identityIds) identityIds;
   ostm.lrif = 1;
   ostm.lrSwitchProb = 1;
   ostm.midline = 0;
@@ -109,8 +109,8 @@ if PLOT
 
   mvel1 = nanmean(vel(stmmsk,:),1);
   mvel2 = nanmean(vel(nonmsk,:),1);
-  svel1 = fish.helper.stderr(vel(stmmsk,:),1);
-  svel2 = fish.helper.stderr(vel(nonmsk,:),1);
+  svel1 = xy.helper.stderr(vel(stmmsk,:),1);
+  svel2 = xy.helper.stderr(vel(nonmsk,:),1);
 
   
   figure;

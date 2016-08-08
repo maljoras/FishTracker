@@ -7,7 +7,7 @@ SAVEIF = 1
 
 if LOAD || ~exist('ft1','var')
   v =  '/home/malte/Videos/5Zebrafish_nocover_22min.avi';
-  ft1 = fish.Tracker(v,'nfish',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
+  ft1 = xy.Tracker(v,'nanimals',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
                     'detector.adjustThresScale',1); 
 
   ft1.track([0,20]);
@@ -48,7 +48,7 @@ if PLOTCENTERLINE
   % plot the initial image
   s = s+1;
   a(s) = subplot(r1,r2,s,'align');
-  fish.helper.imagescbw(double(T.segment.FilledImageFixedSize));
+  xy.helper.imagescbw(double(T.segment.FilledImageFixedSize));
   hold on;
   rectangle('position',rbbox,'edgecolor','r');
   xlabel('x [px]')
@@ -59,7 +59,7 @@ if PLOTCENTERLINE
   % BW mask
   s = s+1;
   a(s) = subplot(r1,r2,s,'align');
-  fish.helper.imagescbw(double(r.img));
+  xy.helper.imagescbw(double(r.img));
   title('Detected blob');
   hold on;
   R = R2d(-T.segment.Orientation/180*pi + pi/2);
@@ -105,13 +105,13 @@ if PLOTCENTERLINE
   % Laplacian thresholded
   s = s+1;
   a(s) = subplot(r1,r2,s,'align');
-  fish.helper.imagescbw(1-double(r.L1~=0));
+  xy.helper.imagescbw(1-double(r.L1~=0));
   title(sprintf('Thresholded\nLaplacian'))
 
   % Center line points
   s = s+1;
   a(s) = subplot(r1,r2,s,'align');
-  fish.helper.imagescbw(double(T.segment.FilledImageFixedSize));
+  xy.helper.imagescbw(double(T.segment.FilledImageFixedSize));
   hold on;
   %y = r.xi-r.border;
   %x = r.yi-r.border;
@@ -204,7 +204,7 @@ if PLOTIDENTITY
       w = rsz-sz;
       rimg = cv.copyMakeBorder(img,floor(w(1)/2),ceil(w(1)/2),floor(w(2)/2),ceil(w(2)/2),...
                                'BorderType','Constant','Value',0);
-      fish.helper.imagescbw([s-0.5,s+0.5],[j-0.5,j+.5],double(~rimg));
+      xy.helper.imagescbw([s-0.5,s+0.5],[j-0.5,j+.5],double(~rimg));
       hold on
       
       % plot center line

@@ -40,7 +40,7 @@ end
 mex -largeArrayDims -cxx CXXFLAGS='-std=c++11 -lstdc++' assignDetectionsToTracks.cpp -outdir ..\+fish\+helper\
 
 cd ..
-fprintf('FINISHED!\n Run >> fish.Tracker.runTest() to test the tracking system.\n\n')
+fprintf('FINISHED!\n Run >> xy.Tracker.runTest() to test the tracking system.\n\n')
 
 
 

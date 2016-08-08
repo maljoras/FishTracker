@@ -6,7 +6,7 @@ classdef FishTracker
   methods(Static)
     
     function obj = loadobj(S);
-      obj = fish.Tracker.loadobj(S);
+      obj = xy.Tracker.loadobj(S);
     end
   end
 end

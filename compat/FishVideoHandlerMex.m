@@ -1,4 +1,4 @@
-classdef FishVideoHandlerMex
+classdef VideoHandlerMex
 % dummy for loading the old objects
    
   
@@ -6,7 +6,7 @@ classdef FishVideoHandlerMex
   methods(Static)
     
     function obj = loadobj(S);
-      obj = FishVideoHandlerMex();
+      obj = VideoHandlerMex();
     end
   end
 

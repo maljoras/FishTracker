@@ -12,30 +12,30 @@ if LOAD && ~exist('ft','var')
 
 
   opts = [];
-  opts.nfish = 3;
+  opts.nanimals = 3;
   
-  videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nfish,VIDID)];
+  videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nanimals,VIDID)];
 
   opts.detector.inverted = 1;
 
   opts.stmif = 1;
   opts.display.videoHandler = true;
   opts.stimulus.screen = 1;
-  opts.stimulus.presenter = 'fish.stimulus.PresenterTrackTextureRegions';
+  opts.stimulus.presenter = 'xy.stimulus.PresenterTrackTextureRegions';
   opts.detector.adjustThresScale = 1.05;
   
   opts.fishwidth = 35;
   opts.fishlength = 150;
   opts.detector.history = 5000;
   
-  ft = fish.Tracker({0,videoFile},opts);
+  ft = xy.Tracker({0,videoFile},opts);
 end
 
 
 if COMPUTE
 
   if ~exist('sbbox','var')
-    %sbbox = fish.Tracker.calibrateStimulusScreen(0,1);
+    %sbbox = xy.Tracker.calibrateStimulusScreen(0,1);
     %sbbox =  [115,90,1550,1214];
     sbbox = [147,71,1555,1237];
   end
@@ -48,9 +48,9 @@ if COMPUTE
   
   ostm = [];
   ostm.screenBoundingBox = sbbox;  
-  ostm.usePredFishId = false;
+  ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(ft.nfish);
+  ostm.stmCol= parula(ft.nanimals);
   ostm.stmOnInt= 2; % in sec
   ostm.stmOnIntCV= 0.1;   
 
@@ -62,7 +62,7 @@ if COMPUTE
   ostm.stmSizeFactor = 1;  
   ostm.xRegions = [1/3,2/3];
 
-  ostm.stmShift = ft.fishlength/4; % in px of fish.tracker frame
+  ostm.stmShift = ft.fishlength/4; % in px of xy.tracker frame
   ostm.stmShiftOri = 0;
 
   ostm.stmShiftOriSTD = -1; % random;
@@ -72,7 +72,7 @@ if COMPUTE
   ostm.stmVelThres = [2];
   ostm.stmBorderThres = 0.05;
   
-  ostm.funLRStm = @(fishIds) fishIds;
+  ostm.funLRStm = @(identityIds) identityIds;
 
   ostm.colBackground = [0,0,0];
   ostm.colBorder = [1,1,1];
@@ -91,7 +91,7 @@ if COMPUTE
   ft.setDisplay('tracks',false);  
 
   if TEST
-    fish.helper.stimulusSimulator(ft.stimulusPresenter);
+    xy.helper.stimulusSimulator(ft.stimulusPresenter);
   else
     ft.track();
     ft.save();
@@ -129,8 +129,8 @@ if PLOT
 
   mvel1 = nanmean(vel(stmmsk,:),1);
   mvel2 = nanmean(vel(nonmsk,:),1);
-  svel1 = fish.helper.stderr(vel(stmmsk,:),1);
-  svel2 = fish.helper.stderr(vel(nonmsk,:),1);
+  svel1 = xy.helper.stderr(vel(stmmsk,:),1);
+  svel2 = xy.helper.stderr(vel(nonmsk,:),1);
 
   
   figure;

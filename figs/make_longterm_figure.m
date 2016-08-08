@@ -4,9 +4,9 @@ SAVEIF = 1;
 if LOAD
   
   %load ~/data/zebra/videos/longterm/Blongterm11_draft.mat
-  %reader = fish.core.FishVideoReader(ft.videoFile);
+  %reader = xy.core.FishVideoReader(ft.videoFile);
 
-  ft = fish.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nfish',3,'fishlength',120,'fishwidth',30);
+  ft = xy.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nanimals',3,'fishlength',120,'fishwidth',30);
   ft.setDisplay(0);
   ft.track();
 end
@@ -110,7 +110,7 @@ if PLOT
   set(bb,'visible','off');
   range = 0:3600:4*3600;%ft.videoHandler.duration;
   n = length(range)-1;
-  [rr1,rr2] = fish.helper.getsubplotnumber(n);
+  [rr1,rr2] = xy.helper.getsubplotnumber(n);
   for i = 1:n
     aa(i) = subsubplot(r1,r2,s,rr1,rr2,i);
     ft.plotProbMap([range(i),range(i+1)]);

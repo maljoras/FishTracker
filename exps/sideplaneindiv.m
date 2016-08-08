@@ -6,12 +6,12 @@ if LOAD || ~exist('ft','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
-  opts.nfish = 3;
+  opts.nanimals = 3;
   opts.stmif = 1;
 
   opts.stimulus.screen = 1;
   opts.stimulus.screenBoundingBox = [150,53,1580,1256];
-  opts.stimulus.presenter = 'fish.stimulus.PresenterPlaneIndiv';
+  opts.stimulus.presenter = 'xy.stimulus.PresenterPlaneIndiv';
 
   
   opts.stimulus.stmBkgType = 'none'; %plane
@@ -27,19 +27,19 @@ if LOAD || ~exist('ft','var')
 
   opts.stimulus.nRoundsPerGroup = 4; % switch betweem left & right stimulation
   opts.stimulus.nPauseStmGroupsPerExp = 2;  %   
-  opts.stimulus.nFishStimPerExps = [1,5,3,4,5];
+  opts.stimulus.nanimalsStimPerExps = [1,5,3,4,5];
 
   
   %opts.fishwidth = 30;
   %opts.fishlength = 150;
 
 
-  ft = fish.Tracker({0,videoFile},opts);
+  ft = xy.Tracker({0,videoFile},opts);
 end
 
 
 if COMPUTE
-  %fish.helper.stimulusSimulator('fish.stimulus.PresenterPlaneIndiv','nfish',5,'stimulus',opts.stimulus,'timeFactor',3)
+  %xy.helper.stimulusSimulator('xy.stimulus.PresenterPlaneIndiv','nanimals',5,'stimulus',opts.stimulus,'timeFactor',3)
 
   
   

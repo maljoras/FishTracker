@@ -1,4 +1,4 @@
-classdef ClassProbHistory
+classdef FishClassProbHistory
 % dummy for loading the old objects
    
   

@@ -1,4 +1,4 @@
-classdef VideoHandlerMex
+classdef FishVideoReader
 % dummy for loading the old objects
    
   
@@ -6,12 +6,7 @@ classdef VideoHandlerMex
   methods(Static)
     
     function obj = loadobj(S);
-      obj = xy.core.VideoHandlerMex();
+      obj = xy.core.VideoReader();
     end
   end
-
-
 end
-
-    
-

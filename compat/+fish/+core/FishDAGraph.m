@@ -1,4 +1,4 @@
-classdef VideoHandlerMex
+classdef FishDAGraph
 % dummy for loading the old objects
    
   
@@ -6,12 +6,8 @@ classdef VideoHandlerMex
   methods(Static)
     
     function obj = loadobj(S);
-      obj = xy.core.VideoHandlerMex();
+      S.nbody = S.nfish;
+      obj = xy.core.DAGraph.loadobj(S);
     end
   end
-
-
 end
-
-    
-

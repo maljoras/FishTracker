@@ -124,11 +124,11 @@ classdef Tracker < handle;
     end
 
     function obj = loadobj(S)
-
+      
       deleted_fields = {'saveFieldSub'};
-
+      
       if isstruct(S)
-        % compatibility with old BodyTracker files
+        % compatibility with old FishTracker files
         opts = S.opts;
         for f = fieldnames(S.opts)'
           if ~isstruct(S.opts.(f{1})) && isfield(S,f{1})
@@ -138,6 +138,7 @@ classdef Tracker < handle;
 
         opts.stmif = 0; % set to zero;
         opts.tracks.initBackground = 0;
+
         if iscell(S.videoFile)
           xy.helper.verbose('Realtime-stimulus experiment. Load grabbed video file.')
           S.videoFile = S.videoFile{2};

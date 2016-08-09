@@ -32,7 +32,8 @@ classdef DAGraph < handle;
   
     dagIsave = [];
   end
-  
+
+
   
   properties (SetAccess=private,GetAccess=private)
     nbody = [];
@@ -43,6 +44,21 @@ classdef DAGraph < handle;
     
     offsetFrame = 0;
 
+  end
+
+  methods(Static);
+    function obj = loadobj(S);
+      if isstruct(S)
+        obj = xy.core.DAGraph(S.nbody,S.nhyp);
+        for f = fieldnames(S)'
+          if isprop(obj,f{1}) 
+            obj.(f{1}) = S.(f{1});
+          end
+        end
+      else
+        obj = S;
+      end
+    end
   end
 
   methods(Access=private)    

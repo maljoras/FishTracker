@@ -1,4 +1,4 @@
-classdef VideoHandlerMex
+classdef FishBatchClassifier
 % dummy for loading the old objects
    
   
@@ -6,12 +6,8 @@ classdef VideoHandlerMex
   methods(Static)
     
     function obj = loadobj(S);
-      obj = xy.core.VideoHandlerMex();
+      S.nbody = S.nfish;
+      obj = xy.core.BatchClassifier.loadobj(S);
     end
   end
-
-
 end
-
-    
-

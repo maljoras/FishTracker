@@ -5,12 +5,12 @@ LOAD = 0;
 PLOT = 1;
 SAVEIF = 1
 
-if LOAD || ~exist('xyT1','var')
+if LOAD || ~exist('T1','var')
   v =  '/home/malte/Videos/5Zebrafish_nocover_22min.avi';
-  xyT1 = xy.Tracker(v,'nbody',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
+  T1 = xy.Tracker(v,'nbody',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
                     'detector.adjustThresScale',1); 
 
-  xyT1.track([0,10]);
+  T1.track([0,10]);
   
   clear reader;
   
@@ -28,7 +28,7 @@ end
 if PLOT
 
   lbox = 'on';
-  tracks = xyT1.getSavedTracksFull();
+  tracks = T1.getSavedTracksFull();
   
   startframe = 205; % before  crossing
   endframe = 290; % within  crossing
@@ -45,8 +45,8 @@ if PLOT
   T = T1(:,crossedIds);
   msk = msk1(:,crossedIds);
   
-  t = xyT1.res.t(startframe:endframe,1);
-  iframe =  t*xyT1.videoHandler.frameRate + 1;
+  t = T1.res.t(startframe:endframe,1);
+  iframe =  t*T1.videoHandler.frameRate + 1;
   crossframe = find(msk(:,1),1,'first');
 
   igap = 11;
@@ -123,7 +123,7 @@ if PLOT
   a(s) = subsubplot(r1,r2,s,2,1,1);
   hold on;
   endcrossframe = max(cat(1,T(end,:).lastFrameOfCrossing))-startframe+1;
-  ihorizon = endcrossframe+xyT1.opts.classifier.nFramesAfterCrossing;
+  ihorizon = endcrossframe+T1.opts.classifier.nFramesAfterCrossing;
   thorizon = t(ihorizon);
   
   h = [];
@@ -194,17 +194,17 @@ if PLOT
   prob = {};
   h = [];
   for i = 1:size(T,2)
-    feat{i} = T(end,i).batchFeatures(1:xyT1.opts.classifier.nFramesAfterCrossing,:);
-    prob{i} = xyT1.identityClassifier.predict(feat{i});
+    feat{i} = T(end,i).batchFeatures(1:T1.opts.classifier.nFramesAfterCrossing,:);
+    prob{i} = T1.identityClassifier.predict(feat{i});
     prob{i} = prob{i}(:,crossedIds);
-    pre{i} = xyT1.identityClassifier.preprocess(feat{i});
+    pre{i} = T1.identityClassifier.preprocess(feat{i});
   end
   
   
   hold on;  
   comps = [1,2];
-  mu = xyT1.identityClassifier.mu(crossedIds,comps);
-  sigma = xyT1.identityClassifier.Sigma(comps,comps,crossedIds);
+  mu = T1.identityClassifier.mu(crossedIds,comps);
+  sigma = T1.identityClassifier.Sigma(comps,comps,crossedIds);
   set(a(s),'colororder',colororder)
   sym = 'xo><';
 

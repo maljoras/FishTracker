@@ -3,10 +3,10 @@ classdef ClassProbHistory < handle;
   
   
   properties 
-    nHistory = 2000;
-    lambda = 1.5;
+    nHistory = 2000; % circular buffer size 
+    lambda = 1.5; % initial
     taulambda = 100; % for lambda adjustements. Set to Inf if not wanted
-    reasonableThres =  0.1353/2; % 
+    reasonableThres =  0.1353/2;
   end
   
   

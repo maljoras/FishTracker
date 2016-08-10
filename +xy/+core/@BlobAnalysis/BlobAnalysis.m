@@ -818,13 +818,13 @@ classdef BlobAnalysis < handle;
         verboseif = 1;
       end
       if isempty(self.bodywidth)
-        self.bodywidth = 20; % random guess. Can be set axyTerwords;
+        self.bodywidth = 20; % random guess. Can be set afterwords;
       end
       if isempty(self.bodylength)
-        self.bodylength = 100; % random guess. Can be set axyTerwords;
+        self.bodylength = 100; % random guess. Can be set afterwords;
       end
       if isempty(self.headprop)
-        self.headprop = 0.6; % random guess. Can be set axyTerwords;
+        self.headprop = 0.6; % random guess. Can be set afterwords;
       end
       
       setSize(self,self.bodylength,self.bodywidth,self.headprop,verboseif);

@@ -13,7 +13,7 @@ classdef PresenterPlane < xy.stimulus.Presenter;
   methods 
 
     function tracks = step(self,tracks,framesize,t)
-    % this function will be called from xy.Tracker axyTer each round
+    % this function will be called from xy.Tracker after each round
     
       oldstmidx = self.stmidx;
 

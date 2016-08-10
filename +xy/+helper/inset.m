@@ -8,8 +8,8 @@ function aa = inset(a,varargin);
   def.opts.margin = 0.05;
   doc.margin = 'margin in percent of the plot';
 
-  def.opts.lexyT = 0.7;
-  doc.lexyT = 'lexyT border in percent of the plot width';
+  def.opts.leT = 0.7;
+  doc.left = 'left border in percent of the plot width';
 
   def.opts.lower = 0.7;
   doc.lower = 'lower border in percent of the plot width';
@@ -30,8 +30,8 @@ function aa = inset(a,varargin);
   
   width = p1(3) - 2*(opts.margin*p1(3));
 
-  inset_width = (1-opts.lexyT)*width;
-  inset_lexyT = opts.margin*p1(3) + opts.lexyT*width;
+  inset_width = (1-opts.left)*width;
+  inset_left = opts.margin*p1(3) + opts.left*width;
   
   height = p1(4) - 2*(opts.margin*p1(4));
   inset_height = (1-opts.lower)*height;
@@ -39,11 +39,11 @@ function aa = inset(a,varargin);
 
   
   if opts.switchsides
-    %put on the lexyT
+    %put on the left
     p2 = [p1(1) + opts.margin*p1(3),p1(2) + inset_lower,inset_width,inset_height];    
   
   else
-    p2 = [p1(1) + inset_lexyT,p1(2) + inset_lower,inset_width,inset_height];    
+    p2 = [p1(1) + inset_left,p1(2) + inset_lower,inset_width,inset_height];    
     
   end
 

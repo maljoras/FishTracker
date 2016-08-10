@@ -4,7 +4,7 @@ COMPUTE =0
 PLOT =1;
 
 
-if LOAD && ~exist('xyT','var')
+if LOAD && ~exist('T','var')
   videoFile = '/data/videos/onlinelearning/dotsInTheMiddle2_4fish.avi';
   opts = [];
   opts.detector.inverted = 1;
@@ -21,14 +21,14 @@ if LOAD && ~exist('xyT','var')
   opts.bodylength =  90;
   
   
-  xyT = xy.Tracker({0,videoFile},opts);
+  T = xy.Tracker({0,videoFile},opts);
 end
 
 
 if COMPUTE
 
   if ~exist('sbbox','var')
-    %sbbox = xyT.calibrateStimulusScreen();
+    %sbbox = T.calibrateStimulusScreen();
     sbbox = [88,63,1584,1247];
   end
   opts = [];
@@ -42,14 +42,14 @@ if COMPUTE
   ostm.screenBoundingBox = sbbox;  
   ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(xyT.nbody);
+  ostm.stmCol= parula(T.nbody);
   ostm.stmLambda= 0.0;
   
-  ostm.stmSize = ones(xyT.nbody,1)*xyT.bodylength.*(1+rand(xyT.nbody,1));  
+  ostm.stmSize = ones(T.nbody,1)*T.bodylength.*(1+rand(T.nbody,1));  
 
   ostm.stmType = 'bodytextures';
   ostm.stmSizeFactor = 1.2;
-  ostm.stmShift = xyT.bodylength; % in px of xy.tracker frame
+  ostm.stmShift = T.bodylength; % in px of xy.tracker frame
   ostm.stmShiftOri = 0;
   ostm.stmVelThres = 2;
   ostm.stmBorderThres = 0.075;
@@ -76,12 +76,12 @@ if COMPUTE
 
   opts.stimulus = ostm;
   
-  xyT.setOpts(opts);
+  T.setOpts(opts);
 
-  %xyT.setDisplay(0);  
-  xyT.setDisplay('tracks',false);  
-  xyT.track();
-  xyT.save();
+  %T.setDisplay(0);  
+  T.setDisplay('tracks',false);  
+  T.track();
+  T.save();
 
   
 
@@ -92,16 +92,16 @@ end
 
 if PLOT
   dagresults = 1;
-  xyT.setDefaultResultType(dagresults);
-  res = xyT.getTrackingResults();
+  T.setDefaultResultType(dagresults);
+  res = T.getTrackingResults();
   
   info = res.tracks.stmInfo;
-  stmmsk = info(:,1,1)==xyT.stimulusPresenter.ID_STIMULUS_LR;
-  nonmsk = info(:,1,1)==xyT.stimulusPresenter.ID_STIMULUS_RL;
+  stmmsk = info(:,1,1)==T.stimulusPresenter.ID_STIMULUS_LR;
+  nonmsk = info(:,1,1)==T.stimulusPresenter.ID_STIMULUS_RL;
 
 
-  pos = xyT.deleteInvisible(res,'pos');;
-  velocity = xyT.deleteInvisible(res,'velocity');
+  pos = T.deleteInvisible(res,'pos');;
+  velocity = T.deleteInvisible(res,'velocity');
   vel = sqrt(res.tracks.velocity(:,:,1).^2+res.tracks.velocity(:,:,2).^2);
   
   mpos1 = squeeze(nanmean(pos(stmmsk,:,:),1));
@@ -129,7 +129,7 @@ if PLOT
   
   figure;
   a = subplot(2,1,1);
-  vel = xyT.deleteInvisible(res,'velocity');
+  vel = T.deleteInvisible(res,'velocity');
   vabs = sqrt(res.tracks.velocity(:,:,1).^2 + res.tracks.velocity(:,:,2).^2);
   vabs(vabs>100) = NaN;
   

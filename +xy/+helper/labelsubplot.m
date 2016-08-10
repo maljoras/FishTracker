@@ -32,7 +32,7 @@ function [a varargout]=labelsubplot(figureh,labels,fs);
     p(s,:) = get(ch(s),'position');
   end
 
-  %from lexyT to right, top to down
+  %from left to right, top to down
   [dummy,inds] = sortrows([-p(:,2),p(:,1)]);
   
   ch = ch(inds);

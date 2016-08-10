@@ -2,7 +2,7 @@
 LOAD = 1
 COMPUTE =1
 
-if LOAD && ~exist('xyT','var')
+if LOAD && ~exist('T','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
@@ -12,14 +12,14 @@ if LOAD && ~exist('xyT','var')
 
   opts.stimulus.presenter = 'xy.stimulus.PresenterOnlineLearningCue';
 
-  xyT = xy.Tracker({0,videoFile},opts);
+  T = xy.Tracker({0,videoFile},opts);
 end
 
 
 if COMPUTE
 
   if ~exist('sbbox','var')
-    %sbbox = xyT.calibrateStimulusScreen();
+    %sbbox = T.calibrateStimulusScreen();
     sbbox = [81,83,1570,1231];
   end
 
@@ -30,7 +30,7 @@ if COMPUTE
   
   opts.stimulus.screenBoundingBox = sbbox;
   opts.display.displayEveryNFrame = 100;
-  opts.stimulus.stmSize = xyT.bodylength;
+  opts.stimulus.stmSize = T.bodylength;
   opts.stimulus.usePredIdentityId = false;
 
   opts.stimulus.defaultColor = [1,1,1];
@@ -39,12 +39,12 @@ if COMPUTE
   opts.stimulus.gapTime = 0;
 
   
-  xyT.setOpts(opts);
+  T.setOpts(opts);
 
-  xyT.setDisplay(0);  
+  T.setDisplay(0);  
   
-  xyT.track();
-  %xyT.save();
+  T.track();
+  %T.save();
 
   
 

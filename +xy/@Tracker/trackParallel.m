@@ -64,11 +64,11 @@ function [combinedXYT varargout] = trackParallel(self,inTimeRange, ...
   XYTs = repmat(self,[1,nRanges]);
   res = {};
   parfor i = 1:nRanges
-    xyT = XYTs(i);
-    xyT.setupSystemObjects(xyT.videoFile); % redo the videoHandler;
-    xyT.displayif = 0;
-    xyT.track(timeRanges(i,:));
-    res{i} = xyT;
+    T = XYTs(i);
+    T.setupSystemObjects(T.videoFile); % redo the videoHandler;
+    T.displayif = 0;
+    T.track(timeRanges(i,:));
+    res{i} = T;
   end
   combinedXYT = combine(res{:});
   if nargout>1

@@ -2,7 +2,7 @@
 LOAD = 1
 COMPUTE =0
 
-if LOAD || ~exist('xyT','var')
+if LOAD || ~exist('T','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
@@ -34,7 +34,7 @@ if LOAD || ~exist('xyT','var')
   %opts.bodylength = 150;
 
 
-  xyT = xy.Tracker({0,videoFile},opts);
+  T = xy.Tracker({0,videoFile},opts);
 end
 
 
@@ -44,15 +44,15 @@ if COMPUTE
   
   
   if ~exist('sbbox','var')
-    %sbbox = xyT.calibrateStimulusScreen();
+    %sbbox = T.calibrateStimulusScreen();
     sbbox = [150,53,1580,1256];
   end
-  xyT.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100);
-  xyT.setDisplay(0);  
+  T.setOpts('stimulus.screenBoundingBox',sbbox,'display.displayEveryNFrame',100);
+  T.setDisplay(0);  
 
   
-  xyT.track();
-  xyT.save();
+  T.track();
+  T.save();
 
   
 

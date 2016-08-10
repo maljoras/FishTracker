@@ -6,16 +6,16 @@ PLOT = 1;
 SAVEIF = 1;
 COMPUTE = 1;
 
-if LOAD || ~exist('xyT2','var')
+if LOAD || ~exist('T2','var')
   
 
 end
 
 if COMPUTE 
   t = [];
-  tic;xyT3.track([0,100]);t(3) = toc;  
-  tic;xyT2.track([0,100]);t(2) = toc;  
-  tic;xyT1.track([0,100]);t(1) = toc;
+  tic;T3.track([0,100]);t(3) = toc;  
+  tic;T2.track([0,100]);t(2) = toc;  
+  tic;T1.track([0,100]);t(1) = toc;
   
   t
 end

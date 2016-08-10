@@ -2,7 +2,7 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
 
    
   properties
-    nRoundsPerGroup = 4; % switch betweem lexyT & right stimulation
+    nRoundsPerGroup = 4; % switch betweem left & right stimulation
     nPauseStmGroupsPerExp = 2;  %   
     nbodyStimPerExps = [1,5,3,4,5];
     

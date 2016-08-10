@@ -5,23 +5,23 @@ PLOTCENTERLINE = 0;
 PLOTIDENTITY = 1;
 SAVEIF = 1
 
-if LOAD || ~exist('xyT1','var')
+if LOAD || ~exist('T1','var')
   v =  '/home/malte/Videos/5Zebrafish_nocover_22min.avi';
-  xyT1 = xy.Tracker(v,'nbody',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
+  T1 = xy.Tracker(v,'nbody',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
                     'detector.adjustThresScale',1); 
 
-  xyT1.track([0,20]);
-  tracks = xyT1.savedTracksFull;
+  T1.track([0,20]);
+  tracks = T1.savedTracksFull;
 end
 
 
 if PLOTCENTERLINE
-  tracks = xyT1.savedTracksFull;
+  tracks = T1.savedTracksFull;
   
   idx = 180;
   id = 1;
   T = tracks(idx,id);
-  l = xyT1.opts.detector.fixedSize;
+  l = T1.opts.detector.fixedSize;
   bbox = double(T.bbox);
   rbbox = bbox;
   rbbox(1:2) = bbox(1:2) - T.segment.Centroid + l/2 +1;
@@ -158,14 +158,14 @@ end
 
 if PLOTIDENTITY
   clf;
-  tracks = xyT1.savedTracksFull;
+  tracks = T1.savedTracksFull;
   nf = 5;
   ni = 7;
   istart = 504;
   a = [];
   r1 = 2;
   r2 = 2;
-  l = xyT1.opts.detector.fixedSize;
+  l = T1.opts.detector.fixedSize;
   
   a(1) = subplot(r1,r2,1,'align');
   s =0;

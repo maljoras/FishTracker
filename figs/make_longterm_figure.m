@@ -4,11 +4,11 @@ SAVEIF = 1;
 if LOAD
   
   %load ~/data/zebra/videos/longterm/Blongterm11_draft.mat
-  %reader = xy.core.VideoReader(xyT.videoFile);
+  %reader = xy.core.VideoReader(T.videoFile);
 
-  xyT = xy.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nbody',3,'bodylength',120,'bodywidth',30);
-  xyT.setDisplay(0);
-  xyT.track();
+  T = xy.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nbody',3,'bodylength',120,'bodywidth',30);
+  T.setDisplay(0);
+  T.track();
 end
 
 
@@ -25,7 +25,7 @@ if PLOT
   a(end+1) = subplot(r1,r2,s,'align');
 
   iframe = [15000];
-  t = xyT.res.t(:,1);
+  t = T.res.t(:,1);
   frame = [];
   reader.setCurrentTime(t(iframe));
   frame = reader.readFrame();
@@ -33,7 +33,7 @@ if PLOT
   image(frame);
   axis xy;
   hold on;
-  bbox = double(squeeze(xyT.res.tracks.bbox(iframe,:,:)));
+  bbox = double(squeeze(T.res.tracks.bbox(iframe,:,:)));
   cols = [rgb('red');rgb('green');rgb('blue')];
 
   for i = 1:size(bbox,1);
@@ -42,8 +42,8 @@ if PLOT
   set(a(s),'colororder',cols)
 
   iback = 300;
-  x = squeeze(xyT.res.pos(iframe-iback:iframe,1,:));
-  y = squeeze(xyT.res.pos(iframe-iback:iframe,2,:));
+  x = squeeze(T.res.pos(iframe-iback:iframe,1,:));
+  y = squeeze(T.res.pos(iframe-iback:iframe,2,:));
   plot(x,y,'linewidth',0.5);
   xlabel('x-Position [px]')
   ylabel('y-Position [px]');
@@ -52,9 +52,9 @@ if PLOT
   s = s+1;
   a(end+1) = subplot(r1,r2,s,'align');
   
-  posx = xyT.res.tracks.centroid(:,:,1);
-  posy = xyT.res.tracks.centroid(:,:,2);
-  inv = xyT.res.tracks.consecutiveInvisibleCount>0;
+  posx = T.res.tracks.centroid(:,:,1);
+  posy = T.res.tracks.centroid(:,:,2);
+  inv = T.res.tracks.consecutiveInvisibleCount>0;
   posx(inv) = NaN;
   posy(inv) = NaN;
   d12 = sqrt((posx(:,1) - posx(:,2)).^2 + (posy(:,1) - posy(:,2)).^2);
@@ -108,12 +108,12 @@ if PLOT
   s = s+1;
   bb = subsubplot(r1,r2,s,1,1,1);
   set(bb,'visible','off');
-  range = 0:3600:4*3600;%xyT.videoHandler.duration;
+  range = 0:3600:4*3600;%T.videoHandler.duration;
   n = length(range)-1;
   [rr1,rr2] = xy.helper.getsubplotnumber(n);
   for i = 1:n
     aa(i) = subsubplot(r1,r2,s,rr1,rr2,i);
-    xyT.plotProbMap([range(i),range(i+1)]);
+    T.plotProbMap([range(i),range(i+1)]);
     title(sprintf('%dh',i),'fontsize',8);
     set(gca,'xticklabel',[],'yticklabel',[]);
     xlabel('');
@@ -125,7 +125,7 @@ if PLOT
   % domains
   s = s+1;
   a(end+1) = subplot(r1,r2,s,'align');
-  xyT.plotDomains();
+  T.plotDomains();
   colormap([0.1,0.1,0.1;cols])
   f = smallcolorbar();
   set(f,'ytick',[linspace(1+3/8,4-3/8,4)])

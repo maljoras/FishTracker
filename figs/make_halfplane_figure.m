@@ -6,16 +6,16 @@ COMPUTE = 0;
 NEWTRACK = 0
 LOADALL = 0;
 
-if LOAD || ~exist('xyTstm','var')
+if LOAD || ~exist('xystm','var')
 
   dname = '~/data/zebra/videos/halfplane';
   fname = 'five2onefish2';
   
 
   vid = [dname filesep fname '.avi'];
-  xyTstm = load([dname filesep fname '.mat']);
+  xystm = load([dname filesep fname '.mat']);
 
-  stmpos = xyTstm.xyT.res.pos;
+  stmpos = xystm.T.res.pos;
   
 end
 
@@ -26,7 +26,7 @@ if LOADALL
   for i = 1:length(fnames)
 
     for j = 1:length(fnames{i})
-      xyTstmall{i}{j} = load([dname filesep fnames{i}{j} '.mat']);
+      xystmall{i}{j} = load([dname filesep fnames{i}{j} '.mat']);
     end
   end
     
@@ -37,31 +37,31 @@ end
 
 if COMPUTE && NEWTRACK % for tracking again
   
-  xyT = xy.Tracker(vid,'detector.adjustThresScale',1,'nbody',2,'detector.inverted',1);
+  T = xy.Tracker(vid,'detector.adjustThresScale',1,'nbody',2,'detector.inverted',1);
 
-  xyT.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
-  xyT.setDisplay(0);
-  xyT.setDisplay('switchIdentity',0,'tracks',0,'level', 3);
+  T.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
+  T.setDisplay(0);
+  T.setDisplay('switchIdentity',0,'tracks',0,'level', 3);
   
   tic;
-  xyT.track();
+  T.track();
   toc;
 end
 
 if NEWTRACK && ~exist('stmres1','var')
   %% get the adjusted stminfo 
-  if ~xyT.res.t(1,1)
+  if ~T.res.t(1,1)
     tfile = dlmread([vid '.txt'])  ;
-    t = tfile(1,3) + xyT.res.t(:,1);
+    t = tfile(1,3) + T.res.t(:,1);
   else
-    t =  xyT.res.t(:,1);
+    t =  T.res.t(:,1);
   end
   tc = ceil(t*1e4)/1e4;
   tf = floor(t*1e4)/1e4;
   
-  stmres = xyTstm.xyT.res.tracks;
-  xyTres = xyT.res.tracks;
-  xyTpos = xyT.res.pos;
+  stmres = xystm.T.res.tracks;
+  xyres = T.res.tracks;
+  xypos = T.res.pos;
 
 
   tstm = stmres.t(:,1);
@@ -84,23 +84,23 @@ if NEWTRACK && ~exist('stmres1','var')
   
   % make ordering correct
   dist = [];
-  for i = 1:xyT.nbody
-    for j = 1:xyT.nbody
-      dist(i,j) = nanmean(sqrt(sum((xyTpos(:,:,i) - stmpos1(:,:,j)).^2,2)));
+  for i = 1:T.nbody
+    for j = 1:T.nbody
+      dist(i,j) = nanmean(sqrt(sum((xypos(:,:,i) - stmpos1(:,:,j)).^2,2)));
     end
   end
 
   assignments = assignDetectionsToTracks(dist,1e3);
   change = assignments(assignments(:,1),2);
-  xyTpos  = xyTpos(:,:,change);
-  for f = fieldnames(xyTres)'
-    xyTres.(f{1}) = xyTres.(f{1})(:,change,:,:,:);
+  xypos  = xypos(:,:,change);
+  for f = fieldnames(xyres)'
+    xyres.(f{1}) = xyres.(f{1})(:,change,:,:,:);
   end
-  xyTres.stmInfo = stmres1.stmInfo;
+  xyres.stmInfo = stmres1.stmInfo;
 
   % check tracking differences
   %figure;
-  %plot(t,squeeze(stmpos1(:,1,:)-xyTpos(:,1,:)));
+  %plot(t,squeeze(stmpos1(:,1,:)-xypos(:,1,:)));
   
 end
 
@@ -120,28 +120,28 @@ if PLOT
 
     if i_plot==2
       if NEWTRACK
-        res = xyTres; % take new
-        pos = xyTpos;
+        res = xyres; % take new
+        pos = xypos;
         tt = t;
       else
-        %res = xyTstm.xyT.res.tracks;
+        %res = xystm.T.res.tracks;
         %pos = stmpos;
-        %tt = xyTstm.xyT.res.t(:,1);
-        xyTstm2 = xyTstmall{5}{1};
-        xyTstm2.xyT.videoFile
-        pos = xyTstm2.xyT.res.pos;
-        tt = xyTstm2.xyT.res.t(:,1);    
-        res = xyTstm2.xyT.res.tracks;
+        %tt = xystm.T.res.t(:,1);
+        xystm2 = xystmall{5}{1};
+        xystm2.T.videoFile
+        pos = xystm2.T.res.pos;
+        tt = xystm2.T.res.t(:,1);    
+        res = xystm2.T.res.tracks;
         tstr = 'Group size 5 fish';
 
       end
     elseif i_plot==1
-        xyTstm2 = xyTstmall{2}{1};
+        xystm2 = xystmall{2}{1};
         tstr = 'Group size 2 fish';
-        xyTstm2.xyT.videoFile
-        pos = xyTstm2.xyT.res.pos;
-        tt = xyTstm2.xyT.res.t(:,1);    
-        res = xyTstm2.xyT.res.tracks;
+        xystm2.T.videoFile
+        pos = xystm2.T.res.pos;
+        tt = xystm2.T.res.t(:,1);    
+        res = xystm2.T.res.tracks;
     else
       error('Do not know what to plot');
     end
@@ -167,8 +167,8 @@ if PLOT
     blackdinfo = [diff(info==right);0];
     whitedinfo = [diff(info==left);0];
 
-    xhalf = xyTstm.xyT.videoHandler.frameSize(2)/2;
-    xend = xyTstm.xyT.videoHandler.frameSize(2);
+    xhalf = xystm.T.videoHandler.frameSize(2)/2;
+    xend = xystm.T.videoHandler.frameSize(2);
     gray = [1,1,1]*0.6;
     for idx = find(blackdinfo>0)'
       tstart = tt(idx);
@@ -231,14 +231,14 @@ if PLOT
   Nr = [];
   nbins = 50;
 
-  pos = xyTstmall{5}{1}.xyT.res.pos; % estimate from 5 fish
+  pos = xystmall{5}{1}.T.res.pos; % estimate from 5 fish
   x = pos(:,1,:);
   edges = linspace(quantile(x(:),0.001),quantile(x(:),0.999),nbins);
 
-  for nbody = 1:length(xyTstmall)
-    for i = 1:length(xyTstmall{nbody})
-      pos = xyTstmall{nbody}{i}.xyT.res.pos;
-      res = xyTstmall{nbody}{i}.xyT.res.tracks;
+  for nbody = 1:length(xystmall)
+    for i = 1:length(xystmall{nbody})
+      pos = xystmall{nbody}{i}.T.res.pos;
+      res = xystmall{nbody}{i}.T.res.tracks;
 
       if size(pos,3)<=2 % SOMEHOW FOR VIDEO WITH 1 or 2 fish stimulus
                         % was reversed!!

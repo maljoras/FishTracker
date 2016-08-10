@@ -8,7 +8,7 @@ TEST = 0;
 path = '/data/videos/onlinelearning/new';
 VIDID = 2;
 
-if LOAD && ~exist('xyT','var')
+if LOAD && ~exist('T','var')
 
 
   opts = [];
@@ -28,7 +28,7 @@ if LOAD && ~exist('xyT','var')
   opts.bodylength = 150;
   opts.detector.history = 5000;
   
-  xyT = xy.Tracker({0,videoFile},opts);
+  T = xy.Tracker({0,videoFile},opts);
 end
 
 
@@ -50,19 +50,19 @@ if COMPUTE
   ostm.screenBoundingBox = sbbox;  
   ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(xyT.nbody);
+  ostm.stmCol= parula(T.nbody);
   ostm.stmOnInt= 2; % in sec
   ostm.stmOnIntCV= 0.1;   
 
   ostm.stmOffInt= 4; % in sec
   ostm.stmOffIntCV= 0.5; 
   
-  ostm.stmSize = xyT.bodylength;  
+  ostm.stmSize = T.bodylength;  
   ostm.regSizeFactorScale = [0,1,2];
   ostm.stmSizeFactor = 1;  
   ostm.xRegions = [1/3,2/3];
 
-  ostm.stmShift = xyT.bodylength/4; % in px of xy.tracker frame
+  ostm.stmShift = T.bodylength/4; % in px of xy.tracker frame
   ostm.stmShiftOri = 0;
 
   ostm.stmShiftOriSTD = -1; % random;
@@ -85,19 +85,19 @@ if COMPUTE
   
   
   opts.stimulus = ostm;
-  xyT.setOpts(opts);
+  T.setOpts(opts);
 
-  %xyT.setDisplay(0);  
-  xyT.setDisplay('tracks',false);  
+  %T.setDisplay(0);  
+  T.setDisplay('tracks',false);  
 
   if TEST
-    xy.helper.stimulusSimulator(xyT.stimulusPresenter);
+    xy.helper.stimulusSimulator(T.stimulusPresenter);
   else
-    xyT.track();
-    xyT.save();
+    T.track();
+    T.save();
   end
   
-  clear xyT;
+  clear T;
   
 
 end
@@ -107,12 +107,12 @@ end
 
 if PLOT
   dagresults = 1;
-  xyT.setDefaultResultType(dagresults);
-  res = xyT.getTrackingResults();
-  pos = xyT.interpolateInvisible(res,'pos');
+  T.setDefaultResultType(dagresults);
+  res = T.getTrackingResults();
+  pos = T.interpolateInvisible(res,'pos');
   
   info = res.tracks.stmInfo;
-  stmmsk = info(:,1,1)==xyT.stimulusPresenter.ID_STIMULUS;
+  stmmsk = info(:,1,1)==T.stimulusPresenter.ID_STIMULUS;
 
 
   som = nanmean(pos,3);
@@ -121,7 +121,7 @@ if PLOT
   return
   
   pos = res.pos;
-  velocity = xyT.deleteInvisible(res,'velocity');
+  velocity = T.deleteInvisible(res,'velocity');
   vel = sqrt(velocity(:,:,1).^2+velocity(:,:,2).^2);
   
   mpos1 = squeeze(nanmean(pos(stmmsk,:,:),1));
@@ -149,7 +149,7 @@ if PLOT
   
   figure;
   a = subplot(2,1,1);
-  vel = xyT.deleteInvisible(res,'velocity');
+  vel = T.deleteInvisible(res,'velocity');
   vabs = sqrt(vel(:,:,1).^2 + vel(:,:,2).^2);
   vabs(vabs>100) = NaN;
   

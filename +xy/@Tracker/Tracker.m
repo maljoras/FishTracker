@@ -195,24 +195,24 @@ classdef Tracker < handle;
       
       xy.helper.verbose('Start parameter variation: %s = %f',parname,parvalue);
       
-      xyT = [];
-      [~,t_elapsed,~,idpos, xyT] = xy.Tracker.runTest(tmax,opts,[],[],0);
+      T = [];
+      [~,t_elapsed,~,idpos, T] = xy.Tracker.runTest(tmax,opts,[],[],0);
       
-      r = xyT.getDagTrackingResults();
-      xyTposdag = r.pos;
+      r = T.getDagTrackingResults();
+      xyposdag = r.pos;
       
-      ddag = squeeze(sqrt(sum((xyTposdag - idpos).^2,2)));
-      r = xyT.getSwitchBasedTrackingResults();
-      xyTpos = r.pos;
-      d = squeeze(sqrt(nansum((xyTpos - idpos).^2,2)));
-      fL = xyT.bodylength;
+      ddag = squeeze(sqrt(sum((xyposdag - idpos).^2,2)));
+      r = T.getSwitchBasedTrackingResults();
+      xypos = r.pos;
+      d = squeeze(sqrt(nansum((xypos - idpos).^2,2)));
+      fL = T.bodylength;
       
       if nargin>4 && ~isempty(dfname)
         VERBOSEDIARY = 0;
       end
     end
 
-    function res = parameterVariations(pv,xyTopts,varargin)
+    function res = parameterVariations(pv,xyopts,varargin)
     % RES=PARAMETERVARIATIONS(PV,XYTOPTS,...) computes parameter variations for
     % given parameters and checks how the runTest performs. PV is a struc of
     % field names like parmeters in xy.Tracker. The field contains the array
@@ -227,7 +227,7 @@ classdef Tracker < handle;
 
       
       def.pv = [];
-      def.xyTopts = [];
+      def.xyopts = [];
       def.opts.diaryif = 0;
       def.opts.diarypath = 'diary';
       def.opts.tmax = [];
@@ -274,7 +274,7 @@ classdef Tracker < handle;
             end
             
             
-            res.f(s) = parfeval(@xy.Tracker.parameterfun,4,res.xyTopts,pars{i},pararr{i}(j),res.opts.tmax,fn);
+            res.f(s) = parfeval(@xy.Tracker.parameterfun,4,res.xyopts,pars{i},pararr{i}(j),res.opts.tmax,fn);
             res.translate{s} = [i,j];
           end
         end
@@ -443,44 +443,44 @@ classdef Tracker < handle;
 
       % run benchmark
       xy.helper.verbose('Starting run test.');
-      xyT = xy.Tracker(pathToVideo,'avgVelocity',5,'blob.colorfeature',false,args{:});
-      xyT.setDisplay(max(plotif-1,0));
-      xyT.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
+      T = xy.Tracker(pathToVideo,'avgVelocity',5,'blob.colorfeature',false,args{:});
+      T.setDisplay(max(plotif-1,0));
+      T.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
 
       tic;
-      xyT.track(trange);
+      T.track(trange);
       t_elapsed=toc;
-
+      xy.helper.verbose('Ellapsed time for tracking video: %1.1fs',t_elapsed);
       
-      nbody = xyT.nbody;
-      xyTres = xyT.getTrackingResults();
-      xyTres.pos(end,:,:) = NaN; % why ? 
-      xyTresnan = xyTres;
-      xyTresnan.pos = xyT.deleteInvisible(xyTres,'pos');
+      nbody = T.nbody;
+      xyres = T.getTrackingResults();
+      xyres.pos(end,:,:) = NaN; % why ? 
+      xyresnan = xyres;
+      xyresnan.pos = T.deleteInvisible(xyres,'pos');
       
       dist = zeros(nbody);
-      offs = size(idres.pos,1) - size(xyTres.pos,1);
+      offs = size(idres.pos,1) - size(xyres.pos,1);
       
       
       for i = 1:nbody
         for j = 1:nbody
-          dist(i,j) = nanmean(sqrt(sum((xyTres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
+          dist(i,j) = nanmean(sqrt(sum((xyres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
         end
       end
       assignments = xy.helper.assignDetectionsToTracks(dist,1e3);
       
-      xyTpos = xyTres.pos;
-      xyTposnan = xyTresnan.pos;
+      xypos = xyres.pos;
+      xyposnan = xyresnan.pos;
       idpos = idres.pos(1:end-offs,:,assignments(assignments(:,1),2));
  
-      t = xyTres.t(:,1);
-      d = sqrt(sum((xyTpos(:,:,:) - idpos(:,:,:)).^2,2))/xyT.bodylength;
+      t = xyres.t(:,1);
+      d = sqrt(sum((xypos(:,:,:) - idpos(:,:,:)).^2,2))/T.bodylength;
       
       success = mean(nanmax(d,[],3)>1)<0.05;
 
-      varargout{1} = xyTpos;
+      varargout{1} = xypos;
       varargout{2} = idpos;
-      varargout{3} = xyT;
+      varargout{3} = T;
       
       if plotif
         figure;
@@ -519,9 +519,9 @@ classdef Tracker < handle;
         s = s+1;
         a(end+1) = subplot(r1,r2,s,'align');
         nconv = 75;
-        xyTnan = conv(sum(isnan(xyTposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
+        Tnan = conv(sum(isnan(xyposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
         idnan = conv(sum(isnan(idpos(:,1,:)),3),ones(nconv,1)/nconv,'same');
-        plot(t,[xyTnan,idnan]*100/xyT.nbody);
+        plot(t,[Tnan,idnan]*100/T.nbody);
         xlim(t([1,end]))
         set(a(s),'fontsize',8);
         
@@ -536,7 +536,7 @@ classdef Tracker < handle;
         a(end+1) = subplot(r1,r2,s,'align');
         
         
-        cross = diff(xyTres.tracks.lastFrameOfCrossing-xyTres.tracks.firstFrameOfCrossing)>0;
+        cross = diff(xyres.tracks.lastFrameOfCrossing-xyres.tracks.firstFrameOfCrossing)>0;
         ccross = conv2(sum(double(cross),2),ones(nconv,1)/nconv,'same');
         plot(t(1:end-1),ccross,'k')
         set(a(s),'fontsize',8);
@@ -548,7 +548,7 @@ classdef Tracker < handle;
         % probability
         s = s+1;
         a(end+1) = subplot(r1,r2,s,'align');
-        clp = xyTres.tracks.classProb;
+        clp = xyres.tracks.classProb;
         dclp = zeros(size(clp,1),size(clp,2));
         mclp = zeros(size(clp,1),size(clp,2));
         for i =1:size(clp,2)
@@ -605,24 +605,24 @@ classdef Tracker < handle;
       opts.tracks.useDagResults = 0;
       opts.tracks.initBackground = 0;
       
-      xyT = xy.Tracker({camIdx,''},opts);
+      T = xy.Tracker({camIdx,''},opts);
 
       if nargin<3
         plotif = 1;
       end
       
       if plotif>1
-        xyT.setDisplay(1);
-        xyT.setDisplay('tracks',1,'stimulusProgress',0);      
+        T.setDisplay(1);
+        T.setDisplay('tracks',1,'stimulusProgress',0);      
       else
-        xyT.setDisplay(0);
+        T.setDisplay(0);
       end
       
-      xyT.addSaveFields('bbox');
+      T.addSaveFields('bbox');
 
-      xyT.stimulusPresenter.width = 50; % maybe needs to be adjusted
-      xyT.stimulusPresenter.tmax = 30;
-      xyT.stimulusPresenter.freq = 0.2;
+      T.stimulusPresenter.width = 50; % maybe needs to be adjusted
+      T.stimulusPresenter.tmax = 30;
+      T.stimulusPresenter.freq = 0.2;
 
       
       xy.helper.verbose(['\n\n****** \tStarting calibration. ' ...
@@ -631,18 +631,18 @@ classdef Tracker < handle;
       pause;
       
       % start detecting
-      xyT.track(); % track the markings
-      xyT.stimulusPresenter.flip(); % turn stim off
+      T.track(); % track the markings
+      T.stimulusPresenter.flip(); % turn stim off
       
-      res = xyT.getTrackingResults();
+      res = T.getTrackingResults();
       
-      pos = permute(xyT.interpolateInvisible(res,'centroid'),[1,3,2]);
-      bbox = xyT.interpolateInvisible(res,'bbox');
-      [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,xyT.videoHandler.frameSize);
+      pos = permute(T.interpolateInvisible(res,'centroid'),[1,3,2]);
+      bbox = T.interpolateInvisible(res,'bbox');
+      [screenBoundingBox,xyframe] = getCalibrationBox(pos,bbox,T.videoHandler.frameSize);
       
       if plotif
         figure;
-        imagesc(xyT.videoHandler.getCurrentFrame());
+        imagesc(T.videoHandler.getCurrentFrame());
         colormap('gray')
         hold on;
         plot(xyframe(:,:,1),xyframe(:,:,2),'linewidth',1);
@@ -2037,7 +2037,7 @@ classdef Tracker < handle;
           % Solve the assignment problem for the invisible tracks
           sfcost1 = sfcost(invisibleIdx,self.unassignedDetections);
 
-          costOfNonAssignment1 = costOfNonAssignment +nvis(invisibleIdx)*self.meanAssignmentCost;
+          costOfNonAssignment1 = costOfNonAssignment + nvis(invisibleIdx)*self.meanAssignmentCost;
 
           if self.opts.tracks.adjustCostDuringCrossing
             crossMsk = ~self.testHandled();
@@ -2321,7 +2321,7 @@ classdef Tracker < handle;
           % switching!
           self.resetBatchIdx(trackIndices); 
           if self.verbosity>1 && self.nbody<10
-            xy.helper.verbose('Dag switched a identity...\r');
+            xy.helper.verbose('Dag switched an identity...\r');
           end
         end
         for i = 1:length(trackIndices)
@@ -2750,9 +2750,9 @@ classdef Tracker < handle;
     %  >> xy.Tracker
     %
     % Example:
-    %  >> xyT = xy.Tracker([],'nbody',3);
-    %  >> xyT.track([0,20]); 
-    %  >> xyT.plot();
+    %  >> T = xy.Tracker([],'nbody',3);
+    %  >> T.track([0,20]); 
+    %  >> T.plot();
 
 
 
@@ -2823,6 +2823,7 @@ classdef Tracker < handle;
       %doc.cost.Size = {'Major/Minor axis comparison'};
       
       % def.opts.cost.Area = 0; % !!! seems to have bad effect!
+
       %doc.cost.Area = {'blob pixel area comparison'};
 
       def.opts.cost.BoundingBox = 0; 
@@ -2925,7 +2926,7 @@ classdef Tracker < handle;
       doc.classifier.timeToInit = {'Time to initialize the classifier [avgBLC]'};
 
       def.opts.classifier.timeAfterCrossing =  1; 
-      doc.classifier.timeAfterCrossing = {['When to check for permutations axyTer ' ...
+      doc.classifier.timeAfterCrossing = {['When to check for permutations after ' ...
                           'crossings [avgBLC]']};
       
       def.opts.classifier.timeForUniqueUpdate = 12; 
@@ -2963,7 +2964,7 @@ classdef Tracker < handle;
       doc.displayif = {'Turn on/off all displaying'};
 
       def.opts.display.displayEveryNFrame = 20;
-      doc.display.displayEveryNFrame = {'How oxyTen to update the track display window (SLOW)'};
+      doc.display.displayEveryNFrame = {'How often to update the track display window (SLOW)'};
 
       def.opts.display.tracks = true;
       doc.display.tracks = {'Whether to plot the tracking process'};
@@ -3141,10 +3142,10 @@ classdef Tracker < handle;
     % Previous tracking data will be overwritten.
     %
     % EXAMPLE:
-    %  >> xyT = xy.Tracker(videoFile,'nbody',3,'displayif',2);
-    %  >> xyT.track([0,100]);
-    %  >> xyT.plot();
-    %  >> xyT.save();
+    %  >> T = xy.Tracker(videoFile,'nbody',3,'displayif',2);
+    %  >> T.track([0,100]);
+    %  >> T.plot();
+    %  >> T.save();
       
       if exist('writefile','var') && ~isempty(writefile)
         self.writefile = writefile;

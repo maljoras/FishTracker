@@ -16,7 +16,7 @@ classdef VideoCapture < handle
     %
     % ## Note
     % In some environment, there is a concurrency issue during camera
-    % initialization. To avoid unexpected crash, pause for seconds axyTer
+    % initialization. To avoid unexpected crash, pause for seconds after
     % the initialization of VideoCapture object.
     %
 

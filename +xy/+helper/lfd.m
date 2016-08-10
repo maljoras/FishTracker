@@ -1,10 +1,10 @@
 function [FV,eVar,Proj,r] = lfd(Z,iidx,nbody,npca,whiteif)
 % [FV,EVAR,PROJ,RSTRUC] = LFD(Z,IIDX,NBODY,NPCA) computes the LInear Fisher
-% Discrimant directions of Z (axyTer initial PCA with NPCA components,)
+% Discrimant directions of Z (after initial PCA with NPCA components,)
 % using generalized eigenvectors. IIDX is has a unique number for each
 % individual (like class labels). NPCA=0 shuts the PCA preprocessing
 % off.
-% LFD(..,WHITEIF) whites the data axyTer PCA (default 0). 
+% LFD(..,WHITEIF) whites the data after PCA (default 0). 
 
   
   %first do pca on Z

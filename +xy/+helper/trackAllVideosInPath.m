@@ -51,7 +51,7 @@ function trackAllVideosInPath(path,varargin)
         if opts.checkDone
           % check whether done correctly
           v = load(matname);
-          nbody = v.xyT.nbody;
+          nbody = v.T.nbody;
           nbody_selected = xy.helper.chooseNbody(fname,nbody);
           if nbody==nbody_selected
             continue;
@@ -93,6 +93,6 @@ function trackAllVideosInPath(path,varargin)
 
 function subTrack(fname,matname,varargin);
 
-  xyT = xy.Tracker(fname,'displayif',0,varargin{:});
-  xyT.track();
-  xyT.save(matname)
+  T = xy.Tracker(fname,'displayif',0,varargin{:});
+  T.track();
+  T.save(matname)

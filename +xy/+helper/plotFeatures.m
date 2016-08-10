@@ -7,11 +7,11 @@ LOAD = 0;
 PLOTORI = 0;
 
 if LOAD 
-  xyT = xy.Tracker([],'displayif',0);
-  xyT.saveFields = {xyT.saveFields{:}, 'segment.FilledImage2x','segment.IdentityFeature',...
+  T = xy.Tracker([],'displayif',0);
+  T.saveFields = {T.saveFields{:}, 'segment.FilledImage2x','segment.IdentityFeature',...
                    'segment.Image2x','segment.MinorAxisLength','segment.MajorAxisLength'};
-  xyT.track([0,200]); % first couple of minutes
-  res = xyT.getTrackingResults();
+  T.track([0,200]); % first couple of minutes
+  res = T.getTrackingResults();
 end
 
 nbody = 5;
@@ -52,8 +52,8 @@ if PLOTFEATURES
       img(~seg.Image2x) = 1;
       imagesc(x,y,img,[0,1]);
 
-      xlim([-xyT.bodylength,xyT.bodylength]*0.5);
-      ylim([-xyT.bodylength,xyT.bodylength]*0.5);
+      xlim([-T.bodylength,T.bodylength]*0.5);
+      ylim([-T.bodylength,T.bodylength]*0.5);
       set(a,'Clipping','off')
       axis off;
       daspect([1,1,1])
@@ -61,8 +61,8 @@ if PLOTFEATURES
       if PLOTORI
         hold on;
         fy = tan(-seg.Orientation/180*pi)*x;
-        fy(fy>xyT.bodylength/2) = NaN;
-        fy(fy<-xyT.bodylength/2) = NaN;
+        fy(fy>T.bodylength/2) = NaN;
+        fy(fy<-T.bodylength/2) = NaN;
         plot(x,fy,'r-');
       end
       
@@ -132,7 +132,7 @@ if PLOTCLASSMEANS
   iframe = 800;
   nskip = 1;
 
-  fcl = xyT.identityClassifier;
+  fcl = T.identityClassifier;
   
   mu = fcl.getMeans();
   for i = 1:nbody

@@ -1,4 +1,4 @@
-function nbody = chooseNBody(fname,nbody)
+function nindiv = chooseNIndiv(fname,nindiv)
   if xy.helper.hasOpenCV
     vid = xy.core.VideoReader(fname);
   else
@@ -29,7 +29,7 @@ function nbody = chooseNBody(fname,nbody)
   gap = 0.02;
   bw = 0.07;
   p2 = [p1(1)+p1(3)+gap, p1(2), 1-p1(3)-p1(1)-2*gap, p1(4)];
-  handles.sld = uicontrol('Style', 'listbox', 'Min',1,'Max',1,'Value',nbody,...
+  handles.sld = uicontrol('Style', 'listbox', 'Min',1,'Max',1,'Value',nindiv,...
                           'units','normalized','Position', p2,...
                           'String',num2cell([1:50]),'Fontsize',18,...
                   'Callback', @subCallbackList); 
@@ -51,9 +51,9 @@ function nbody = chooseNBody(fname,nbody)
   
   handles = get(f,'UserData');
   if handles.cancel
-    nbody= [];
+    nindiv= [];
   else
-    nbody = handles.sld.Value;
+    nindiv = handles.sld.Value;
   end
   close(f);
   

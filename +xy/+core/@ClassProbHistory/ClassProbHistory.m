@@ -38,7 +38,7 @@ classdef ClassProbHistory < handle;
   
   methods
     
-    function self = ClassProbHistory(nbody, varargin) 
+    function self = ClassProbHistory(nindiv, varargin) 
     % constructor
       self = self@handle();
 
@@ -54,7 +54,7 @@ classdef ClassProbHistory < handle;
         end
       end
 
-      self.buffer = nan(self.nHistory,nbody);
+      self.buffer = nan(self.nHistory,nindiv);
       self.weightbuffer = nan(self.nHistory,1);
       self.currentIdx = 0;
       self.age = 0;

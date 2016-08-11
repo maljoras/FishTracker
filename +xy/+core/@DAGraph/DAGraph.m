@@ -6,7 +6,7 @@ classdef DAGraph < handle;
 % distances) on the way and finds the shortest and likeliest
 % (according to the classprobs of individual fish). 
 %
-% update is fast and linear in N = ndet*nhyp*nbody. per time step. 
+% update is fast and linear in N = ndet*nhyp*nindiv. per time step. 
 % Backtracing to find the tracks needs a single through the past
 % time steps for each xy. 
 %
@@ -36,7 +36,7 @@ classdef DAGraph < handle;
 
   
   properties (SetAccess=private,GetAccess=private)
-    nbody = [];
+    nindiv = [];
     frameCounter = 0;
     dagPos = [];
     dagIdx = [];
@@ -49,7 +49,7 @@ classdef DAGraph < handle;
   methods(Static);
     function obj = loadobj(S);
       if isstruct(S)
-        obj = xy.core.DAGraph(S.nbody,S.nhyp);
+        obj = xy.core.DAGraph(S.nindiv,S.nhyp);
         for f = fieldnames(S)'
           if isprop(obj,f{1}) 
             obj.(f{1}) = S.(f{1});
@@ -95,25 +95,25 @@ classdef DAGraph < handle;
       background = 0.1;
       foreground = 0.12;
 
-      nbody = self.nbody;
+      nindiv = self.nindiv;
       nobj = self.nhyp;
       assert(self.dim==2,'Test only available for dim==2');
       
       cutoff = velocity*dt;
       [Hb,Ha] = butter(4,cutoff,'low');
-      trace = filtfilt(Hb,Ha,randn(nt,2,nbody));
+      trace = filtfilt(Hb,Ha,randn(nt,2,nindiv));
       trace = trace/std(trace(:));
 
       % noisy observations of the tracks
       otrace = trace + randn(size(trace))*sig;
       
       % add some noise detections
-      if nbody<nobj
-        nadd = nobj-nbody; 
+      if nindiv<nobj
+        nadd = nobj-nindiv; 
         pos =randn(nt,self.dim,nadd);
         
         otrace = cat(3,otrace, pos);
-        for i = nbody+1:nobj
+        for i = nindiv+1:nobj
           ridx = find(rand(nt,1)>pfalsealarm);
           otrace(ridx,:,i) = NaN;
         end
@@ -127,9 +127,9 @@ classdef DAGraph < handle;
       end
       
 
-      br = background*rand(nt,nbody,nobj);
+      br = background*rand(nt,nindiv,nobj);
       classprob = br;
-      for i = 1:nbody
+      for i = 1:nindiv
         classprob(:,i,i) = classprob(:,i,i) + foreground*rand(nt,1,1);
       end
       for j = 1:nobj
@@ -139,7 +139,7 @@ classdef DAGraph < handle;
 
       % distance for tracking
       dsig = sig;
-      col = parula(nbody+1);
+      col = parula(nindiv+1);
       sym = 'xos<>^vp';
       
       % permute the positions (obj index is random)
@@ -150,14 +150,14 @@ classdef DAGraph < handle;
                     repmat(ridx,[1,dim,1]));
       rotrace = otrace(idx);
       
-      idx = sub2ind(size(classprob),repmat((1:nt)',[1,nbody,nobj]),...
-                    repmat(1:nbody,[nt,1,nobj]),...
-                    repmat(ridx,[1,nbody,1]));
+      idx = sub2ind(size(classprob),repmat((1:nt)',[1,nindiv,nobj]),...
+                    repmat(1:nindiv,[nt,1,nobj]),...
+                    repmat(ridx,[1,nindiv,1]));
       rclassprob = classprob(idx);
       
 
       clf;
-      for i = 1:nbody
+      for i = 1:nindiv
         plot(squeeze(trace(:,1,i)),squeeze(trace(:,2,i)),'color',col(i,:));
         hold on;
       end
@@ -198,7 +198,7 @@ classdef DAGraph < handle;
       end
       
       self.checkOverlap();
-      self.plotTraces(1:self.nbody,1:self.nbody);
+      self.plotTraces(1:self.nindiv,1:self.nindiv);
 
     end
 
@@ -224,7 +224,7 @@ classdef DAGraph < handle;
     % NOTE: if ifish and ihyp have the same length ifish(i),
     % ihyp(i) is plotted instead
 
-      col = parula(self.nbody+1);
+      col = parula(self.nindiv+1);
       sym = 'xos<>^vp';
       
       if nargin<4
@@ -254,18 +254,18 @@ classdef DAGraph < handle;
       if nargin<2 || isempty(objidx)
         [rtrace,objidx] = self.backtrace();
       end
-      objidx = reshape(objidx,[],self.nbody,self.nhyp);
+      objidx = reshape(objidx,[],self.nindiv,self.nhyp);
 
       if nargin<3
         verbosity = 2;
       end
       
       % check for potential overlaps
-      n = self.nbody;
+      n = self.nindiv;
       eqmsk = zeros([size(objidx,1),n*(n-1)/2]);
       s = 0;allL = [];
-      for i = 1:self.nbody
-        for j = i+1:self.nbody
+      for i = 1:self.nindiv
+        for j = i+1:self.nindiv
           s = s+1;
           eqmsk(:,s) = (objidx(:,i,i) == objidx(:,j,j));
           if sum(eqmsk(:,s))>1
@@ -321,7 +321,7 @@ classdef DAGraph < handle;
       end
       
       if nargin<2 ||  isempty(ifish) 
-        [ifish,mobj] = ndgrid(1:self.nbody,1:self.nhyp);
+        [ifish,mobj] = ndgrid(1:self.nindiv,1:self.nhyp);
         ifish = ifish(:)';
         mobj = mobj(:)';
       end
@@ -367,20 +367,20 @@ classdef DAGraph < handle;
     function reset(self,initPos,tframe);
       % init pos has to be in fishID order...
       
-      self.dagI = self.startPenalty*ones(self.nbody,self.nhyp);
-      self.dagI(find(eye(self.nbody))) = 0;
+      self.dagI = self.startPenalty*ones(self.nindiv,self.nhyp);
+      self.dagI(find(eye(self.nindiv))) = 0;
       
-      self.dagIdx = nan(self.nbody,self.nhyp,self.memoryBlock);
+      self.dagIdx = nan(self.nindiv,self.nhyp,self.memoryBlock);
       self.dagPos = nan(self.dim,self.nhyp,self.memoryBlock);
 
       if self.saveDagIif
-        self.dagIsave = nan(self.nbody,self.nhyp,self.memoryBlock);
+        self.dagIsave = nan(self.nindiv,self.nhyp,self.memoryBlock);
         self.dagIsave(:,:,1) = self.dagI;
       end
       
       self.frameCounter = 1; % next step if 2
 
-      for i = 1:self.nbody
+      for i = 1:self.nindiv
         self.dagIdx(i,:,1) = i;
       end
 
@@ -433,7 +433,7 @@ classdef DAGraph < handle;
     % Directed Acyclic Graph minimal path problem in an online manner
     % (Nodes are in topological order) based on distance and class
     % probs. DETECTIONS are the positions/features of the detections
-    % in format NDIM x NDETECT. CLASSPROB is NBODY x NDETECT
+    % in format NDIM x NDETECT. CLASSPROB is NINDIV x NDETECT
 
         
       dist = xy.helper.pdist2Euclidean(self.dagPos(:,:,self.frameCounter)',detections');
@@ -456,7 +456,7 @@ classdef DAGraph < handle;
     % computes the Directed Acyclic Graph minimal path problem in
     % an online manner (Nodes are in topological order). SFCOST is
     % cost matrix of size NHYP x NDETECT
-    % DETECTIONS shoue be NDIM x NDETECT. CLASSPROB is NBODY x
+    % DETECTIONS shoue be NDIM x NDETECT. CLASSPROB is NINDIV x
     % NDETECT 
       
       ndetect = size(sfcost,2);
@@ -469,7 +469,7 @@ classdef DAGraph < handle;
       elseif ndetect<self.nhyp
         dist = costOfNonAssignment*ones(self.nhyp,self.nhyp);
         dist(:,1:ndetect) = sfcost;
-        cl = zeros(self.nbody,self.nhyp);
+        cl = zeros(self.nindiv,self.nhyp);
         if ~isempty(classProb)
           cl(:,1:ndetect) = classProb;
         end
@@ -499,7 +499,7 @@ classdef DAGraph < handle;
       self.frameCounter = self.frameCounter + 1;
 
       if size(self.dagIdx,3)<self.frameCounter
-        self.dagIdx = cat(3,self.dagIdx,nan(self.nbody,self.nhyp,self.memoryBlock));
+        self.dagIdx = cat(3,self.dagIdx,nan(self.nindiv,self.nhyp,self.memoryBlock));
         
         self.dagPos = cat(3,self.dagPos,nan(2,self.nhyp,self.memoryBlock));        
 
@@ -507,7 +507,7 @@ classdef DAGraph < handle;
         self.dagI = self.dagI - min(self.dagI(:));
 
         if self.saveDagIif
-          self.dagIsave = cat(3,self.dagIsave,nan(self.nbody,self.nhyp,self.memoryBlock));          
+          self.dagIsave = cat(3,self.dagIsave,nan(self.nindiv,self.nhyp,self.memoryBlock));          
         end
       
       end
@@ -529,10 +529,10 @@ classdef DAGraph < handle;
       end
     end
     
-    function self = DAGraph(nbody,nhyp,opts)
-    % self = DAGraph(nbody,nhyp)
+    function self = DAGraph(nindiv,nhyp,opts)
+    % self = DAGraph(nindiv,nhyp)
       self.nhyp = nhyp;
-      self.nbody = nbody;
+      self.nindiv = nindiv;
       
       if nargin>2
         self.setOpts(opts);

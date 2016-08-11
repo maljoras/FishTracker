@@ -15,7 +15,7 @@ function plotByType(self,plottype,plotTimeRange,identityIds)
   end
 
   if ~exist('identityIds','var') || isempty(identityIds)
-    identityIds = 1:self.nbody;
+    identityIds = 1:self.nindiv;
   end
 
   if ~exist('plotTimeRange','var') || isempty(plotTimeRange)

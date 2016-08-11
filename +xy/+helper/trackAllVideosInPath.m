@@ -45,18 +45,18 @@ function trackAllVideosInPath(path,varargin)
       fname = [p{i} filesep d(j).name];
       [a,b,c] = fileparts(fname);
       matname = [p{i} filesep opts.nameadd, b,'.mat'];
-      nbody = [];
+      nindiv = [];
       if opts.excludeDone && exist(matname,'file');
         
         if opts.checkDone
           % check whether done correctly
           v = load(matname);
-          nbody = v.T.nbody;
-          nbody_selected = xy.helper.chooseNbody(fname,nbody);
-          if nbody==nbody_selected
+          nindiv = v.T.nindiv;
+          nindiv_selected = xy.helper.chooseNIndiv(fname,nindiv);
+          if nindiv==nindiv_selected
             continue;
           else
-            nbody = nbody_selected;
+            nindiv = nindiv_selected;
           end
           
         else
@@ -64,16 +64,16 @@ function trackAllVideosInPath(path,varargin)
         end
       end
       
-      if isempty(nbody) && opts.selectManual
-        nbody = xy.helper.chooseNbody(fname,3);
-        if isempty(nbody)
+      if isempty(nindiv) && opts.selectManual
+        nindiv = xy.helper.chooseNIndiv(fname,3);
+        if isempty(nindiv)
           continue; % do not track this video
         end
         
       end
       
-      if ~isempty(nbody)
-        add = {'nbody',nbody};
+      if ~isempty(nindiv)
+        add = {'nindiv',nindiv};
       else
         add = {};
       end

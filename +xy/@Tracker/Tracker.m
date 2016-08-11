@@ -7,7 +7,7 @@ classdef Tracker < handle;
     avgVelocity = [];
     bodylength = [];
     bodywidth = [];
-    nbody = [];
+    nindiv = [];
     opts = struct([]);
   end
 
@@ -190,7 +190,7 @@ classdef Tracker < handle;
       opts = opts1;
       
       opts = xy.helper.setfield(opts,parname,parvalue);
-      opts.nbody = 5;
+      opts.nindiv = 5;
       opts.verbosity = 3;
       
       xy.helper.verbose('Start parameter variation: %s = %f',parname,parvalue);
@@ -337,8 +337,8 @@ classdef Tracker < handle;
       
       dat = res.dat;
       nframes = size(dat(1,1).d,1);
-      nbody = size(dat(1,1).d,2);
-      n = nframes*nbody;
+      nindiv = size(dat(1,1).d,2);
+      n = nframes*nindiv;
       
       for i = 1:size(dat,1)
         fL = cat(1,dat(i,:).bodyLength); 
@@ -452,18 +452,18 @@ classdef Tracker < handle;
       t_elapsed=toc;
       xy.helper.verbose('Ellapsed time for tracking video: %1.1fs',t_elapsed);
       
-      nbody = T.nbody;
+      nindiv = T.nindiv;
       xyres = T.getTrackingResults();
       xyres.pos(end,:,:) = NaN; % why ? 
       xyresnan = xyres;
       xyresnan.pos = T.deleteInvisible(xyres,'pos');
       
-      dist = zeros(nbody);
+      dist = zeros(nindiv);
       offs = size(idres.pos,1) - size(xyres.pos,1);
       
       
-      for i = 1:nbody
-        for j = 1:nbody
+      for i = 1:nindiv
+        for j = 1:nindiv
           dist(i,j) = nanmean(sqrt(sum((xyres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
         end
       end
@@ -521,7 +521,7 @@ classdef Tracker < handle;
         nconv = 75;
         Tnan = conv(sum(isnan(xyposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
         idnan = conv(sum(isnan(idpos(:,1,:)),3),ones(nconv,1)/nconv,'same');
-        plot(t,[Tnan,idnan]*100/T.nbody);
+        plot(t,[Tnan,idnan]*100/T.nindiv);
         xlim(t([1,end]))
         set(a(s),'fontsize',8);
         
@@ -594,7 +594,7 @@ classdef Tracker < handle;
     % SCREENBOUNDINGBOX used for stimulus presentation.
     
       opts = [];
-      opts.nbody = 4;
+      opts.nindiv = 4;
       opts.bodylength = 100;
       opts.bodywidth = 50;
       opts.stmif = 1;
@@ -850,19 +850,19 @@ classdef Tracker < handle;
     function initBackgroundAndObjects(self)
 
       %% look for objects 
-      if isempty(self.nbody) || isempty(self.bodylength) || isempty(self.bodywidth) || self.useScaledFormat  
+      if isempty(self.nindiv) || isempty(self.bodylength) || isempty(self.bodywidth) || self.useScaledFormat  
 
-        [nbody,bodySize] = self.findObjectSizes();
+        [nindiv,bodySize] = self.findObjectSizes();
         
         
-        if (nbody>100 || ~nbody) && isempty(self.nbody)% too many... something wrong
+        if (nindiv>100 || ~nindiv) && isempty(self.nindiv)% too many... something wrong
           xy.helper.verbose('WARNING: The bodies size and number cannot be determined')
           if self.displayif && self.opts.display.bodySearchResults
-            self.nbody = xy.helper.chooseNbody(vid,1); % only if interactively
+            self.nindiv = xy.helper.chooseNIndiv(vid,1); % only if interactively
             bodySize = [100,20]; % wild guess;
             close(gcf);
           else
-            error('Please manual provide bodylength, bodywidth and nbody');
+            error('Please manual provide bodylength, bodywidth and nindiv');
           end
         end
         
@@ -873,8 +873,8 @@ classdef Tracker < handle;
         if isempty(self.opts.bodywidth) 
           self.bodywidth = bodySize(2); 
         end
-        if isempty(self.opts.nbody) 
-          self.nbody = nbody;
+        if isempty(self.opts.nindiv) 
+          self.nindiv = nindiv;
         end
         
       else
@@ -928,7 +928,7 @@ classdef Tracker < handle;
       
       % initialize graph
       self.daGraph = [];
-      self.daGraph = xy.core.DAGraph(self.nbody,self.nbody);
+      self.daGraph = xy.core.DAGraph(self.nindiv,self.nindiv);
 
       self.checkOpts();
       self.setOpts();
@@ -973,7 +973,7 @@ classdef Tracker < handle;
         self.videoPlayer.show();
       end
 
-      self.identityId2TrackId = nan(250,self.nbody);
+      self.identityId2TrackId = nan(250,self.nindiv);
       self.pos = [];
       self.res = [];
       self.tracks = [];
@@ -1073,7 +1073,7 @@ classdef Tracker < handle;
         overlap(1:length(segm)+1:end) = 0;
         [i,j] =  find(overlap);
         
-        while ~isempty(i) && length(self.segments)>self.nbody
+        while ~isempty(i) && length(self.segments)>self.nindiv
 
           if segm(i(1)).Area > segm(j(1)).Area
             deli = j(1);
@@ -1182,7 +1182,7 @@ classdef Tracker < handle;
     function cla = newClassifier(self,opts);
     % Create Classifier objects
       featdim = [self.videoHandler.getFeatureSize()];
-      cla = xy.core.BatchClassifier(self.nbody,featdim);
+      cla = xy.core.BatchClassifier(self.nindiv,featdim);
       
       % set proporties
       for f = fieldnames(opts)'
@@ -1208,7 +1208,7 @@ classdef Tracker < handle;
     
     function [nc,ncidx] = connectedComponents(self,trackIndices,assignedIdentityIds)
       oldIdentityIds = [self.tracks(trackIndices).identityId];
-      A = zeros(self.nbody);
+      A = zeros(self.nindiv);
       A(sub2ind(size(A),oldIdentityIds,assignedIdentityIds)) = 1;
       nc = xy.helper.networkComponents(A);
       % delete self-components
@@ -1247,7 +1247,7 @@ classdef Tracker < handle;
       identityIds = cat(2,self.tracks(trackIndices).identityId);
 
       % test on the whole set of possible identityIds
-      [assignedIdentityIds prob steps probdiag] = self.predictIdentity(trackIndices,1:self.nbody,...
+      [assignedIdentityIds prob steps probdiag] = self.predictIdentity(trackIndices,1:self.nindiv,...
                                                         self.nFramesForSingleUpdate);
       same = assignedIdentityIds==identityIds; 
 
@@ -1306,16 +1306,16 @@ classdef Tracker < handle;
       tracks = self.tracks(~isnan(identityIds));
 
       if size(self.identityId2TrackId,1)< t
-        self.identityId2TrackId = cat(1,self.identityId2TrackId,nan(self.nFramesExtendMemory,self.nbody));
+        self.identityId2TrackId = cat(1,self.identityId2TrackId,nan(self.nFramesExtendMemory,self.nindiv));
       end
       % save track positions
       if isempty(self.pos)
-        self.pos = nan(2,self.nbody,self.nFramesExtendMemory);
+        self.pos = nan(2,self.nindiv,self.nFramesExtendMemory);
         self.tabs = nan(self.nFramesExtendMemory,1);
       end
 
       if size(self.pos,3)<t
-        self.pos = cat(3,self.pos,nan(2,self.nbody,self.nFramesExtendMemory));
+        self.pos = cat(3,self.pos,nan(2,self.nindiv,self.nFramesExtendMemory));
       end
 
       if size(self.tabs,1)<t
@@ -1342,9 +1342,9 @@ classdef Tracker < handle;
 
       success = false;
       thres = 3;
-      if length(self.tracks)<self.nbody 
+      if length(self.tracks)<self.nindiv 
         if  self.currentFrame > thres*self.nFramesForInit
-          xy.helper.verbose(['nbody setting might be wrong or some identity are lost\r'])
+          xy.helper.verbose(['nindiv setting might be wrong or some identity are lost\r'])
         end
         return
       end
@@ -1357,7 +1357,7 @@ classdef Tracker < handle;
         feat = self.getFeatureDataFromTracks(1:length(self.tracks));
         [~,sidx] = sort(identityIds);
         feat = feat(sidx);
-        batchsample = cell(1,self.nbody);
+        batchsample = cell(1,self.nindiv);
         [batchsample{:}] = deal([]);
         batchsample(1:length(feat)) = feat;
         
@@ -1416,7 +1416,7 @@ classdef Tracker < handle;
       
       assignments = xy.helper.assignDetectionsToTracks(C',2);
       
-      assignedIdentityIds(assignments(:,2)) = identityIdSet(assignments(:,1)); % identityIDs have 1:nbody order
+      assignedIdentityIds(assignments(:,2)) = identityIdSet(assignments(:,1)); % identityIDs have 1:nindiv order
       for i = 1:size(assignments,1)
         prob(assignments(i,2)) = 1-C(assignments(i,2),assignments(i,1));
       end
@@ -1457,10 +1457,10 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForForcedUpdate(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) || (length(prob)<self.nbody && length(prob)>1) ...
+      if any(isnan(probdiag)) || (length(prob)<self.nindiv && length(prob)>1) ...
           || sum(prob)/length(prob)<self.opts.tracks.probThresForIdentity*self.maxClassificationProb
         bool = false;
-      elseif length(prob)==1 %&& self.nbody>self.MAXCROSSIDENTITY
+      elseif length(prob)==1 %&& self.nindiv>self.MAXCROSSIDENTITY
         bool = true; % single update;
       else
         bool1 = min(steps) >= self.nFramesAfterCrossing;
@@ -1478,7 +1478,7 @@ classdef Tracker < handle;
           
           bool = m>self.meanClassificationProb*self.opts.classifier.handledProbThresScale ...
                  || max(steps)>=self.nFramesForUniqueUpdate;
-          bool = bool || (self.nbody>9 && length(prob)>self.nbody/2); % crossing too big to be handled
+          bool = bool || (self.nindiv>9 && length(prob)>self.nindiv/2); % crossing too big to be handled
         else
           bool = true; % not enough evidence, but to inaccurate to be sure,  release
         end
@@ -1555,7 +1555,7 @@ classdef Tracker < handle;
         [assignedIdentityIds prob steps probdiag] = self.predictIdentity(thisTrackIndices,crossedIdentityIds,...
                                                           self.nFramesForUniqueUpdate); 
 
-        MAXCROSSIDENTITY = max(10,self.nbody/2);
+        MAXCROSSIDENTITY = max(10,self.nindiv/2);
         if length(assumedIdentityIds)>MAXCROSSIDENTITY && ~self.enoughEvidenceForReassignment(prob,steps,probdiag)
           % cannot deal with large crossings
           subDeleteCrossedTrackIds(thisTrackIndices); 
@@ -1743,7 +1743,7 @@ classdef Tracker < handle;
       
       % update unique frames
       crossif = ~isempty(self.crossings);
-      if ~crossif && length(self.tracks)==self.nbody
+      if ~crossif && length(self.tracks)==self.nindiv
         self.uniqueIdentityFrames = self.uniqueIdentityFrames + 1;
       else
         self.uniqueIdentityFrames = 0;
@@ -1883,7 +1883,7 @@ classdef Tracker < handle;
       elseif self.useMex && self.opts.tracks.centerLinePrediction
         % use centerLine head position
         vel = cat(1,self.tracks.velocity)*self.dt;
-        if size(vel,1)~=self.nbody
+        if size(vel,1)~=self.nindiv
           return;
         end
         cl = cat(3,self.tracks.centerLine);
@@ -2206,7 +2206,7 @@ classdef Tracker < handle;
           classprob = self.classProb(detectionIdx,:);
           probNoise = self.classProbNoise(detectionIdx);
         else
-          classprob = nan(1,self.nbody);
+          classprob = nan(1,self.nindiv);
           probNoise = NaN;
         end
 
@@ -2214,7 +2214,7 @@ classdef Tracker < handle;
         if reversed  && self.opts.classifier.discardPotentialReversed
           % not update.. identityfeature reversed (cannot be changed outside of mex)
           probNoise = NaN;
-          classprob = nan(1,self.nbody);
+          classprob = nan(1,self.nindiv);
         else
           self.tracks(trackIdx).classProb =  classprob; % only update classprob in tracks if not reversed
         end
@@ -2303,7 +2303,7 @@ classdef Tracker < handle;
         
 
         % only nan into history:
-        self.tracks(ind).classProbHistory.update(nan(1,self.nbody),NaN);
+        self.tracks(ind).classProbHistory.update(nan(1,self.nindiv),NaN);
         
       end
       
@@ -2320,7 +2320,7 @@ classdef Tracker < handle;
         if ~isempty(trackIndices)
           % switching!
           self.resetBatchIdx(trackIndices); 
-          if self.verbosity>1 && self.nbody<10
+          if self.verbosity>1 && self.nindiv<10
             xy.helper.verbose('Dag switched an identity...\r');
           end
         end
@@ -2374,11 +2374,11 @@ classdef Tracker < handle;
     function createNewTracks(self)
     % create new tracks for unassigndetections (if less the number of identity)
 
-      if length(self.tracks)>=self.nbody
+      if length(self.tracks)>=self.nindiv
         return
       end
       
-      availableidentityids = setdiff(1:self.nbody,cat(2,self.tracks.identityId));
+      availableidentityids = setdiff(1:self.nindiv,cat(2,self.tracks.identityId));
       if  ~self.opts.tracks.withTrackDeletion && ~length(availableidentityids)
         return;
       end
@@ -2429,7 +2429,7 @@ classdef Tracker < handle;
           clprob = self.classProb(i,:);
           clprobnoise = self.classProbNoise(i);
         else
-          clprob = nan(1,self.nbody);
+          clprob = nan(1,self.nindiv);
           clprobnoise = nan;
         end
         
@@ -2446,7 +2446,7 @@ classdef Tracker < handle;
           feat.(ct{1}) = self.features.(ct{1})(i,:);
         end
         
-        history = xy.core.ClassProbHistory(self.nbody);
+        history = xy.core.ClassProbHistory(self.nindiv);
         % update the classprobhistory and set the parameters
         history.lambda = self.bodylength/self.bodywidth;
         [~,w] = history.update(clprob,clprobnoise);
@@ -2520,7 +2520,7 @@ classdef Tracker < handle;
       nvis = [self.tracks.consecutiveInvisibleCount];
       vmsk = (assignmentCost>costThres) | (nvis>0);
       
-      if self.nbody<=5
+      if self.nindiv<=5
         crossmat = bsxfun(@and,(bBoxOverlap | dmsk), vmsk);
       else
         crossmat = (bBoxOverlap | dmsk) & bsxfun(@and,vmsk, vmsk'); % only when all above thres
@@ -2595,7 +2595,7 @@ classdef Tracker < handle;
       self.updatePos();
       self.updateClassifier();
 
-      if self.nbody>length(self.tracks)
+      if self.nindiv>length(self.tracks)
         self.createNewTracks();
       end
       
@@ -2643,7 +2643,7 @@ classdef Tracker < handle;
     function trackinfo = getCurrentTracks(self)
     % gets the track info 
       
-      if self.opts.tracks.keepFullTrackStruc && length(self.tracks)==self.nbody 
+      if self.opts.tracks.keepFullTrackStruc && length(self.tracks)==self.nindiv 
         % ignore initial times when not all tracks are created
         self.savedTracksFull = cat(1,self.savedTracksFull,self.tracks);
       end
@@ -2679,7 +2679,7 @@ classdef Tracker < handle;
       end
       
       % copy with mex
-      trackinfo = getCurrentTracks_(self.nbody,self.tracks,self.saveFieldsIn,self.saveFieldsOut,self.saveFieldSegIf);
+      trackinfo = getCurrentTracks_(self.nindiv,self.tracks,self.saveFieldsIn,self.saveFieldsOut,self.saveFieldSegIf);
 
     end
     
@@ -2750,7 +2750,7 @@ classdef Tracker < handle;
     %  >> xy.Tracker
     %
     % Example:
-    %  >> T = xy.Tracker([],'nbody',3);
+    %  >> T = xy.Tracker([],'nindiv',3);
     %  >> T.track([0,20]); 
     %  >> T.plot();
 
@@ -2761,8 +2761,8 @@ classdef Tracker < handle;
       
       %% properties
       
-      def.opts.nbody = [];
-      doc.nbody = {'Number of bodies. Needs to be fixed ' '(*attempt* to be estimated if empty)'};
+      def.opts.nindiv = [];
+      doc.nindiv = {'Number of bodies. Needs to be fixed ' '(*attempt* to be estimated if empty)'};
       
       def.opts.bodylength = [];
       doc.bodylength = {'Approx length of bodies in pixel (estimated if empty)'};
@@ -2976,7 +2976,7 @@ classdef Tracker < handle;
       doc.display.level = {'Level of details of the track plot'};
       
       def.opts.display.bodySearchResults = false;
-      doc.display.bodySearchResults = {'Info plot nbody auto-search'};
+      doc.display.bodySearchResults = {'Info plot nindiv auto-search'};
 
       def.opts.display.stimulusProgress = true;
       doc.display.stimulusProgress = {'ProgressBar in case of stimulation'};
@@ -3088,8 +3088,8 @@ classdef Tracker < handle;
         end
       end
       
-      if ~isempty(opts.nbody) && opts.nbody<0 && ~iscell(vid)
-        opts.nbody = xy.helper.chooseNbody(vname,1);
+      if ~isempty(opts.nindiv) && opts.nindiv<0 && ~iscell(vid)
+        opts.nindiv = xy.helper.chooseNIndiv(vname,1);
       end
       
       if ~iscell(vid)
@@ -3142,7 +3142,7 @@ classdef Tracker < handle;
     % Previous tracking data will be overwritten.
     %
     % EXAMPLE:
-    %  >> T = xy.Tracker(videoFile,'nbody',3,'displayif',2);
+    %  >> T = xy.Tracker(videoFile,'nindiv',3,'displayif',2);
     %  >> T.track([0,100]);
     %  >> T.plot();
     %  >> T.save();
@@ -3173,9 +3173,9 @@ classdef Tracker < handle;
 
       if ~self.stmif
         xy.helper.verbose('Start tracking of %d identities in the time range [%1.0f %1.0f]...',...
-                            self.nbody,self.timerange(1),self.timerange(2));
+                            self.nindiv,self.timerange(1),self.timerange(2));
       else
-        xy.helper.verbose('Start tracking of %d identities with stimulation', self.nbody);
+        xy.helper.verbose('Start tracking of %d identities with stimulation', self.nindiv);
       end
       
       %% tracking loop
@@ -3216,7 +3216,7 @@ classdef Tracker < handle;
         if self.opts.tracks.withTrackDeletion
           savedTracks(1:length(self.tracks),s) = self.getCurrentTracks();
         else
-          savedTracks(1:self.nbody,s) = self.getCurrentTracks();
+          savedTracks(1:self.nindiv,s) = self.getCurrentTracks();
         end
 
         if ~mod(s,self.nFramesAppendSavedTracks) 

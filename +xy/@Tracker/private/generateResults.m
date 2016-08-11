@@ -3,7 +3,7 @@ function generateResults(self)
   
   if isempty(self.savedTracks.id) 
     xy.helper.verbose('WARNING: cannot generate results!')
-    xy.helper.verbose('WARNING: not all identity detected. Maybe adjust "nbody" setting.');
+    xy.helper.verbose('WARNING: not all identity detected. Maybe adjust "nindiv" setting.');
     return;
   end
 
@@ -21,7 +21,7 @@ function generateResults(self)
     end
   end
   
-  nFrames = size(self.savedTracks.id,3)/self.nbody;
+  nFrames = size(self.savedTracks.id,3)/self.nindiv;
   if self.currentFrame~=nFrames
     xy.helper.verbose(['WARNING: %d frames got lost (premature abort while ' ...
              'tracking?)'],self.currentFrame-nFrames);
@@ -122,19 +122,19 @@ function generateResults(self)
     se = ones(MINOVERLAP,1);
     tmp = imdilate(imerode(eqmsk(:,:),se),se);
     %tmp = imerode(imdilate(eqmsk(:,:),se),se);
-    eqmsk = reshape(tmp,[],self.nbody,self.nbody);
+    eqmsk = reshape(tmp,[],self.nindiv,self.nindiv);
 
-    idx = find(tril(ones(self.nbody),-1));
+    idx = find(tril(ones(self.nindiv),-1));
     ieqmsk = eqmsk(:,idx);
     noverlap = sum(ieqmsk,2);    
     doverlap = sum(eqmsk,3)>2; % double overlaps    
     
 
     % get the positions that were lost in DAG
-    lostmsk = bsxfun(@eq,1:self.nbody,permute(df2t,[1,3,2]));
+    lostmsk = bsxfun(@eq,1:self.nindiv,permute(df2t,[1,3,2]));
     tmp = imdilate(imerode(lostmsk(:,:),se),se);
     %tmp = imerode(imdilate(tmp,se),se);
-    lostmsk = reshape(tmp,[],self.nbody,self.nbody);
+    lostmsk = reshape(tmp,[],self.nindiv,self.nindiv);
     lostmsk = all(~lostmsk,3);
 
     
@@ -146,7 +146,7 @@ function generateResults(self)
     % ignore double and strange losses (more than 1) for now. 
     onelost = sum(lostmsk,2)==1;
     [~,idxlost] = max(lostmsk,[],2);
-    %idxlost(~onelost) = self.nbody+1; % no need. only between start:stop
+    %idxlost(~onelost) = self.nindiv+1; % no need. only between start:stop
     
     msk = bsxfun(@and,ieqmsk,onelost & all(~doverlap,2));
 
@@ -157,7 +157,7 @@ function generateResults(self)
     
     % get the cl prob of the overlapping id
     [~,idxeq] = max(ieqmsk,[],2); % this is now bodyID
-    subeq = xy.helper.i2s([self.nbody,self.nbody],idxeq);
+    subeq = xy.helper.i2s([self.nindiv,self.nindiv],idxeq);
     findo = (1:n)' + (subeq(:,1)-1)*n;
     ido  = df2t(findo); % also idx in cl
     indo = (1:n)' + (ido(:,1)-1)*n;
@@ -168,8 +168,8 @@ function generateResults(self)
     sz = size(self.savedTracks.(f{1}));
     d = length(sz); % at least 3
     tmp = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
-    tmp = reshape(tmp,[self.nbody,n,sz(2),sz(1),sz(3:d-1)]);
-    classProb = reshape(permute(tmp,[2,1,3:d+1]),[],self.nbody);
+    tmp = reshape(tmp,[self.nindiv,n,sz(2),sz(1),sz(3:d-1)]);
+    classProb = reshape(permute(tmp,[2,1,3:d+1]),[],self.nindiv);
 
     cll = classProb(indl,:);
     %idl = res.swb.tracks.id(indl);
@@ -179,7 +179,7 @@ function generateResults(self)
     
     for i = 1:length(idx)
       mski = msk(:,i);
-      [fid1,fid2] = ind2sub(self.nbody([1,1]),idx(i));
+      [fid1,fid2] = ind2sub(self.nindiv([1,1]),idx(i));
       
       % find onsets and offsets
       d = diff([0;mski;0]);
@@ -234,8 +234,8 @@ function generateResults(self)
   
   function [res] = subGenerateTracks(f2t);
     res = [];
-    trackIdMat = reshape(self.savedTracks.id,self.nbody,nFrames);
-    for j = 1:self.nbody
+    trackIdMat = reshape(self.savedTracks.id,self.nindiv,nFrames);
+    for j = 1:self.nindiv
       u = unique(trackIdMat(j,:));
       n = find(~isnan(u));
       L(j) = length(n);
@@ -254,7 +254,7 @@ function generateResults(self)
     end
 
     % fill in the gaps
-    order = (1:self.nbody)';
+    order = (1:self.nindiv)';
     msk = ~Loc;
     idx = find(any(msk,1));
     for i = 1:length(idx)
@@ -263,7 +263,7 @@ function generateResults(self)
       Loc(~loc,idx(i)) = rest;
     end
 
-    fridx = ones(1,self.nbody)' * (1:nFrames);
+    fridx = ones(1,self.nindiv)' * (1:nFrames);
     idx = xy.helper.s2i(size(Loc),[Loc(:),fridx(:)]);
     for f = fieldnames(self.savedTracks)'
       if isempty(self.savedTracks.(f{1}))
@@ -275,11 +275,11 @@ function generateResults(self)
       sz = size(self.savedTracks.(f{1}));
       d = length(sz); % at least 3
       trackdat = permute(self.savedTracks.(f{1}),[d,2,1,3:d-1]);
-      bodydat = reshape(trackdat(idx,:),[self.nbody,nFrames,sz(2),sz(1),sz(3:d-1)]);
+      bodydat = reshape(trackdat(idx,:),[self.nindiv,nFrames,sz(2),sz(1),sz(3:d-1)]);
       res.tracks.(f{1}) = permute(bodydat,[2,1,3:d+1]);
     end
 
-    bodyid =  (1:self.nbody)' * ones(1,nFrames);
+    bodyid =  (1:self.nindiv)' * ones(1,nFrames);
     bodyid(msk) = NaN;
     res.tracks.identityId = bodyid';
     
@@ -301,11 +301,11 @@ function generateResults(self)
     %self.daGraph.checkOverlap([],1);
     
     %trackIdx  and trackids SHOULD be the same! (if with no deletion)
-    % at laest assert for last tracks (if 1:nbody, all previous should be too)
-    assert(all([self.tracks.id] == 1:self.nbody));
+    % at laest assert for last tracks (if 1:nindiv, all previous should be too)
+    assert(all([self.tracks.id] == 1:self.nindiv));
     
     % backtrace. 
-    [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nbody,predIdentityIds);
+    [postrace,trackIdxMat] = self.daGraph.backtrace(1:self.nindiv,predIdentityIds);
     postrace = permute(postrace,[1,3,2]);
     
     mt = size(postrace,3);

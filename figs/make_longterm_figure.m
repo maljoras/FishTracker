@@ -6,7 +6,7 @@ if LOAD
   %load ~/data/zebra/videos/longterm/Blongterm11_draft.mat
   %reader = xy.core.VideoReader(T.videoFile);
 
-  T = xy.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nbody',3,'bodylength',120,'bodywidth',30);
+  T = xy.Tracker('~/data/zebra/videos/longterm/Blongterm11.avi','nindiv',3,'bodylength',120,'bodywidth',30);
   T.setDisplay(0);
   T.track();
 end

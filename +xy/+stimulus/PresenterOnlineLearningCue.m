@@ -193,7 +193,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
    function [stmbbox] = plotStimulus(self,x,y,t,identityIds,lrswitch)
 
      if length(x) ~= length(self.stmState)
-       % should only happen once in the beginning. (nbody is constant)
+       % should only happen once in the beginning. (nindiv is constant)
        self.stmState = ones(size(x));
      end
 

@@ -35,7 +35,7 @@ function combinedObj = combine(self,varargin)
     
     % assert that two video files are the same
     assert(strcmp(combinedObj.videoHandler.videoFile,obj.videoHandler.videoFile));
-    assert(combinedObj.nbody==obj.nbody);
+    assert(combinedObj.nindiv==obj.nindiv);
 
     res = getTrackingResults(obj);
 
@@ -82,12 +82,12 @@ function combinedObj = combine(self,varargin)
       dim = size(overlappedPos,2); % 2-D for now;
       tstart = tCombined(overlapedCombinedIdx(1));
       tidxCombined = floor((tCombined(overlapedCombinedIdx) - tstart)/tbinsize)+1;
-      [X,Y] = ndgrid(tidxCombined,1:self.nbody*dim);
-      overlappedCombinedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedCombinedPos(:),[],@mean),[],obj.nbody);
+      [X,Y] = ndgrid(tidxCombined,1:self.nindiv*dim);
+      overlappedCombinedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedCombinedPos(:),[],@mean),[],obj.nindiv);
       
       tidx = min(max(floor((tObj(overlapedIdx) - tstart)/tbinsize)+1,1),tidxCombined(end));
-      [X,Y] = ndgrid(tidx,1:self.nbody*dim);
-      overlappedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedPos(:),[tidxCombined(end),self.nbody*dim],@mean),[],obj.nbody);
+      [X,Y] = ndgrid(tidx,1:self.nindiv*dim);
+      overlappedPosInterp = reshape(accumarray([X(:),Y(:)],overlappedPos(:),[tidxCombined(end),self.nindiv*dim],@mean),[],obj.nindiv);
 
       % now the two position vectors can be compared. 
       cost = pdist2(overlappedCombinedPosInterp',overlappedPosInterp','correlation');

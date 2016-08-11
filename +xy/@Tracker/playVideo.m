@@ -82,7 +82,7 @@ function playVideo(self,timerange,writefile)
   t_tracks = res_dag.tabs(:,1);
   tidx = find(t_tracks>=timerange(1) & t_tracks<timerange(2)); 
   t_tracks = t_tracks(tidx);
-  cols = uint8(255*jet(self.nbody));
+  cols = uint8(255*jet(self.nindiv));
   s = 0;
   
   plotstm = self.stmif && isfield(res_swb.tracks,'stmInfo') && isprop(self.stimulusPresenter,'IDX_BBOX');
@@ -149,8 +149,8 @@ function playVideo(self,timerange,writefile)
     %%classprob
     clprob = shiftdim(res_swb.tracks.classProb(tidx(ind),:,:),1);
     clprob(isnan(clprob)) = 0;
-    dia = self.bodylength/max(self.nbody,2);
-    for i_cl = 1:self.nbody
+    dia = self.bodylength/max(self.nindiv,2);
+    for i_cl = 1:self.nindiv
       for j = 1:length(foundidx)
         if ~foundidx(j)
           continue;

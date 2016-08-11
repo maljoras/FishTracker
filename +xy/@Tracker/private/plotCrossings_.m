@@ -6,7 +6,7 @@ function plotCrossings_(self,section,updateIdx)
     clf;
   end
 
-  cols = jet(self.nbody);
+  cols = jet(self.nindiv);
   [r1,r2] = xy.helper.getsubplotnumber(length(updateIdx));
 
   s = 0;

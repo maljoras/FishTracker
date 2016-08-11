@@ -1,5 +1,5 @@
-function [FV,eVar,Proj,r] = lfd(Z,iidx,nbody,npca,whiteif)
-% [FV,EVAR,PROJ,RSTRUC] = LFD(Z,IIDX,NBODY,NPCA) computes the LInear Fisher
+function [FV,eVar,Proj,r] = lfd(Z,iidx,nindiv,npca,whiteif)
+% [FV,EVAR,PROJ,RSTRUC] = LFD(Z,IIDX,NINDIV,NPCA) computes the LInear Fisher
 % Discrimant directions of Z (after initial PCA with NPCA components,)
 % using generalized eigenvectors. IIDX is has a unique number for each
 % individual (like class labels). NPCA=0 shuts the PCA preprocessing
@@ -87,7 +87,7 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nbody,npca,whiteif)
   
   r.D = sd;
   r.V = V(:,sidx);
-  eVar = sd(1:nbody);
+  eVar = sd(1:nindiv);
   r.Sb = Sb;
   r.Sw = Sw;
   
@@ -105,6 +105,6 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nbody,npca,whiteif)
   
   
   
-  Proj = bsxfun(@minus,X,mu)*r.V(:,1:nbody);
-  FV = r.V(:,1:nbody);
+  Proj = bsxfun(@minus,X,mu)*r.V(:,1:nindiv);
+  FV = r.V(:,1:nindiv);
   

@@ -5,12 +5,12 @@ classdef Tracker
   methods(Static)
     
     function obj = loadobj(S);
-      S.opts.nbody = S.nfish;
+      S.opts.nindiv = S.nfish;
       S.opts.bodylength = S.fishlength;
       S.opts.bodywidth = S.fishwidth;
       S.opts = rmfield(S.opts,{'fishwidth','fishlength','nfish'});
       
-      S.nbody = S.nfish;
+      S.nindiv = S.nfish;
       S.identityClassifier = S.fishClassifier;
       S.bodylength = S.fishlength;
       S.bodywidth = S.fishwidth;

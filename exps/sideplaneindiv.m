@@ -6,7 +6,7 @@ if LOAD || ~exist('T','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
-  opts.nbody = 3;
+  opts.nindiv = 3;
   opts.stmif = 1;
 
   opts.stimulus.screen = 1;
@@ -27,7 +27,7 @@ if LOAD || ~exist('T','var')
 
   opts.stimulus.nRoundsPerGroup = 4; % switch betweem left & right stimulation
   opts.stimulus.nPauseStmGroupsPerExp = 2;  %   
-  opts.stimulus.nbodyStimPerExps = [1,5,3,4,5];
+  opts.stimulus.nindivStimPerExps = [1,5,3,4,5];
 
   
   %opts.bodywidth = 30;
@@ -39,7 +39,7 @@ end
 
 
 if COMPUTE
-  %xy.helper.stimulusSimulator('xy.stimulus.PresenterPlaneIndiv','nbody',5,'stimulus',opts.stimulus,'timeFactor',3)
+  %xy.helper.stimulusSimulator('xy.stimulus.PresenterPlaneIndiv','nindiv',5,'stimulus',opts.stimulus,'timeFactor',3)
 
   
   

@@ -9,7 +9,7 @@ if LOAD && ~exist('T','var')
   opts = [];
   opts.detector.inverted = 1;
   
-  opts.nbody = 4;
+  opts.nindiv = 4;
 
   opts.stmif = 1;
   opts.display.videoHandler = true;
@@ -42,10 +42,10 @@ if COMPUTE
   ostm.screenBoundingBox = sbbox;  
   ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(T.nbody);
+  ostm.stmCol= parula(T.nindiv);
   ostm.stmLambda= 0.0;
   
-  ostm.stmSize = ones(T.nbody,1)*T.bodylength.*(1+rand(T.nbody,1));  
+  ostm.stmSize = ones(T.nindiv,1)*T.bodylength.*(1+rand(T.nindiv,1));  
 
   ostm.stmType = 'bodytextures';
   ostm.stmSizeFactor = 1.2;

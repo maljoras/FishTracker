@@ -30,7 +30,7 @@ if COMPUTE
   stmIdentityId = stmInfo(:,:,T.stimulusPresenter.IDX_IDENTITYID);
 
   pos = T.interpolateInvisible(res,'pos',3);
-  velocity = [zeros(1,2,T.nbody);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
+  velocity = [zeros(1,2,T.nindiv);bsxfun(@rdivide,diff(pos,1),diff(res.tabs))];
   avelocity = squeeze(sqrt(sum(velocity.^2,2)));
   maxvel = quantile(avelocity(:),0.99);
   dlmsk = avelocity>maxvel;
@@ -195,8 +195,8 @@ if PLOT
 
 
   
-  col = jet(T.nbody);
-  for i = 1:T.nbody
+  col = jet(T.nindiv);
+  for i = 1:T.nindiv
     g  =[0.5,0.5,0.5];
     plot(clx(:,:,i),cly(:,:,i),'color',col(i,:)*0.8);
     hold on;
@@ -281,7 +281,7 @@ if PLOT
 
   %% plot velocity probmap
   szFrame = T.videoHandler.frameSize;
-  for i = 1:T.nbody
+  for i = 1:T.nindiv
     aa = xy.helper.subsubplot(1,4,4,4,1,i);
     P1 = T.plotVelocityMap(timeRange,i,[0,0.5]);
     P2 = T.plotVelocityMap(timeRange,i,[0.5,0.99]);
@@ -340,7 +340,7 @@ if PLOT
   if VELTRIGGERPLOT
     figure;
     r1 = 2;
-    r2 = T.nbody;
+    r2 = T.nindiv;
     for i = 1:length(turn)
 
       
@@ -409,10 +409,10 @@ if PLOT
         ylabel('Y  rel. shift [px]','fontsize',10);
       end
       
-      col = jet(T.nbody);
+      col = jet(T.nindiv);
       title(sprintf(' #%d',i),'color',col(i,:));
 
-      if i==T.nbody
+      if i==T.nindiv
         h = xy.helper.smallcolorbar;
         xy.helper.shiftaxes(h,[0.1]);
         ylabel(h,'Difference speed [BL/sec]')

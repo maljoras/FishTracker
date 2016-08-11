@@ -4,7 +4,7 @@ function res = selectedIdentityIds(self,res,identityIds)
   for f = fieldnames(res.tracks)'
     S = [];
     S.type = '()';
-    if size(res.tracks.(f{1}),2)==self.nbody
+    if size(res.tracks.(f{1}),2)==self.nindiv
       sz= size(res.tracks.(f{1}));      
       S.subs = cell(1,length(sz));
       [S.subs{:}] = deal(':');

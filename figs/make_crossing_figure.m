@@ -7,7 +7,7 @@ SAVEIF = 1
 
 if LOAD || ~exist('T1','var')
   v =  '/home/malte/Videos/5Zebrafish_nocover_22min.avi';
-  T1 = xy.Tracker(v,'nbody',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
+  T1 = xy.Tracker(v,'nindiv',5,'displayif',0,'detector.fixedSize',150,'tracks.keepFullTrackStruc',true,...
                     'detector.adjustThresScale',1); 
 
   T1.track([0,10]);

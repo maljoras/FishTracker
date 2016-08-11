@@ -6,7 +6,7 @@ if LOAD && ~exist('T','var')
   videoFile = ''; %'/data/videos/onlinelearning/test.avi';
   opts = [];
   opts.detector.inverted = 1;
-  opts.nbody = 4;
+  opts.nindiv = 4;
   opts.stmif = 1;
   opts.stimulus.screen = 1;
 

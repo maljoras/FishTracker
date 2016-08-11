@@ -8,7 +8,7 @@ if LOAD
   idres.pos = permute(id.trajectories,[1,3,2]);
 
   vid = '/home/malte/Videos/5Zebrafish_nocover_22min.avi';  
-  T = xy.Tracker(vid,'detector.adjustThresScale',1,'nbody',5,'detector.fixedSize',150);
+  T = xy.Tracker(vid,'detector.adjustThresScale',1,'nindiv',5,'detector.fixedSize',150);
 
   T.addSaveFields('firstFrameOfCrossing', 'lastFrameOfCrossing');
   T.setDisplay('switchIdentity',1,'tracks',1);
@@ -30,15 +30,15 @@ if PLOT
   s = 0;
   a = [];
   
-  nbody = T.nbody;
+  nindiv = T.nindiv;
   xyres = T.getTrackingResults();
   xyresnan = xyres;
   xyresnan.pos = T.deleteInvisible(xyres,'pos');
   
-  dist = zeros(nbody);
+  dist = zeros(nindiv);
 
-  for i = 1:nbody
-    for j = 1:nbody
+  for i = 1:nindiv
+    for j = 1:nindiv
       dist(i,j) = nanmean(sqrt(sum((xyres.pos(:,:,i) - idres.pos(1:end-1,:,j)).^2,2)));
     end
   end
@@ -81,7 +81,7 @@ if PLOT
   nconv = 75;
   Tnan = conv(sum(isnan(xyposnan(:,1,:)),3),ones(nconv,1)/nconv,'same');
   idnan = conv(sum(isnan(idpos(:,1,:)),3),ones(nconv,1)/nconv,'same');
-  plot(t,[Tnan,idnan]*100/T.nbody);
+  plot(t,[Tnan,idnan]*100/T.nindiv);
   xlim(t([1,end]))
   set(a(s),'fontsize',8);
 

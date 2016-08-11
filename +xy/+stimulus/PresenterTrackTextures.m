@@ -124,7 +124,7 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
       beginning = 0; 
       dt = t - self.lastt;
       if length(sx) ~= length(self.stmState)
-        % should only happen once in the beginning. (nbody is constant)
+        % should only happen once in the beginning. (nindiv is constant)
         self.stmState = ones(size(x));
         self.nextStateChange = zeros(size(x));
         beginning = 1;

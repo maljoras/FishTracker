@@ -12,9 +12,9 @@ if LOAD && ~exist('T','var')
 
 
   opts = [];
-  opts.nbody = 3;
+  opts.nindiv = 3;
   
-  videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nbody,VIDID)];
+  videoFile = [path filesep mfilename sprintf('F%d-%d.avi',opts.nindiv,VIDID)];
 
   opts.detector.inverted = 1;
 
@@ -50,7 +50,7 @@ if COMPUTE
   ostm.screenBoundingBox = sbbox;  
   ostm.usePredIdentityId = false;
 
-  ostm.stmCol= parula(T.nbody);
+  ostm.stmCol= parula(T.nindiv);
   ostm.stmOnInt= 2; % in sec
   ostm.stmOnIntCV= 0.1;   
 

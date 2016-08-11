@@ -6,7 +6,7 @@ classdef FishDAGraph
   methods(Static)
     
     function obj = loadobj(S);
-      S.nbody = S.nfish;
+      S.nindiv = S.nfish;
       obj = xy.core.DAGraph.loadobj(S);
     end
   end

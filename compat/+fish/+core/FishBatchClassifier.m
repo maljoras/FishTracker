@@ -6,7 +6,7 @@ classdef FishBatchClassifier
   methods(Static)
     
     function obj = loadobj(S);
-      S.nbody = S.nfish;
+      S.nindiv = S.nfish;
       obj = xy.core.BatchClassifier.loadobj(S);
     end
   end

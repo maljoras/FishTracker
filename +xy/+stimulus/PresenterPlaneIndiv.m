@@ -4,7 +4,7 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
   properties
     nRoundsPerGroup = 4; % switch betweem left & right stimulation
     nPauseStmGroupsPerExp = 2;  %   
-    nbodyStimPerExps = [1,5,3,4,5];
+    nindivStimPerExps = [1,5,3,4,5];
     
   end
   
@@ -32,7 +32,7 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
     
     function bool = isFinished(self,t)
       iExp = self.getExpIdx(t);
-      bool = iExp>length(self.nbodyStimPerExps);
+      bool = iExp>length(self.nindivStimPerExps);
     end
     
     function iExp = getExpIdx(self,t);
@@ -51,19 +51,19 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
 
       iExp = self.getExpIdx(t);
       if iExp>0
-        nbodyStm = self.nbodyStimPerExps(min(iExp,end));
+        nindivStm = self.nindivStimPerExps(min(iExp,end));
       else
-        nbodyStm = 0;
+        nindivStm = 0;
       end
       
-      self.funLRStm = @(identityIds) identityIds<=nbodyStm;
+      self.funLRStm = @(identityIds) identityIds<=nindivStm;
       
       % let the super do the work
       stmInfo1= stepStimulus@xy.stimulus.PresenterOnlineLearningCue(self,x,y,t,identityIds);
       stmInfo  = cat(2,stmInfo1, zeros(length(identityIds),3));
       stmInfo(:,size(stmInfo1,2)+1) = self.iround;
       stmInfo(:,size(stmInfo1,2)+2) = iExp;
-      stmInfo(:,size(stmInfo1,2)+3) = nbodyStm;
+      stmInfo(:,size(stmInfo1,2)+3) = nindivStm;
     end
     
     

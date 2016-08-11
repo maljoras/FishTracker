@@ -264,10 +264,10 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
     % CAUTION: might involve other identity, so that f2t has not unique
     % tracks for aeach time frame anymore. 
     u = unique([unique(dagf2t(:))',assignedIdentityIds]);
-    Nbody = accumarray(dagf2t(:),1,[self.nbody,1]);
+    Nindiv = accumarray(dagf2t(:),1,[self.nindiv,1]);
     if length(u)>length(assignedIdentityIds)
       extra = setdiff(u,assignedIdentityIds);
-      if sum(Nbody(extra))/sum(Nbody)/length(assignedIdentityIds) > 0.1
+      if sum(Nindiv(extra))/sum(Nindiv)/length(assignedIdentityIds) > 0.1
         if self.verbosity>2
           xy.helper.verbose('CAUTION: More tracks involved in crossing !')
         end
@@ -276,7 +276,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
       end
     end
     
-    if min(Nbody(assignedIdentityIds))<stepsback/2
+    if min(Nindiv(assignedIdentityIds))<stepsback/2
       if self.verbosity>2
         xy.helper.verbose('CAUTION: Tracks seem to have heavy overlap in DAG !');
       end

@@ -61,7 +61,7 @@ if COMPUTE
 
     opts = [];
     opts.verbosity = 3;
-    opts.nbody = 5;
+    opts.nindiv = 5;
     %opts.bodylength = 100;
     %opts.bodywidth = 20;
     opts.classifier.npca = 40;
@@ -146,8 +146,8 @@ if PLOT
   fun = @(x)nansum(x>0.5,2)>0;
   
   nframes = size(res(1,1).d,1);
-  nbody = size(res(1,1).d,2);
-  n = nframes*nbody;
+  nindiv = size(res(1,1).d,2);
+  n = nframes*nindiv;
   
   for i = 1:size(res,1)
     parr = cat(2,res(i,:).parval);

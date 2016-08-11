@@ -54,11 +54,11 @@ function varargout = displayCurrentTracks(self)
       
 
       labels = strcat(labels, isPredicted);
-      cols = jet(self.nbody);
+      cols = jet(self.nindiv);
       cols_grey = [0.5,0.5,0.5;cols];
       
       
-      if length(reliableTracks)==self.nbody && self.isInitClassifier
+      if length(reliableTracks)==self.nindiv && self.isInitClassifier
 
         ids = [reliableTracks(:).identityId];
 
@@ -122,7 +122,7 @@ function varargout = displayCurrentTracks(self)
       
       if self.opts.display.level>2
         %% insert more markers
-        if length(self.tracks)==self.nbody
+        if length(self.tracks)==self.nindiv
           howmany = 25;
           idx = max(self.currentFrame-howmany,1):self.currentFrame;
           trackpos = self.pos(:,:,idx);
@@ -130,7 +130,7 @@ function varargout = displayCurrentTracks(self)
           delidx = find(any(any(isnan(trackpos),1),2));
           trackpos(:,:,delidx) = [];
           f2t(delidx,:) = [];
-          cli = NaN(length(idx),self.nbody);
+          cli = NaN(length(idx),self.nindiv);
           if ~isempty(self.tracks(1).classProbHistory)
 
             for iii = 1:length(self.tracks)
@@ -149,7 +149,7 @@ function varargout = displayCurrentTracks(self)
           [~,f2i] = ismember(f2t,trackIds);
 
           if ~isempty(trackpos)
-            for ii = 1:self.nbody
+            for ii = 1:self.nindiv
               idx1 = f2i(:,ii)+1;
               inds = xy.helper.s2i(size(cli),[(1:size(cli,1))',idx1]);
               inds2 = cli(inds);

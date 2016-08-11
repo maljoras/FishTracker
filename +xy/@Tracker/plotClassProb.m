@@ -5,7 +5,7 @@ function plotClassProb(self,plotTimeRange,identityIds);
 % range it might indicate a wrong classficiation.
 
   if ~exist('identityIds','var') || isempty(identityIds)
-    identityIds = 1:self.nbody;
+    identityIds = 1:self.nindiv;
   end
 
   if ~exist('plotTimeRange','var') || isempty(plotTimeRange)
@@ -22,11 +22,11 @@ function plotClassProb(self,plotTimeRange,identityIds);
 
   prob = res.tracks.classProb(:,identityIds,identityIds);
   probid = nanmean(prob(:,1:length(identityIds)+1:end),2);
-  if self.nbody<=5
-    p = perms(1:self.nbody);
+  if self.nindiv<=5
+    p = perms(1:self.nindiv);
     probmax = probid;
     for i = 1:size(p)
-      idx = sub2ind([self.nbody,self.nbody],(1:self.nbody)',p(i,:)');
+      idx = sub2ind([self.nindiv,self.nindiv],(1:self.nindiv)',p(i,:)');
       probmax = nanmax(probmax,nanmean(prob(:,idx),2));
     end
   else

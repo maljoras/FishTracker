@@ -7,7 +7,7 @@ function plotTurns(self,identityIds,plotTimeRange)
   end
   
   if nargin<2 || isempty(identityIds)
-    identityIds = 1:self.nbody;
+    identityIds = 1:self.nindiv;
   end
 
   

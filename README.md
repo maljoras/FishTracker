@@ -48,12 +48,12 @@ number of bodies :
 >> xyT.save(); % save the xyT object and all results  
 ~~~~
 
-To track video file 'myvideo.avi' having 3 animals, write (use 'nbody',-1
-for GUI selection, default is 'nbody', [] for auto selection of the
+To track video file 'myvideo.avi' having 3 animals, write (use 'nindiv',-1
+for GUI selection, default is 'nindiv', [] for auto selection of the
 number of animals) and known approximate length (e.g. 100 px) and width
 (e.g. 30 px), do 
 ~~~~
->> xyT = xy.Tracker('myvideo.avi','nbody',3,bodywidth',30,'bodylength',100);  
+>> xyT = xy.Tracker('myvideo.avi','nindiv',3,bodywidth',30,'bodylength',100);  
 ~~~~
 
 Set higher level of display and track first 20 seconds  
@@ -75,7 +75,7 @@ For further analysis the results of the tracking process are saved in the xyT.re
 >> res = xyT.getTrackingResults();
 ~~~~
 
-res.pos is a [nFrames x [x,y] x nbody] array of the position of the animal with unique ID.
+res.pos is a [nFrames x [x,y] x nindiv] array of the position of the animal with unique ID.
 res.tracks has a number of fields (controlled be the property xyT.saveFields and changed by the methods xyT.addSaveFields/xyT.removeSaveField).   
 For example:
 
@@ -100,7 +100,7 @@ For example:
                    identityId: [2101x5 double]  
 ~~~~
 
-Each of the field as the dimensions [nFrames x nbody x nDims] where
+Each of the field as the dimensions [nFrames x nindiv x nDims] where
 nDims are additional dimensions dependent on the field. For instance,
 to plot the x-velocity for each tracked body after tracking:
 
@@ -181,7 +181,7 @@ To perform the experiment:
 >> opts = [];   
 >> opts.stimulus.presenter  = xy.stimulus.Presenter';  
 >> opts.stmif = 1;  
->> opts.nbody = 3;  
+>> opts.nindiv = 3;  
 >> opts.detector.inverted = 1; % tracking in IR  
 >> opts.stimulus.screen = 1; % X-window screen number  
 >> opts.bodywidth = 30;  

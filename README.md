@@ -42,10 +42,10 @@ In MATLAB your need to add the path where the +xy package folder is located. The
 To track a video file (with ui-dialog and automatic detection of the
 number of bodies :
 ~~~~
->> xyT = xy.Tracker([]);  
->> xyT.track();   
->> xyT.plot(); % make some result plots  
->> xyT.save(); % save the xyT object and all results  
+>> T = xy.Tracker([]);  
+>> T.track();   
+>> T.plot(); % make some result plots  
+>> T.save(); % save the T object and all results  
 ~~~~
 
 To track video file 'myvideo.avi' having 3 animals, write (use nindiv=-1
@@ -53,30 +53,30 @@ for GUI selection, default is nindiv=[] for auto selection of the
 number of animals) and known approximate length (e.g. 100 px) and width
 (e.g. 30 px), do 
 ~~~~
->> xyT = xy.Tracker('myvideo.avi','nindiv',3,'bodywidth',30,'bodylength',100);  
+>> T = xy.Tracker('myvideo.avi','nindiv',3,'bodywidth',30,'bodylength',100);  
 ~~~~
 
 Set higher level of display and track first 20 seconds  
 ~~~~
->> xyT.setDisplay(3)  
->> xyT.track([0,20])  
+>> T.setDisplay(3)  
+>> T.track([0,20])  
 ~~~~
 
 ![Tracking screenshot](https://github.com/maljoras/xyTracker/blob/master/pics/track.png)
 
 Or turn off the display for fastest tracking. 
 ~~~~
->> xyT.setDisplay(0)  
->> xyT.track()
+>> T.setDisplay(0)  
+>> T.track()
 ~~~~
 
-For further analysis the results of the tracking process are saved in the xyT.res field which can be obtained by
+For further analysis the results of the tracking process are saved in the T.res field which can be obtained by
 ~~~~
->> res = xyT.getTrackingResults();
+>> res = T.getTrackingResults();
 ~~~~
 
 res.pos is a [nFrames x [x,y] x nindiv] array of the position of the animal with unique ID.
-res.tracks has a number of fields (controlled be the property xyT.saveFields and changed by the methods xyT.addSaveFields/xyT.removeSaveField).   
+res.tracks has a number of fields (controlled be the property T.saveFields and changed by the methods T.addSaveFields/T.removeSaveField).   
 For example:
 
 ~~~~
@@ -105,15 +105,15 @@ nDims are additional dimensions dependent on the field. For instance,
 to plot the x-velocity for each tracked body after tracking:
 
 ~~~~
->> res = xyT.getTrackingResults([0,20]);  
->> v = xyT.getResField(res,'velocity',1); % 1 means delete "invisible" frames 
+>> res = T.getTrackingResults([0,20]);  
+>> v = T.getResField(res,'velocity',1); % 1 means delete "invisible" frames 
 >> vx = squeeze(v(:,:,1)); 
 >> plot(res.t,vx);  
 ~~~~
 
 To plot the traces
 ~~~~
->> xyT.plotTrace()
+>> T.plotTrace()
 ~~~~
 
 ![Trace](https://github.com/maljoras/xyTracker/blob/master/pics/trace.jpg)
@@ -121,8 +121,8 @@ To plot the traces
 
 Or in 3D (the centroid positions versus time), one can do the following:
 ~~~~
->> res = xyT.getTrackingResults();
->> pos = xyT.interpolateInvisible(res,'pos',5); % interpolate lost detections and Boxcar smooth with n=5 frames
+>> res = T.getTrackingResults();
+>> pos = T.interpolateInvisible(res,'pos',5); % interpolate lost detections and Boxcar smooth with n=5 frames
 >> plot3(res.t,squeeze(p(:,1,:)),squeeze(p(:,2,:)));
 >> xlabel('Time [s]'); ylabel('x-position [px]');zlabel('y-position [px]');
 ~~~~
@@ -132,7 +132,7 @@ Or in 3D (the centroid positions versus time), one can do the following:
 Or a more fancy plot of the "centerline" the body-axis of the bodies for each frame. Moments of large amount of "bending" of the fish's body are plotted in red. The position of the head is marked by a circle. 
 
 ~~~~
->> xyT.plotCenterLine([10,20]) % 10 to 20 seconds for all identities   
+>> T.plotCenterLine([10,20]) % 10 to 20 seconds for all identities   
 ~~~~
 ![Trace](https://github.com/maljoras/xyTracker/blob/master/pics/centerline.jpg)
 
@@ -150,9 +150,9 @@ camera index CamIdx and simultaneously saved to raw video file
 'myfile.avi' (camera index and ROI can be set with the flycap2 tool)
 
 ~~~~
->> xyT = xy.Tracker({0,'myfile.avi'});   
->> xyT.track(); % tracks indefintely. Close tracking window for stop or set end time  
->> xyT.save();  
+>> T = xy.Tracker({0,'myfile.avi'});   
+>> T.track(); % tracks indefintely. Close tracking window for stop or set end time  
+>> T.save();  
 >> clear ft; % to stop the background video recording  
 ~~~~
 
@@ -165,8 +165,8 @@ also possible to use the OpenCV VideoCapture method for video grabbing. That is,
 (with camara index 0) 
 
 ~~~~
->> xyT = xy.Tracker(0);
->> xyT.track();
+>> T = xy.Tracker(0);
+>> T.track();
 ~~~~
 
 
@@ -187,11 +187,11 @@ To perform the experiment:
 >> opts.bodywidth = 30;  
 >> opts.bodylength = 150;  % set approx. length and width if known to avoid auto-estimation
 >>   
->> xyT = xy.Tracker({0,'savevideo.avi'},opts);  
->> xyT.setDisplay(0);  % to avoid displaying delays  
->> xyT.track(); % tracks until xy.stimulus.Presenter/isFinished returns true.  
->> xyT.save();  
->> clear xyT; % stop background avi recording  
+>> T = xy.Tracker({0,'savevideo.avi'},opts);  
+>> T.setDisplay(0);  % to avoid displaying delays  
+>> T.track(); % tracks until xy.stimulus.Presenter/isFinished returns true.  
+>> T.save();  
+>> clear T; % stop background avi recording  
 ~~~~
 
 For debugging, stimulus presenter objects can be tested on

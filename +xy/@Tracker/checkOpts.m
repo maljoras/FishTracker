@@ -17,15 +17,15 @@ function checkOpts(self)
       self.opts.tracks.useDagResults = 0;
     end
     if self.nindiv>10
-      warning(['Using DAG results for large number of body might result ' ...
+      warning(['Using DAG results for large number of individials might result ' ...
                'in inferior results. Set default to SWB.']);
       self.opts.tracks.useDagResults = 0;
     end
   end
   
   if self.nindiv>10 & self.bodylength<80 &   self.opts.classifier.allSwitchProbThres<0.5
-    warning(['Many small body. Consider increasing ' ...
-             '"classifier.allSwitchProbThres" (set to 0.6)']);
+    warning(['Many small individuals. Consider increasing ' ...
+             '"classifier.allSwitchProbThres"']);
     self.opts.classifier.allSwitchProbThres = 0.6;
   end
   
@@ -41,7 +41,7 @@ function checkOpts(self)
       
     elseif self.opts.classifier.nlfd<self.nindiv+1;
       nlfd = self.nindiv+1;
-      xy.helper.verbose('Nlfd too small. Increased nlfd to number of body+1 [%d]',nlfd);
+      xy.helper.verbose('Nlfd too small. Increased nlfd to number of individuals+1 [%d]',nlfd);
       self.opts.classifier.nlfd = nlfd;
       self.opts.classifier.npca = max(self.opts.classifier.npca,nlfd+1);
       

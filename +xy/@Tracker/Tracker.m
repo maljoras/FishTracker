@@ -38,6 +38,21 @@ classdef Tracker < handle;
     tracks = [];
     res = [];
 
+    meanAssignmentCost =1;
+    maxAssignmentCost =1;
+    maxClassificationProb =0;
+    meanClassificationProb =0;
+    meanClassificationProbOther =0;
+    meanNonCrossingFrames = 0;
+
+    avgTimeScale = [];
+
+    nFramesForInit  = [];
+    nFramesAfterCrossing = [];
+    nFramesForUniqueUpdate = [];
+    clpMovAvgTau = [];
+    nFramesForSingleUpdate = [];
+
   end
   
   properties (SetAccess = private, GetAccess=private);
@@ -46,12 +61,12 @@ classdef Tracker < handle;
     saveFieldsIn = struct([]);
     saveFieldsOut = struct([]);
 
-    costinfo= {'Location','Overlap','CenterLine','Classifier','Size','Area','BoundingBox'}; % bounding box ? ()
+    costinfo= {}; 
     scalecost = [];
 
     saveFields = {};
     
-    nextId = 1; % ID of the next track
+    nextId = 1; 
     isInitClassifier = [];
 
     centerLine = [];
@@ -74,11 +89,12 @@ classdef Tracker < handle;
     pos = [];
     tabs = [];
     uniqueIdentityFrames = 0;
+    nonCrossingFrames = 0;
     
     assignments = [];
     unassignedTracks = [];
     unassignedDetections = [];
-    featurecosttypes = {'Area','Size'};%,'BoundingBox'};
+    featurecosttypes = {};
 
     leakyAvgFrame = [];
     savedTracks = [];
@@ -93,21 +109,9 @@ classdef Tracker < handle;
     nFramesVerbose = 40;
     
     % autoinit
-    nFramesForInit  = [];
-    nFramesAfterCrossing = [];
-    nFramesForUniqueUpdate = [];
-    clpMovAvgTau = [];
-    nFramesForSingleUpdate = [];
     maxFramesPerBatch = [];
     minBatchN = [];
     
-    meanAssignmentCost =1;
-    maxAssignmentCost =1;
-    maxClassificationProb =0;
-    meanClassificationProb =0;
-    meanClassificationProbOther =0;
-
-    avgTimeScale = [];
     
     timeStamp = [];
     lastTimeStamp = [];
@@ -989,6 +993,8 @@ classdef Tracker < handle;
       self.tracks = self.initializeTracks(); % Create an empty array of tracks.
       self.nextId = 1;
       self.uniqueIdentityFrames = 0;
+      self.nonCrossingFrames = 0;
+
       self.meanCost(:) = 1;
       self.meanAssignmentCost = 1;
 
@@ -1007,6 +1013,7 @@ classdef Tracker < handle;
       self.saveFieldsOut = struct([]);
       
       self.costinfo = fieldnames(self.opts.cost)';
+      
       self.scalecost = zeros(1,length(self.costinfo));
       for i =1:length(self.costinfo)
         self.scalecost(i) = self.opts.cost.(self.costinfo{i});
@@ -1015,6 +1022,14 @@ classdef Tracker < handle;
       self.costinfo(delidx) = [];
       self.scalecost(delidx) = [];
       assert(length(self.scalecost)>0);
+
+      FEATCOSTTYPES = {'Area','Size','BoundingBox'};
+      self.featurecosttypes = {};
+      for i = 1:length(FEATCOSTTYPES)
+        if any(strcmp(FEATCOSTTYPES{i},self.costinfo));
+          self.featurecosttypes(end+1) = FEATCOSTTYPES(i);
+        end
+      end
       
       self.meanCost = ones(1,length(self.scalecost));
       
@@ -1032,9 +1047,10 @@ classdef Tracker < handle;
       self.clpMovAvgTau = max(ceil(self.opts.classifier.clpMovAvgTau*self.avgTimeScale),1);
 
       self.minBatchN = min(max(ceil(self.nFramesAfterCrossing*0.75),4),50);  
-      self.nFramesForSingleUpdate = floor(3 * self.nFramesForUniqueUpdate);
-      self.maxFramesPerBatch = self.nFramesForSingleUpdate + 50;
+      self.nFramesForSingleUpdate = floor(2 * self.nFramesForUniqueUpdate);
+      self.maxFramesPerBatch = 2*self.nFramesForSingleUpdate;
 
+      self.meanNonCrossingFrames = self.nFramesForUniqueUpdate;
       
       if ~isinf(self.opts.classifier.timeToInit)
         self.nFramesForInit = min(max(ceil(self.opts.classifier.timeToInit*self.avgTimeScale),1),200);
@@ -1425,8 +1441,13 @@ classdef Tracker < handle;
     end
     
     function bool = enoughEvidenceForAllIdentitySwitch(self,prob,steps,probdiag)
-      if any(isnan(probdiag)) || self.meanClassificationProb-self.meanClassificationProbOther<self.opts.classifier.minOtherProbDiff
+      pother = self.meanClassificationProb-self.meanClassificationProbOther;
+      if any(isnan(probdiag)) || pother<self.opts.classifier.minOtherProbDiff
         bool = false;
+        if pother<self.opts.classifier.minOtherProbDiff
+          xy.helper.verbose('Would like to switch but pother too low\r');
+        end
+        
       else
         p = max(prob-probdiag,0);
         n = sum(p>0);
@@ -1478,7 +1499,7 @@ classdef Tracker < handle;
           
           bool = m>self.meanClassificationProb*self.opts.classifier.handledProbThresScale ...
                  || max(steps)>=self.nFramesForUniqueUpdate;
-          bool = bool || (self.nindiv>9 && length(prob)>self.nindiv/2); % crossing too big to be handled
+          % bool = bool || (self.nindiv>9 && length(prob)>self.nindiv/2); % crossing too big to be handled
         else
           bool = true; % not enough evidence, but to inaccurate to be sure,  release
         end
@@ -1740,12 +1761,29 @@ classdef Tracker < handle;
       
       self.crossings = self.detectTrackCrossings(); % only detects crossings
 
+
+      mt = 20*self.nFramesForUniqueUpdate;
+      self.meanNonCrossingFrames = self.meanNonCrossingFrames*(mt-1)/mt + 1/mt*self.nonCrossingFrames;
+
+      % adjust update policy if necessary
+      if self.currentFrame>mt
+        if self.meanNonCrossingFrames<self.nFramesForUniqueUpdate/2 && self.nFramesForUniqueUpdate>2*self.minBatchN
+          self.nFramesForUniqueUpdate = self.nFramesForUniqueUpdate-1;
+          self.nFramesForSingleUpdate = self.nFramesForSingleUpdate-2;
+        elseif self.meanNonCrossingFrames>self.nFramesForUniqueUpdate && self.nFramesForSingleUpdate<self.maxFramesPerBatch
+          self.nFramesForUniqueUpdate = self.nFramesForUniqueUpdate+1;
+          self.nFramesForSingleUpdate = self.nFramesForSingleUpdate+2;
+        end
+      end
+
       
       % update unique frames
       crossif = ~isempty(self.crossings);
       if ~crossif && length(self.tracks)==self.nindiv
+        self.nonCrossingFrames = self.nonCrossingFrames + 1;
         self.uniqueIdentityFrames = self.uniqueIdentityFrames + 1;
       else
+        self.nonCrossingFrames = 0;
         self.uniqueIdentityFrames = 0;
       end
       
@@ -1910,13 +1948,9 @@ classdef Tracker < handle;
       
       if nDetections>0
         maxDist = self.maxVelocity*self.dt*self.bodylength; % dist per frame
-    % $$$         minDist = 2;
-    % $$$         meanDist = sqrt(sum(cat(1,self.tracks.velocity).^2,2)); % track.velocity is in per frame
-    % $$$         %nvis = max(cat(1,self.tracks.consecutiveInvisibleCount)-self.opts.tracks.invisibleForTooLong,0);
-    % $$$         nvis = cat(1,self.tracks.consecutiveInvisibleCount);
-    % $$$         thresDist = min(max(meanDist,minDist),maxDist).*(1+nvis);
         thresDist = maxDist;
 
+        
         % Compute the cost of assigning each detection to each track.
         for k = 1:length(self.costinfo)
           switch self.costinfo{k}
@@ -1926,30 +1960,27 @@ classdef Tracker < handle;
               %% center position 
               centers = cat(1,self.tracks.location);
               dst = xy.helper.pdist2Euclidean(centers,self.locations);
-              %dst = bsxfun(@rdivide,dst,thresDist).^2;
 
-              dst = (dst/thresDist);%.^2;
-              %  dst(dst>highCost) = highCost; % also ^2?
+              dst1 = (dst/thresDist);
 
-              fcost(:,:,k) = dst;
-
+              fcost(:,:,k) = dst1;
+            
+            case {'Velocity'}
               
+              centers = cat(3,self.tracks.location);
+              velocity = cat(3,self.tracks.velocity);
+              velmat = bsxfun(@minus,self.locations,centers)/self.dt;
+              dvelmat = permute(sqrt(sum(bsxfun(@minus,velmat,velocity).^2,2)),[3,1,2]);
+              fcost(:,:,k) = dvelmat;
+
             case {'CenterLine'}
               if self.useMex
                 
                 %% use the mex-file
                 dst = xy.helper.pdist2CenterLine(cat(3,self.tracks.centerLine),self.centerLine);
-                
                 nidx = any(isnan(dst),2);
-                %dst = bsxfun(@rdivide,dst,thresDist).^2; % better square?
-
-                dst = (dst/thresDist);%.^2; % better square?
-               %dst(dst>highCost) = highCost;
-                
-                
-                % makes not sense to compare the distance to others if one is nan
+                dst = (dst/thresDist);
                 dst(nidx,:) = 1;
-                
                 fcost(:,:,k) = dst;
                 
               else
@@ -2190,7 +2221,7 @@ classdef Tracker < handle;
               
             end
           end
-          
+
         else
           centerLine = [];
           thickness = [];
@@ -2762,12 +2793,12 @@ classdef Tracker < handle;
       %% properties
       
       def.opts.nindiv = [];
-      doc.nindiv = {'Number of bodies. Needs to be fixed ' '(*attempt* to be estimated if empty)'};
+      doc.nindiv = {'Number of individuals. Needs to be fixed ' '(*attempt* to be estimated if empty)'};
       
       def.opts.bodylength = [];
-      doc.bodylength = {'Approx length of bodies in pixel (estimated if empty)'};
+      doc.bodylength = {'Approx length of individuals in pixel (estimated if empty)'};
       def.opts.bodywidth = [];
-      doc.bodywidth = {'Approx width of bodies in pixel (estimated if empty)'};
+      doc.bodywidth = {'Approx width of individuals in pixel (estimated if empty)'};
 
       def.opts.maxVelocity = [];
       doc.maxVelocity = {'Maximal velocity in BL/sec (estimated if empty)'};
@@ -2809,6 +2840,9 @@ classdef Tracker < handle;
       % 0 turns off cost
       def.opts.cost.Location = 10;
       doc.cost.Location = {'Location comparison','Relative cost weighting. 0 turns cost type off.'};
+
+      def.opts.cost.Velocity = 3;
+      doc.cost.Location = {'Velocity direction comparison','Relative cost weighting. 0 turns cost type off.'};
       
       def.opts.cost.Overlap = 2;
       doc.cost.Overlap = {'BBox overlap'};
@@ -2816,7 +2850,7 @@ classdef Tracker < handle;
       def.opts.cost.CenterLine = 5;
       doc.cost.CenterLine = {'CenterLine feature comparison'};
 
-      def.opts.cost.Classifier = 1;
+      def.opts.cost.Classifier = 0.1;
       doc.cost.Classifier = {'Classification prob comparison'};
 
       %      def.opts.cost.Size = 0; % !!! seems to have bad effect!
@@ -2826,7 +2860,7 @@ classdef Tracker < handle;
 
       %doc.cost.Area = {'blob pixel area comparison'};
 
-      def.opts.cost.BoundingBox = 0; 
+      def.opts.cost.BoundingBox = 0;
       doc.cost.BoundingBox = {'[x,y,w,h] bbox comparison',''};
 
       
@@ -2837,7 +2871,7 @@ classdef Tracker < handle;
       def.opts.detector.inverted = false;  
       doc.detector.inverted = {'Set 1 for IR videos (white bodies on dark background)'};
       
-      def.opts.detector.adjustThresScale = 0.95;   
+      def.opts.detector.adjustThresScale = 1;   
       doc.detector.adjustThresScale = {'0.8..1.2 : change thres when detections too noisy (useKNN=0)',''};
 
 
@@ -2851,7 +2885,7 @@ classdef Tracker < handle;
       %% blob anaylser
 
       def.opts.blob(1).colorfeature = true; 
-      doc.blob.colorfeature = {'Use color information for fish feature'};
+      doc.blob.colorfeature = {'Use color information for identityfeature'};
 
       def.opts.blob.headprop = 0.6; 
       doc.blob.headprop = {'Proportion of object length to use as feature',''};
@@ -2871,14 +2905,14 @@ classdef Tracker < handle;
       def.opts.classifier.reassignProbThres = 0.2; %0.2%0.45
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
-      def.opts.classifier.allSwitchProbThres = 0.6; %0.2%0.45
+      def.opts.classifier.allSwitchProbThres = 0.4; %0.6
       doc.classifier.allSwitchProbThres = {['minimal diff probability for ' ...
                           'all identity reassignments']};
 
       def.opts.classifier.forcedUpdateProbThres = 0.4; %0.45
       doc.classifier.reassignProbThres = {'minimal diff probability for reassignments'};
 
-      def.opts.classifier.minOtherProbDiff = 0.3;
+      def.opts.classifier.minOtherProbDiff = 0.2;
       doc.classifier.minOtherProbDiff = {'minimal runingavg class diff probability',...
                           'to use all identity switches and updates'};
 
@@ -2891,7 +2925,7 @@ classdef Tracker < handle;
 
 
       %% tracks
-      def.opts(1).tracks.costtau = 100;
+      def.opts(1).tracks.costtau = 500;
       doc.tracks.costtau = {'Time constant for computing the mean cost [avgBLC]'};
 
       def.opts.tracks.crossBoxLengthScale = 1; 
@@ -2930,13 +2964,13 @@ classdef Tracker < handle;
                           'crossings [avgBLC]']};
       
       def.opts.classifier.timeForUniqueUpdate = 12; 
-      doc.classifier.nFramesForUniqueUpdate = {['Unique frames needed for update all ' ...
+      doc.classifier.timeForUniqueUpdate = {['Unique frames needed for update all ' ...
                           'identity simultaneously [avgBLC]']};
 
       def.opts.classifier.clpMovAvgTau = 0.5; 
       doc.classifier.clpMovAvgTau = {'Time constant of class prob','moving average [avgBLC].'};
 
-      def.opts.tracks.tauVelocity = 1; 
+      def.opts.tracks.tauVelocity = 0.5; 
       doc.tracks.tauVelocity = {'Time constant to compute the ' 'velocity [avgBLC]'};
 
       def.opts.tracks.initBackground = 1;

@@ -13,17 +13,20 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
 
   assert(length(trackIndices)==length(assignedIdentityIds));
   oldIdentityIds = [self.tracks(trackIndices).identityId];
-  assert(all(sort(oldIdentityIds)==sort(assignedIdentityIds)));
 
   if length(trackIndices)==1 || all(oldIdentityIds==assignedIdentityIds)
     return; % no need to do anything
   end
 
+  [memb,oldloc] = ismember(assignedIdentityIds,oldIdentityIds);
+  assert(all(memb));  
+  
+
   f2t = self.identityId2TrackId;
   orgpos = self.pos;
   self.resetBatchIdx(trackIndices); % reset for all
   self.uniqueIdentityFrames = 0;
-
+  velocity = cat(1,self.tracks(trackIndices).velocity);
 
   if self.opts.display.switchIdentity && self.displayif && self.opts.display.tracks;
     self.displayCurrentTracks();
@@ -68,6 +71,9 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
     for j = 1:length(trackIndices)
       self.tracks(trackIndices(j)).identityId = assignedIdentityIds(j);
       self.tracks(trackIndices(j)).switchedFrames = steps;
+
+      % switch other stuff... seems not working with velocity.
+      self.tracks(trackIndices(j)).velocity = velocity(oldloc(j),:);
     end
     
   else
@@ -127,6 +133,9 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
         self.pos(:,assignedIdentityIds(j),t) = orgpos(:,oldIdentityIds(j),t);
         self.tracks(trackIndices(j)).identityId = assignedIdentityIds(j);
         self.tracks(trackIndices(j)).switchedFrames = steps;
+
+        % switch other stuff
+        self.tracks(trackIndices(j)).velocity = velocity(oldloc(j),:);
       end
 
 

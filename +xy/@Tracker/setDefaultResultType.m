@@ -2,7 +2,7 @@ function setDefaultResultType(self,dagif)
 % SETDEFAULTRESULTTYPE(DAGIF) sets the type of results one get's from
 % the gatherring results methods per default if DAGIF = 1 set's to
 % DaGraph tracking results, otherwise switchbased.
-% SETDEFAULTRESULTTYPE('DAG') or SETDEFAULTRESULTTYPE('SWITCH') can
+% SETDEFAULTRESULTTYPE('DAG') or SETDEFAULTRESULTTYPE('SWB') can
 % also be used.
 %
 % see also GETTRACKINGRESULTS,GETINVISIBLEMASK)
@@ -19,11 +19,11 @@ function setDefaultResultType(self,dagif)
     case {'dag','dagbased','dag-based','dagraph'}
       xy.helper.verbose('Set default track results to DAGRAPH-based.');
       self.opts.tracks.useDagResults = 1;
-    case {'sw','switchbased','switch-based','switch'}
+    case {'sw','switchbased','switch-based','switch','swb'}
       xy.helper.verbose('Set default track results to SWITCH-based.');
       self.opts.tracks.useDagResults = 0;
     otherwise
-      error('Unknown default type (either ''dag'' or ''switch'')');
+      error('Unknown default type (either ''dag'' or ''swb'')');
   end
 
   

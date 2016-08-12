@@ -30,26 +30,31 @@ function plotClassProb(self,plotTimeRange,identityIds);
       probmax = nanmax(probmax,nanmean(prob(:,idx),2));
     end
   else
-    probmax = nanmax(prob(:,:,:),[],3);
+    idx = find(eye(self.nindiv));
+    probmax = prob;
+    probmax(:,idx) = 0;
+    probmax = nanmean(nanmax(probmax(:,:,:),[],3),2);
   end
 
   nconv = 50;
   probid = conv(probid,ones(nconv,1)/nconv,'same');
   probmax = conv(probmax,ones(nconv,1)/nconv,'same');
 
-
   a(1) = subplot(3,1,1);
   plot(t,[probid,probmax]);
-
+  legend('chosen','max other');
+  title('Average identity class probabilty')  
+  
   a(2) = subplot(3,1,2);
   seq = res.tracks.consecutiveInvisibleCount(:,identityIds);
   plot(t,seq);
-
+  title('Consecutive invisible counts per identity')  ;
+  
   a(3) = subplot(3,1,3);
   x = res.pos(:,:,identityIds);
-  v2 = squeeze(sum(abs(diff(x,1,1)),2)); 
+  v2 = squeeze(sqrt(sum(abs(diff(x,1,1)).^2,2))); 
   plot(t(1:end-1),v2);
   linkaxes(a,'x');
-
-
+  title('Postion distance adjacent frames')  ;
+  ylabel('Pixels');
 end

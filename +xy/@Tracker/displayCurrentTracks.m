@@ -2,7 +2,7 @@ function varargout = displayCurrentTracks(self)
 % UFRAME = DISPLAYCURRENTTRACKS(SELF) generates a uframe from current
 % tracking results.
 
-  cjet = jet(self.nextId);
+
 
   minVisibleCount = 2;
   if self.opts.display.BWImg

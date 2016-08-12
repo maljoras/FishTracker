@@ -48,12 +48,12 @@ number of bodies :
 >> xyT.save(); % save the xyT object and all results  
 ~~~~
 
-To track video file 'myvideo.avi' having 3 animals, write (use 'nindiv',-1
-for GUI selection, default is 'nindiv', [] for auto selection of the
+To track video file 'myvideo.avi' having 3 animals, write (use nindiv=-1
+for GUI selection, default is nindiv=[] for auto selection of the
 number of animals) and known approximate length (e.g. 100 px) and width
 (e.g. 30 px), do 
 ~~~~
->> xyT = xy.Tracker('myvideo.avi','nindiv',3,bodywidth',30,'bodylength',100);  
+>> xyT = xy.Tracker('myvideo.avi','nindiv',3,'bodywidth',30,'bodylength',100);  
 ~~~~
 
 Set higher level of display and track first 20 seconds  

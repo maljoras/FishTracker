@@ -1,5 +1,5 @@
 # xy.Tracker
-Online tracking of groups of small animals in a planar environment in real time. See [bioRxiv](http://dx.doi.org/10.1101/071308) for details on the tracking methods. If you use xyTracker, please cite the paper [bioRxiv](http://dx.doi.org/10.1101/071308). 
+Online tracking of groups of small animals in a planar environment in real time. See [bioRxiv](http://dx.doi.org/10.1101/071308) for details on the tracking methods. If you use xyTracker, please cite the  [bioRxiv](http://dx.doi.org/10.1101/071308) paper. 
 
 
 xyTracker is a modular Matlab platform for real-time tracking of

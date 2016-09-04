@@ -11,7 +11,7 @@ is not lost for long tracking experiments. The name "xy" derives from Chinese "X
 
 The tracking system includes 3 versions (in order of increasing performance): A purely matlab based version, an OpenCV/matlab version, and an optimized MEX/C++/OpenCV version. All versions have the same matlab interface. The system automatically chooses the fastest available version depending what additional packages are installed on the system. 
 
-For the matlab-based version, only matlab (including the image processing toolbox) has to be installed. For the OpenCV versions, one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Additionally, for grabbing form ptGray cameras one needs to have installed the FlyCapture SDK. 
+For the matlab-based version, only matlab (including the image processing toolbox and the vision toolbox) has to be installed. For the OpenCV versions, one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Additionally, for grabbing form ptGray cameras one needs to have installed the FlyCapture SDK. 
 
 For stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and in the matlab path. Note, that the xy.Tracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 

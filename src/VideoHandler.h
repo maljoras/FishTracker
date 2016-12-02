@@ -1,3 +1,6 @@
+#include <glibmm/threads.h>
+#include <glibmm/timer.h>
+#include <glibmm/init.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -12,9 +15,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <glibmm/threads.h>
-#include <glibmm/timer.h>
-#include <glibmm/init.h>
 
 #ifdef FLYCAPTURE
 #include "SaveVideoClass.h"

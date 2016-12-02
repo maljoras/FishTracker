@@ -137,7 +137,7 @@ ifneq ($(ALLTARGET),helper)
 endif
 
 # compiler/linker flags
-override CFLAGS  +=  -I$(INCLUDEDIR)  $(CV_CFLAGS) $(FLYCAPINCLUDES) $(FLYCAPFLAG)
+override CFLAGS  +=  CXXFLAGS='-std=c++11 -fPIC' -I$(INCLUDEDIR) $(FLYCAPINCLUDES) $(FLYCAPFLAG) $(CV_CFLAGS) 
 override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPLIBS) 
 
 

@@ -384,6 +384,9 @@ classdef Tracker < handle;
       
 
     %% test
+    function [self] = runSimpleTest(tmax,plotif)
+      [~,~,~,~,self] = xy.Tracker.runTest(tmax,[],[],[],plotif);
+    end
     
     function [success,t_elapsed,varargout] = runTest(tmax,opts,pathToVideo,pathToMat,plotif)
     %[SUCCESS,T_ELAPSED] = RUNTEST(TMAX,OPTS,PATHTOVIDEO,PATHTOMAT,PLOTIF) makes a validation versus

@@ -19,6 +19,10 @@ function setDisplay(self,varargin)
     if number>1
       self.opts.display.tracks = true;
     end
+    if number>9
+      self.opts.display.displayEveryNFrame = 1;
+    end
+    
   elseif ~mod(length(varargin),2) && length(varargin)>0
     for i = 1:2:length(varargin)
       assert(ischar(varargin{i}))

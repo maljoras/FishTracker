@@ -63,11 +63,11 @@ classdef VideoReader < handle;
       
     end
     
-    function frameSize= a_getFrameSize(self);
+    function frameSize= a_getFrameSize(self)
       frameSize = [get(self.reader,'FrameHeight'),get(self.reader,'FrameWidth')];
     end
     
-    function [frame oframe] = a_readScaledSFrame(self,scale,delta);      
+    function [frame oframe] = a_readScaledSFrame(self,scale,delta)      
       if self.originalif
         [frame oframe]= self.reader.readScaledS(scale,delta);
       else
@@ -76,7 +76,7 @@ classdef VideoReader < handle;
       end
     end
     
-    function [frame oframe] = a_readScaledUFrame(self,scale,delta);      
+    function [frame oframe] = a_readScaledUFrame(self,scale,delta)      
       if self.originalif
         [frame oframe] = self.reader.readScaledU(scale,delta);
       else
@@ -114,7 +114,7 @@ classdef VideoReader < handle;
       end
     end
     
-    function [frame oframe] = a_readInvertedGraySFrame(self);      
+    function [frame oframe] = a_readInvertedGraySFrame(self)      
       if self.originalif
         [frame oframe] = self.reader.readInvertedGraySingle();
       else
@@ -132,7 +132,7 @@ classdef VideoReader < handle;
       end
     end
     
-    function [frame oframe] = a_readSFrame(self);      
+    function [frame oframe] = a_readSFrame(self)      
       if self.originalif
         [frame oframe]= self.reader.readSingle();
       else
@@ -141,13 +141,13 @@ classdef VideoReader < handle;
       end
     end
     
-    function bool = a_hasFrame(self);
+    function bool = a_hasFrame(self)
       nextFrame = get(self.reader,'PosFrames');
       bool = nextFrame<self.nFrames; % starts from 0!
     end
     
     
-    function a_delete(self);
+    function a_delete(self)
       self.reader.delete();
       self.reader = [];
     end
@@ -162,7 +162,7 @@ classdef VideoReader < handle;
       end
     end
 
-    function playMsk(self);
+    function playMsk(self)
       vp = vision.VideoPlayer('Name',self.videoFile);
       cont = self.hasFrame();
       fgbg = cv.BackgroundSubtractorMOG2()
@@ -373,19 +373,19 @@ classdef VideoReader < handle;
         case 'RGBS'
           [self.frame self.oframe]= a_readSFrame(self);
         case 'RGBU'
-          [self.frame self.oframe] = a_readUFrame(self);
+          [self.frame, self.oframe] = a_readUFrame(self);
         case 'GRAYU'
-          [self.frame self.oframe] = a_readGrayUFrame(self);
+          [self.frame, self.oframe] = a_readGrayUFrame(self);
         case 'GRAYS'
           [self.frame self.oframe] = a_readGraySFrame(self);
         case 'IGRAYU'
           [self.frame self.oframe] = a_readInvertedGrayUFrame(self);
         case 'IGRAYS'
-          [self.frame self.oframe] = a_readInvertedGraySFrame(self);
+          [self.frame, self.oframe] = a_readInvertedGraySFrame(self);
         case 'SCALEDU'
-          [self.frame self.oframe] = a_readScaledUFrame(self,self.scale,self.delta);
+          [self.frame, self.oframe] = a_readScaledUFrame(self,self.scale,self.delta);
         case 'SCALEDS'
-          [self.frame self.oframe] = a_readScaledSFrame(self,self.scale,self.delta);
+          [self.frame, self.oframe] = a_readScaledSFrame(self,self.scale,self.delta);
         otherwise
           error('Format not known');
       end

@@ -23,6 +23,7 @@ classdef Tracker < handle;
     useOpenCV = 1;
     useScaledFormat = 0;
     useKNN = 0;
+    hasVision = 0;
     
     verbosity = 1;
     displayif = 3;    
@@ -116,6 +117,7 @@ classdef Tracker < handle;
     timeStamp = [];
     lastTimeStamp = [];
     dt = [];
+    
     
     %    MAXCROSSBODY = 10; % MAX number of cross for many body....DEVELOPMENTAL
   end
@@ -706,7 +708,7 @@ classdef Tracker < handle;
       
     end
     
-    function stepVideoWriter(self,frame);
+    function stepVideoWriter(self,frame)
       if ~isempty(self.videoWriter)
         if xy.helper.hasOpenCV() && self.useOpenCV
           self.videoWriter.write(frame);
@@ -719,7 +721,7 @@ classdef Tracker < handle;
     
     function [writer] = newVideoWriter(self,vidname)
       xy.helper.verbose('Init VideoWriter "%s"',vidname);
-      if xy.helper.hasOpenCV() && self.useOpenCV
+      if (xy.helper.hasOpenCV() && self.useOpenCV) || ~self.hasVision 
         writer = cv.VideoWriter(vidname,self.videoHandler.frameSize([2,1]),'FPS',self.videoHandler.frameRate,'fourcc','X264');
       else
         writer = vision.VideoFileWriter(vidname,'FrameRate',self.videoHandler.frameRate);
@@ -728,8 +730,13 @@ classdef Tracker < handle;
     
     
     function [player] = newVideoPlayer(self,vidname)
-      player = vision.VideoPlayer();
-      %player = xy.core.VideoPlayer();
+      
+      if self.hasVision
+        player = vision.VideoPlayer();
+      else
+        player = xy.core.VideoPlayer();
+      end
+      
     end
     
     
@@ -755,7 +762,9 @@ classdef Tracker < handle;
         handler = xy.core.VideoHandlerMatlab(vidname,timerange,self.useKNN,opts);
       end
       timerange = handler.timeRange;
-
+  
+          
+      
     end
 
     
@@ -817,12 +826,14 @@ classdef Tracker < handle;
     % Initialize Video I/O
     % Create objects for reading a video from a file, drawing the tracked
     % objects in each frame, and playing the video.
-
+      
       if ~xy.Tracker.checkCompiled()
         error(['Please compile the code. Consult the Readme. ("make ' ...
                'clean;make" on linux)']);
       end
-          
+      %self.hasVision = ~isempty(which('vision.VideoPlayer'));
+    
+      
       %% Create a video file reader.
       self.videoHandler = [];
       [self.videoHandler,self.timerange] = self.newVideoHandler(vid,self.timerange);

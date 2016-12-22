@@ -13,12 +13,21 @@ using namespace std;
 using namespace cv;
 
 //#define MAX(x,y) x>y?x:y
+#define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
 
 #ifdef DEBUG
 #define Debug(x) do { x } while(0)
 #else
 #define Debug(x) do { } while(0)
 #endif
+
+#ifdef DEBUG
+#define TIMER_ELAPSED ( std::clock() - timer ) / (double) CLOCKS_PER_SEC
+#define TIMER_START timer = std::clock();
+#define TIMER_INIT std::clock_t; timer = std::clock();
+#endif
+
+
 
 Segment::Segment() {}
 Segment::~Segment() {};
@@ -38,7 +47,6 @@ VideoHandler::VideoHandler(const string inFname,bool inKnnMethod)
   m_availableSegment = false;
   m_threadsAlive = false;
 
-  Glib::init();
   initPars();
 };
 
@@ -59,7 +67,6 @@ VideoHandler::VideoHandler(int camIdx, const string inFname, bool inKnnMethod)
   m_availableSegment = false;
   m_threadsAlive = false;
   
-  Glib::init();
   initPars();
 }
 #endif
@@ -134,10 +141,12 @@ void VideoHandler::plotFrame(cv::Mat frame,const string windowName) {
 
 /****************************************************************************************/
 void VideoHandler::startThreads() {
-  m_nextFrameThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoHandler::readNextFrameThread));
-  Glib::usleep(200);
-  m_segmentThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoHandler::segmentThread));
-  Glib::usleep(200);
+
+  m_nextFrameThread = new std::thread(&VideoHandler::readNextFrameThread,this);
+  sleep(100);
+
+  m_segmentThread = new std::thread(&VideoHandler::segmentThread,this);
+  sleep(100);
   m_threadsAlive = true;
 }
 
@@ -148,21 +157,23 @@ void VideoHandler::deleteThreads() {
     m_keepNextFrameThreadAlive = false;
     m_keepSegmentThreadAlive = false;
 
-    m_emptyNextFrameCond.signal();
-    m_emptySegmentCond.signal();
-    //m_availableSegmentCond.signal();
-    //m_availableNextFrameCond.signal();
+    m_emptyNextFrameCond.notify_one();
+    m_emptySegmentCond.notify_one();
     
     while ((!m_nextFrameThreadFinished) || (!m_segmentThreadFinished)) {
-      Glib::usleep(200);
+      sleep(100);
     }
     
     if ((m_segmentThread!=NULL)) {
       m_segmentThread->join();
+      delete(m_segmentThread);
+      m_segmentThread = NULL;
     }
 
     if ((m_nextFrameThread!=NULL)) {
       m_nextFrameThread->join();
+      delete(m_nextFrameThread);
+      m_nextFrameThread = NULL;
     }
 
     m_threadsAlive = false;
@@ -178,7 +189,7 @@ void VideoHandler::reinitThreads() {
     if (!m_camera) {
       waitThreads(); // Nextframe will be second last, segment last frame. 
       
-      Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+      std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       int iframe;
       iframe = pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
  
@@ -190,19 +201,19 @@ void VideoHandler::reinitThreads() {
 
     }
     // signal that a new frame needs to be collected
-    { Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+    { std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       m_availableNextFrame = false;
-      m_emptyNextFrameCond.signal();
+      m_emptyNextFrameCond.notify_one();
     }
     {// wait frame to finish
-      Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+      std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       while ((!m_availableNextFrame) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-	m_availableNextFrameCond.wait(m_NextFrameMutex);
+	m_availableNextFrameCond.wait(lock);
     }
     // signal that a new frame can be handled
-    { Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    { std::unique_lock<std::mutex> lock(m_SegmentMutex);
       m_availableSegment = false;
-      m_emptySegmentCond.signal();
+      m_emptySegmentCond.notify_one();
     }
   }
 }
@@ -212,15 +223,15 @@ void VideoHandler::reinitThreads() {
 void VideoHandler::waitThreads() {
 
   { // first wait segment to finish
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     while ((!m_availableSegment) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-      m_availableSegmentCond.wait(m_SegmentMutex);
+      m_availableSegmentCond.wait(lock);
   }
 
   {// wait next frame to finish
-    Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+    std::unique_lock<std::mutex> lock(m_NextFrameMutex);
     while ((!m_availableNextFrame) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-      m_availableNextFrameCond.wait(m_NextFrameMutex);
+      m_availableNextFrameCond.wait(lock);
   }
 }
 
@@ -317,7 +328,7 @@ void VideoHandler::stop() {
 /****************************************************************************************/
 void VideoHandler::getOFrame(cv::Mat * pFrame) {
   {
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     if ((!m_camera) && (colorfeature))
       cvtColor(m_OFrame,*pFrame,cv::COLOR_BGR2RGB);
     else
@@ -327,7 +338,7 @@ void VideoHandler::getOFrame(cv::Mat * pFrame) {
 /****************************************************************************************/
 void VideoHandler::getBWImg(cv::Mat * pBWImg) {
   {
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     m_BWImg.copyTo(*pBWImg); // might be not the latest one. Actually, likley the next one
   }
 }
@@ -349,9 +360,9 @@ int VideoHandler::step(vector<Segment> * pSegs,  double * pTimeStamp, cv::Mat * 
   cv::Mat bwimg;
   
   {
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     while ((!m_availableSegment) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-      m_availableSegmentCond.wait(m_SegmentMutex);
+      m_availableSegmentCond.wait(lock);
 
     if ((m_nextFrameThreadFinished)|| (m_segmentThreadFinished)) {
       cout << "WARNING: threads are finished or not started. step not excecuted" << endl;
@@ -377,7 +388,7 @@ int VideoHandler::step(vector<Segment> * pSegs,  double * pTimeStamp, cv::Mat * 
 
     // signal stuff
     m_availableSegment = false;
-    m_emptySegmentCond.signal();
+    m_emptySegmentCond.notify_one();
   }
 
   if (plotif) {
@@ -399,15 +410,15 @@ void VideoHandler::readNextFrameThread()
   while (m_keepNextFrameThreadAlive) {
 
     {
-      Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+      std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       // wait for segment thread  handling
       while ((m_availableNextFrame) && (m_keepNextFrameThreadAlive)) {
-	m_emptyNextFrameCond.wait(m_NextFrameMutex);
+	m_emptyNextFrameCond.wait(lock);
       }
       if (!m_keepNextFrameThreadAlive)
 	continue;
 
-      Debug(Glib::Timer timer;timer.start(););
+      Debug(TIMER_INIT);
 
       Mat oframe;
 #ifdef FLYCAPTURE
@@ -477,7 +488,7 @@ void VideoHandler::readNextFrameThread()
       }
     
     
-      Debug(cout << "reading frame: " <<  timer.elapsed() << endl; timer.start(););
+      Debug(cout << "reading frame: " <<  TIMER_ELAPSED << endl; TIMER_START);
       
     
       // background computation (THIS IS THE SLOWEST PART!)
@@ -495,7 +506,7 @@ void VideoHandler::readNextFrameThread()
       }
       
     
-      Debug(cout << "background sub: " <<  timer.elapsed() << endl;);
+      Debug(cout << "background sub: " <<  TIMER_ELAPSED << endl;);
 	      
       m_NextFrame = frame;
       if (colorfeature)
@@ -505,7 +516,7 @@ void VideoHandler::readNextFrameThread()
     
       // thread stuff signal the end
       m_availableNextFrame = true;
-      m_availableNextFrameCond.signal();
+      m_availableNextFrameCond.notify_one();
     }
   }
   m_nextFrameThreadFinished = true;
@@ -521,21 +532,21 @@ void VideoHandler::segmentThread()
   while (m_keepSegmentThreadAlive) {
     
     {
-      Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+      std::unique_lock<std::mutex> lock(m_SegmentMutex);
       
       while ((m_availableSegment) && (m_keepSegmentThreadAlive)){
-	m_emptySegmentCond.wait(m_SegmentMutex);
+	m_emptySegmentCond.wait(lock);
       }
       if (!m_keepSegmentThreadAlive)
 	continue;
 
       // start new Segment computation
       {
-	Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+	std::unique_lock<std::mutex> lock(m_NextFrameMutex);
 	
 	while ((!m_availableNextFrame) && (m_keepSegmentThreadAlive)
 	       && (!m_nextFrameThreadFinished)) {
-	  m_availableNextFrameCond.wait(m_NextFrameMutex);
+	  m_availableNextFrameCond.wait(lock);
 	}
 	
 	if ((!m_keepSegmentThreadAlive) || (m_nextFrameThreadFinished))
@@ -559,15 +570,14 @@ void VideoHandler::segmentThread()
 	m_TimeStamp = m_NextTimeStamp;
 	
 	m_availableNextFrame = false; 
-	m_emptyNextFrameCond.signal();
+	m_emptyNextFrameCond.notify_one();
       }
       
       
       if (computeSegments) {
 	  
 	
-	Debug(Glib::Timer timer;
-	  timer.start(););
+	Debug(TIMER_INIT);
 	  
 	
 	// finding contours
@@ -575,8 +585,7 @@ void VideoHandler::segmentThread()
 	findBodyContours(m_BWImg,&contours);
 	
 	
-	Debug(cout << "contours: " <<  timer.elapsed() << endl;
-	  timer.start(););
+	Debug(cout << "contours: " << TIMER_ELAPSED << endl; TIMER_START);
 
 	
 	Segment segm;
@@ -603,13 +612,13 @@ void VideoHandler::segmentThread()
 	}
 
 	Debug(cout << m_NextSegments.size() << endl;
-	  cout << "segments: " <<  timer.elapsed() << endl;);
+	  cout << "segments: " <<  TIMER_ELAPSED << endl;);
 	
       }
       
       // signal stuff
       m_availableSegment = true; 
-      m_availableSegmentCond.signal();
+      m_availableSegmentCond.notify_one();
     }
   }
   m_segmentThreadFinished = true;

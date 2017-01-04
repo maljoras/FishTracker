@@ -191,7 +191,7 @@ for real-time tracking of 4 animals (with a camera with index 0)
 >> clear all; % will release the video hardware
 ~~~~
 
-Note that the camera index is given as a string in matlab. Cameras indeces 0-9 are supported. However, in contrast to the FlyCapture Method (see above), the video is currently not saved in background, when using this VideoCapture method.  
+Note that the camera index is given as a string in matlab. Cameras indices 0-9 are supported. However, in contrast to the FlyCapture method (see above), the grabbed video is currently not encoded and saved in the background, when using this VideoCapture method.  
 
 
 ## Stimulation

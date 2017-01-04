@@ -4,11 +4,9 @@
 
 using namespace FlyCapture2;
 
-//#define DEBUG
-#define WAITSECONDS 1
 
-//using namespace cv;
-
+#define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
+#define TIMER_ELAPSED ( std::clock() - m_timer ) / (double) CLOCKS_PER_SEC
 
 VideoSaver::VideoSaver()
 {
@@ -19,11 +17,6 @@ VideoSaver::VideoSaver()
   m_writing = false;
   m_newFrameAvailable = false;
   
-  Glib::init();
-
-  // pthread_attr_init(&m_attr);
-  // pthread_attr_setdetachedstate(&m_attr,PTHREAD_CREATE_JOINABLE);
-  // pthread_mutex_init(&m_FrameMutex,NULL);
 
 };
 
@@ -31,9 +24,6 @@ VideoSaver::VideoSaver()
 VideoSaver::~VideoSaver()
 {
   close();
-  // pthread_attr_destroy(&m_attr);
-  // pthread_mutex_destroy(&m_FrameMutex);
-  // pthread_exit(NULL);
 }
 
 int VideoSaver::close()
@@ -46,7 +36,7 @@ int VideoSaver::close()
       error.PrintErrorTrace();
       return -1;
     }
-    Glib::usleep(1000);
+    sleep(1000);
   }
   return 0;
 }
@@ -175,11 +165,16 @@ void VideoSaver::_stopWriting()
   m_KeepThreadAlive = false;
 
   while ((!m_GrabbingFinished) || (!m_WritingFinished))
-    Glib::usleep(100);
+    sleep(100);
 
   m_captureThread->join();
+  delete(m_captureThread);
+  m_captureThread = NULL;
+
   if (m_writing) {
     m_writingThread->join();
+    delete(m_writingThread);
+    m_writingThread = NULL;
   }
 }
 
@@ -203,11 +198,14 @@ int VideoSaver::getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumbe
     waitForNewFrame();
     
     {
-      Glib::Threads::Mutex::Lock lock(m_FrameMutex);
-      if (m_Frame.size().width==0)
-	*pFrame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
-      else
-	m_Frame.copyTo(*pFrame);
+      std::unique_lock<std::mutex> lock(m_FrameMutex);
+      
+      if (m_Frame.size().width==0) {
+	      *pFrame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
+      }
+      else {
+	      m_Frame.copyTo(*pFrame);
+      }
       *pTimeStamp = m_LocalTimeStamp;
       *pFrameNumber = m_frameNumber;
       m_newFrameAvailable = false;
@@ -264,11 +262,10 @@ int VideoSaver::startCapture() {
     m_newFrameAvailable = false;
     std::cout <<  "Start video grabbing .." << std::endl;
 
-    //boost::thread captureThread(&VideoSaver::_captureThread,this);
-    m_captureThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoSaver::_captureThread));
+    m_captureThread = new std::thread(&VideoSaver::_captureThread,this);
 
     // wait for startup
-    Glib::usleep(500);
+    sleep(500);
     waitForNewFrame();
     return 0;
 
@@ -281,27 +278,11 @@ int VideoSaver::startCapture() {
 
 void VideoSaver::waitForNewFrame() {
 
-  Glib::Timer timer;
-  timer.start();
+  std::unique_lock<std::mutex> lock(m_FrameMutex);
 
-  while (1) {
-    {
-      Glib::Threads::Mutex::Lock lock(m_FrameMutex);
-#ifdef DEBUG
-      std::cout << m_newFrameAvailable;
-#endif
-      if (m_newFrameAvailable) 
-	break;
-      if (timer.elapsed()>WAITSECONDS) {
-	std::cout << "waited for long enough. No Frame ?" << std::endl;
-#ifdef DEBUG
-	std::cout << " framenumber: " << m_frameNumber << std::endl;
-	std::cout << " Camera connected: " << m_Camera.IsConnected() << std::endl;
-#endif
-      }
-    }
-    Glib::usleep(200);
-  }
+  while (!m_newFrameAvailable) {
+    m_newFrameAvailableCond.wait(lock);
+  } 
 }
 
 
@@ -338,8 +319,8 @@ int VideoSaver::startCaptureAndWrite(const string inFname, string codec)
   // start the writing thread
   std::cout <<  "Start video saving.." << std::endl;
   m_writing = true;
-  m_writingThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoSaver::_captureAndWriteThread));
-
+  m_writingThread = new std::thread(&VideoSaver::_captureAndWriteThread,this);
+  
   return 0;
 
 }
@@ -356,52 +337,47 @@ void VideoSaver::_captureThread()
   Image rawImage;
   Image rawImage2;
 
-  m_timer.start();
+  m_timer= std::clock();
   
-  while (m_KeepThreadAlive) 
-    {
+  while (m_KeepThreadAlive) {
 
-      Error error = m_Camera.RetrieveBuffer( &rawImage );
-      if ( error != PGRERROR_OK )
-	{
-	  error.PrintErrorTrace();
-	}
+    Error error = m_Camera.RetrieveBuffer( &rawImage );
+    if ( error != PGRERROR_OK ) {
+	     error.PrintErrorTrace();
+	  }
       
-      //get the time stamp
-      const double localtimestamp = m_timer.elapsed();
+    //get the time stamp
+    const double localtimestamp = TIMER_ELAPSED;
 
-      // convert to bgr
-      rawImage2.DeepCopy(&rawImage); // not sure if really needed since we convert below...
-      rawImage2.Convert(PIXEL_FORMAT_RGB, &rgbImage );
+    // convert to bgr
+    rawImage2.DeepCopy(&rawImage); // not sure if really needed since we convert below...
+    rawImage2.Convert(PIXEL_FORMAT_RGB, &rgbImage );
 
-      // convert to Mat
-      unsigned int rowBytes = (double) rgbImage.GetReceivedDataSize()/(double)rgbImage.GetRows();       
+    // convert to Mat
+    unsigned int rowBytes = (unsigned int) ((double) rgbImage.GetReceivedDataSize())/(double)rgbImage.GetRows();       
 
-      // copy to frame variable and update times
-      {
-	Glib::Threads::Mutex::Lock lock(m_FrameMutex);
-	m_Frame.release();
-	m_Frame = cv::Mat(rgbImage.GetRows(), rgbImage.GetCols(), CV_8UC3, rgbImage.GetData(),rowBytes);
-	// could this happen ?
-	if (m_Frame.size().width==0) 
-	   m_Frame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
+    // copy to frame variable and update times
+    {
+	     std::unique_lock<std::mutex> lock(m_FrameMutex);
+	     m_Frame.release();
+	     m_Frame = cv::Mat(rgbImage.GetRows(), rgbImage.GetCols(), CV_8UC3, rgbImage.GetData(),rowBytes);
+	     // could this happen ?
+	     if (m_Frame.size().width==0) 
+	       m_Frame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
 
-	//rawFrame.copyTo(m_Frame); 
-	m_TimeStamp = rawImage.GetTimeStamp();
-	m_frameNumber++;
-	m_LocalTimeStamp = localtimestamp;
-	m_newFrameAvailable = true;
-      }
+	     //rawFrame.copyTo(m_Frame); 
+	     m_TimeStamp = rawImage.GetTimeStamp();
+	     m_frameNumber++;
+	     m_LocalTimeStamp = localtimestamp;
+	     m_newFrameAvailable = true;
+       m_newFrameAvailableCond.notify_one();
+    }
 
-      //cv::namedWindow( "Frame", cv::WINDOW_AUTOSIZE );
-      //cv::imshow( "Frame", m_Frame);
-      //cv::waitKey(10);
-
-    } 
+  } 
   rawImage.ReleaseBuffer();
   rawImage2.ReleaseBuffer();
   rgbImage.ReleaseBuffer();
-
+  m_newFrameAvailableCond.notify_one();
     
   // stop the camera
   Error error = m_Camera.StopCapture();
@@ -431,44 +407,45 @@ void VideoSaver::_captureAndWriteThread()
   cv::Mat frame;
   FlyCapture2::TimeStamp timeStamp;
   double localTimeStamp;
-  while(m_KeepWritingAlive)
+  
+  while(m_KeepWritingAlive) {
+    
+    //unsigned int micsec = ctime.microSeconds;
+    const double currentTime =  TIMER_ELAPSED;
+
     {
-      //unsigned int micsec = ctime.microSeconds;
-      const double currentTime =  m_timer.elapsed();
-
-      {
-	Glib::Threads::Mutex::Lock lock(m_FrameMutex);
-
-	//frame = m_Frame.clone();
-	cv::cvtColor(m_Frame,frame,CV_RGB2BGR);	
-	localTimeStamp = m_LocalTimeStamp;
-	timeStamp = m_TimeStamp;
-	grabbedFrameNumber = m_frameNumber;
-      }
-      //
-      m_Video.write(frame); // slow, thus out of the lock
+	    std::unique_lock<std::mutex> lock(m_FrameMutex);
+	    cv::cvtColor(m_Frame,frame,CV_RGB2BGR);	
+	    localTimeStamp = m_LocalTimeStamp;
+	    timeStamp = m_TimeStamp;
+	    grabbedFrameNumber = m_frameNumber;
+    }
+      
+    m_Video.write(frame); // slow, thus out of the lock
 
 
-      if (timeStamp.microSeconds==0) // seems not to work
-	m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  std::fixed << std::setprecision(5) << localTimeStamp << std::endl;
-      else 
-	m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  std::fixed << std::setprecision(5) << timeStamp.seconds << "\t" << timeStamp.microSeconds << std::endl;
-
-      frameNumber++; // this is the writing number 
-
-#ifdef COMPILE_AS_EXECUTABLE
-      m_FPSCounter.NewFrame();
-#endif
-      const double thisTime = m_timer.elapsed();
-      const double seconds = thisTime - currentTime;	
-      delayFound = static_cast<int> (1000./m_FrameRateToUse - seconds*1000.);
-      if (delayFound>0)
-	Glib::usleep(delayFound*1000);
-
+    if (timeStamp.microSeconds==0)  { // seems not to work
+	     m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  std::fixed << std::setprecision(5) << localTimeStamp << std::endl;
+    }
+    else { 
+	     m_OutputFile << frameNumber << "\t" << grabbedFrameNumber <<"\t" <<  std::fixed << std::setprecision(5) << timeStamp.seconds << "\t" << timeStamp.microSeconds << std::endl;
     }
 
+    frameNumber++; // this is the writing number 
+
+#ifdef COMPILE_AS_EXECUTABLE
+    m_FPSCounter.NewFrame();
+#endif
+    const double thisTime = TIMER_ELAPSED;
+    const double seconds = thisTime - currentTime;	
+    delayFound = static_cast<int> (1000./m_FrameRateToUse - seconds*1000.);
+    if (delayFound>0) {
+	     sleep(delayFound*1000);
+    }
+  }
+
   while (!m_GrabbingFinished)
-    Glib::usleep(1000);
+    sleep(1000);
     
   //close the files
   m_Video.release();

@@ -71,7 +71,7 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
   end
     
   methods(Access=private);
-    function bboxes = transformBbox(self,bboxes,velocity,stmSizeFactor,stmShift,stmShiftOri);
+    function bboxes = transformBbox(self,bboxes,velocity,stmSizeFactor,stmShift,stmShiftOri)
       
       % enlarging
       bboxes(:,[1,2]) = bboxes(:,[1,2])+bsxfun(@times,bboxes(:,[3,4]),(1-stmSizeFactor(:))/2);
@@ -311,7 +311,7 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
     end
     
 
-    function saveTrackTextures(self,tracks);
+    function saveTrackTextures(self,tracks)
 
       sbbox = self.screenBoundingBox;   
 
@@ -325,7 +325,7 @@ classdef PresenterTrackTextures < xy.stimulus.Presenter;
         seg = tracks(i).segment;
 
         if ~isempty(seg)
-          img = flipud(fliplr(seg.Image));
+          img = rot90(seg.Image,2);
           bodyori(i) = seg.Orientation;
         else
           img = 0;

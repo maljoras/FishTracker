@@ -293,7 +293,7 @@ function texture = makeTexture(typestr,dim,varargin)
     gamma = opts.gamma;
     
     [f1,f2] = freqspace(dim,'meshgrid');
-    z = [find(f1==0 & f2==0)];
+    z = find(f1==0 & f2==0);
     f1(z) = 1; %mean power
     f2(z) = 1; %irrelevant
 

@@ -1,4 +1,4 @@
-function a2 = submargin(a1,varargin);
+function a2 = submargin(a1,varargin)
 %  A1 = SUBMARGIN(A,X,Y,...) plots a second plot below the actual plot
 %  and reduces the size of the first axis. 
 
@@ -11,31 +11,31 @@ function a2 = submargin(a1,varargin);
   
   args = varargin;
   for i = length(args)-1:-2:1
-    if strcmp(lower(args{i}),'location')
+    if strcmpi(args{i},'location')
       location = args{i+1};
       args{i} = [];
       args{i} = [];
     end
     
-    if strcmp(lower(args{i}),'space')
+    if strcmpi(args{i},'space')
       SPACE = args{i+1};
       args{i} = [];
       args{i} = [];
     end
 
-    if strcmp(lower(args{i}),'percent')
+    if strcmpi(args{i},'percent')
       PERCENT = args{i+1};
       args{i} = [];
       args{i} = [];
     end
     
-    if strcmp(lower(args{i}),'margin')
+    if strcmpi(args{i},'margin')
       MARGIN = args{i+1};
       args{i} = [];
       args{i} = [];
     end
 
-    if strcmp(lower(args{i}),'swap')
+    if strcmpi(args{i},'swap')
       SWAP = args{i+1};
       args{i} = [];
       args{i} = [];

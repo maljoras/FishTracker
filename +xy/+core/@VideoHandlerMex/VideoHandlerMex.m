@@ -35,7 +35,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
   end
 
   methods(Static)
-    function bool = installed();
+    function bool = installed()
       bool = ~~exist('xyVideoHandler_');
     end
   end
@@ -146,34 +146,33 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
       value =xyVideoHandler_(self.id, 'get', 'computeSegments');
     end
     
-    function value = get.resizeif(self);
+    function value = get.resizeif(self)
       value = xyVideoHandler_(self.id, 'get', 'resizeif');
     end
-    function set.resizeif(self,value);
+    function set.resizeif(self,value)
       xyVideoHandler_(self.id, 'set', 'resizeif',value);
     end
     
-    function value = get.difffeature(self);
+    function value = get.difffeature(self)
       value = xyVideoHandler_(self.id, 'get', 'difffeature');
     end
-    function set.difffeature(self,value);
+    function set.difffeature(self,value)
       xyVideoHandler_(self.id, 'set', 'difffeature',value);
     end
 
-    function value = get.fixedSize(self);
+    function value = get.fixedSize(self)
       value = xyVideoHandler_(self.id, 'get', 'fixedSize');
     end
     
-    function set.fixedSize(self,value);
+    function set.fixedSize(self,value)
       xyVideoHandler_(self.id, 'set', 'fixedSize',value);
     end
 
-
-    function value = get.resizescale(self);
+    function value = get.resizescale(self)
       value = xyVideoHandler_(self.id, 'get', 'resizescale');
     end
     
-    function set.resizescale(self,value);
+    function set.resizescale(self,value)
       xyVideoHandler_(self.id, 'set', 'resizescale',value);
     end
     
@@ -200,11 +199,11 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
       xyVideoHandler_(self.id, 'set', 'scaled',false);
     end
     
-    function frame = getCurrentFrame(self);
+    function frame = getCurrentFrame(self)
       frame = xyVideoHandler_(self.id,'getFrame');
     end
     
-    function bwimg = getCurrentBWImg(self);
+    function bwimg = getCurrentBWImg(self)
       bwimg = xyVideoHandler_(self.id,'getBWImg');
     end
 
@@ -297,11 +296,11 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
       xyVideoHandler_(self.id,'set','plotif',bool);      
     end
     
-    function bool = isGrabbing(self);
+    function bool = isGrabbing(self)
       bool = xyVideoHandler_(self.id,'get','camera') ; 
     end
 
-    function verbose(self);
+    function verbose(self)
       verbose@xy.core.VideoReader(self);
       if self.knnMethod 
         xy.helper.verbose('Using KNN for foreground subtraction...');
@@ -315,7 +314,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
   %%%%%%%%%%%% Overloaded methods (READER) 
   methods(Access=protected);
     
-    function a_startReader(self);
+    function a_startReader(self)
 
       global global_knnMethod; % somewaht a hack...
       knnMethod = global_knnMethod;
@@ -339,20 +338,21 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
     
 
     
-    function dur = a_getDuration(self);
+    function dur = a_getDuration(self)
       dur = self.a_getNFrames()/self.a_getFrameRate();
     end
     
-    function nframes = a_getNFrames(self);
+    function nframes = a_getNFrames(self)
       nframes = xyVideoHandler_(self.id,'get','FrameCount');
-      if nframes==0
+      
+      if nframes<=0
         % strange. cannot find how many frames. Assume Inf. Maybe camera
         nframes = Inf;
       end
       
     end
     
-    function frameRate = a_getFrameRate(self);
+    function frameRate = a_getFrameRate(self)
       frameRate = xyVideoHandler_(self.id,'get','FPS');
 
       if isnan(frameRate) % strange thing that this sometimes happens
@@ -364,24 +364,24 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
       
     end
     
-    function frameSize= a_getFrameSize(self);
+    function frameSize= a_getFrameSize(self)
       
       frameSize = [ xyVideoHandler_(self.id,'get','FrameHeight'),...
                     xyVideoHandler_(self.id,'get','FrameWidth')];
     end
     
-    function bool = a_hasFrame(self);
+    function bool = a_hasFrame(self)
       nextFrame = xyVideoHandler_(self.id,'get','PosFrames');
       bool = nextFrame<self.nFrames; % starts from 0!
     end
     
     
-    function a_delete(self); %% overwrite VideoCapture.delete: do nothing
+    function a_delete(self) %% overwrite VideoCapture.delete: do nothing
       xyVideoHandler_(self.id,'delete');
     end
     
     
-    function a_setCurrentTime(self,time);
+    function a_setCurrentTime(self,time)
     % time is given in seconds
       nextFrame = max(floor(time*self.frameRate),0);
       pos = xyVideoHandler_(self.id,'get','PosFrames');
@@ -391,7 +391,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
     end
 
     
-    function  [frame,oframe] = a_readUFrame(self);      
+    function  [frame,oframe] = a_readUFrame(self)
 
 
       if self.useScaled
@@ -403,32 +403,32 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
     end
     
 
-    function [frame,oframe] = a_readSFrame(self);
+    function [frame,oframe] = a_readSFrame(self)
       [frame,oframe] = a_readUFrame(self);
-      frame = single(frame)/255.
+      frame = single(frame)/255.;
       oframe = single(oframe)/255.;
     end
 
-    function  [frame,oframe] = a_readGrayUFrame(self);      
+    function  [frame,oframe] = a_readGrayUFrame(self) 
       [frame,oframe] = a_readUFrame(self); 
     end
 
 
-    function [frame,oframe] = a_readGraySFrame(self);  
+    function [frame,oframe] = a_readGraySFrame(self)
       [frame,oframe] = a_readSFrame(self);
     end
     
-    function [frame,oframe] = a_readInvertedGrayUFrame(self); 
+    function [frame,oframe] = a_readInvertedGrayUFrame(self)
       [frame,oframe] = a_readGrayUFrame(self); 
       frame = 255-frame;
     end
     
-    function [frame,oframe] = a_readInvertedGraySFrame(self);      
+    function [frame,oframe] = a_readInvertedGraySFrame(self)
       [frame,oframe] = a_readGraySFrame(self); 
       frame = 1-frame;
     end
     
-    function  [frame,oframe] = a_readScaledUFrame(self);      
+    function  [frame,oframe] = a_readScaledUFrame(self)     
 
       if ~self.useScaled
         xy.helper.verbose('WARNING: Set permanently to scaled format')
@@ -440,7 +440,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
       
     end
 
-    function  [frame,oframe] = a_readScaledSFrame(self);      
+    function  [frame,oframe] = a_readScaledSFrame(self)   
       [frame,oframe] = a_readScaledUFrame(self);
       frame = single(frame)/255.;
     end
@@ -452,7 +452,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
 % $$$     function  [outregion] = a_computeMSERregions(self,inregion,bb2);
 % $$$     end
     
-    function regions = a_getRegions(self,bwimg,Iframe,rprops);
+    function regions = a_getRegions(self,bwimg,Iframe,rprops)
     % already done. 
       regions = self.segm;
     end
@@ -463,7 +463,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
 % $$$     function  msk = a_closeHoles(self,msk);
 % $$$     end
     
-    function a_init(self);
+    function a_init(self)
     % pass all  the properties to the C-core
           
     %a_init@xy.core.BlobAnalysis(self);

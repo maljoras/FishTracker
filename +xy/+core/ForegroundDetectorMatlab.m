@@ -38,7 +38,7 @@ classdef ForegroundDetectorMatlab < xy.core.ForegroundDetector;
 
     function [bwimg, thres] = applyAutoThres(self,frame)
     % use the Autothresholder
-      [bwimg thres] =  step(self.thresholder, frame);
+      [bwimg, thres] =  step(self.thresholder, frame);
     end
     
 
@@ -61,10 +61,10 @@ classdef ForegroundDetectorMatlab < xy.core.ForegroundDetector;
 
   methods(Access=protected)
       
-    function a_setHistory(self,value);
+    function a_setHistory(self,value)
     end
     
-    function  bwmsk = a_step(self,frame);
+    function  bwmsk = a_step(self,frame)
 
       self.framecounter =  self.framecounter  + 1;
       
@@ -109,7 +109,7 @@ classdef ForegroundDetectorMatlab < xy.core.ForegroundDetector;
     end
 
     
-    function a_init(self);
+    function a_init(self)
       self.expectedFrameFormat = 'S';
       self.framecounter = 0;
       self.thresholder  = vision.Autothresholder('ThresholdOutputPort',1);

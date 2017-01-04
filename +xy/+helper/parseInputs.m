@@ -81,9 +81,9 @@
 %      24.8.2012           Fixed the var order in verbose when called
 
 if ~exist('STATIC','var')
-  if exist('WW','var') | exist('INPUTS','var') | exist('j','var') | ...
-      exist('i','var') | exist('SDEF','var') | exist('WWW','var') | ...
-      exist('INFOSTR','var') |       exist('EMPTYSTR','var')
+  if exist('WW','var') || exist('INPUTS','var') || exist('j','var') || ...
+      exist('i','var') || exist('SDEF','var') || exist('WWW','var') || ...
+      exist('INFOSTR','var') ||       exist('EMPTYSTR','var')
     error('please use different input var names!')
   end
 end
@@ -164,7 +164,7 @@ if exist('varargin','var');
     %option struc. additional ("par" value) field will override options
     %in opts-struc
 
-    if strcmp(lower(varargin{1}),'help')
+    if strcmpi(varargin{1},'help')
       HELP = 1; %for object methods
     else 
       %ordinary input

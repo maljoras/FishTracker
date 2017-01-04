@@ -19,7 +19,6 @@ function varargout = displayCurrentTracks(self)
     uframe = repmat(uframe,[1,1,3]);
   end
 
-
   if ~isempty(self.tracks)
     
     % Noisy detections tend to result in short-lived tracks.
@@ -47,7 +46,7 @@ function varargout = displayCurrentTracks(self)
       isPredicted(predictedTrackInds) = {' predicted'};
 
       for i = 1:length(reliableTracks)
-        if ~predictedTrackInds(i) & reliableTracks(i).assignmentCost>1
+        if ~predictedTrackInds(i) && reliableTracks(i).assignmentCost>1
           isPredicted{i} = sprintf('  %1.0d',round(reliableTracks(i).assignmentCost));
         end
       end
@@ -67,31 +66,52 @@ function varargout = displayCurrentTracks(self)
         
         clabels = uint8(cols(ids,:)*255);
         pclabels = uint8(cols(pids,:)*255);
-        % Draw the objects on the frame.
-        uframe = insertShape(uframe, 'FilledRectangle', bboxes,'Color',pclabels,'Opacity',0.2);
-        uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color',clabels);
-
-      else
-        % Draw the objects on the frame inm grey 
-        uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color', uint8([0.5,0.5,0.5]*255));
-      end
-      
-      center = cat(1, reliableTracks.location);
-      center = cat(2,center,max(self.bodylength/2,self.bodywidth)*ones(size(center,1),1));
-      
-      crossedTrackIdStrs = arrayfun(@(x)num2str(sort(x.crossedTrackIds)), reliableTracks,'uni',0);
-      [u,idxct,idxu] = unique(crossedTrackIdStrs);
-      for i =1:length(u)
-        crossId = reliableTracks(idxct(i)).crossedTrackIds;
-        [~,cross] =  ismember(crossId,[reliableTracks.id]);
-        cross(~cross) = [];
         
-        uframe = insertObjectAnnotation(uframe, 'circle', center(cross,:), 'Crossing!','Color', uint8(cols(i,:)*255));
+        % Draw the objects on the frame.
+        if self.hasVision
+          uframe = insertShape(uframe, 'FilledRectangle', bboxes,'Color',pclabels,'Opacity',0.2);
+          uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color',clabels);
+        elseif self.useOpenCV
+          
+          for i=1:size(bboxes,1)
+              uframe = cv.rectangle(uframe,bboxes(i,:),'Color',pclabels(i,:),'Thickness',2);
+              uframe = cv.putText(uframe,labels{i},bboxes(i,[1,2]),'Color',clabels(i,:),'Thickness',2);
+          end
+        end
+        
+      else
+        
+        % Draw the objects on the frame inm grey 
+        if self.hasVision
+            uframe = insertObjectAnnotation(uframe, 'rectangle', bboxes, labels,'Color', uint8([0.5,0.5,0.5]*255));
+        elseif self.useOpenCV
+            for i=1:size(bboxes,1)
+                uframe = cv.rectangle(uframe,bboxes(i,:),'Color', uint8([0.5,0.5,0.5]*255),'Thickness',3);  
+            end
+        end
+
       end
+      
+      
+      if self.hasVision
+          center = cat(1, reliableTracks.location);
+          center = cat(2,center,max(self.bodylength/2,self.bodywidth)*ones(size(center,1),1));
+      
+          crossedTrackIdStrs = arrayfun(@(x)num2str(sort(x.crossedTrackIds)), reliableTracks,'uni',0);
+          [u,idxct,~] = unique(crossedTrackIdStrs);
+          for i =1:length(u)
+              crossId = reliableTracks(idxct(i)).crossedTrackIds;
+              [~,cross] =  ismember(crossId,[reliableTracks.id]);
+              cross(~cross) = [];
+              uframe = insertObjectAnnotation(uframe, 'circle', center(cross,:), 'Crossing!','Color', uint8(cols(i,:)*255));
+              
+          end
+      end
+      
       
       
       %% insert some  features
-      if self.opts.display.level>1
+      if self.opts.display.level>1 && self.hasVision
         for i = 1:length(reliableTracks)
           
           id = reliableTracks(i).identityId;
@@ -120,10 +140,12 @@ function varargout = displayCurrentTracks(self)
       
       
       
-      if self.opts.display.level>2
+      if self.opts.display.level>1
         %% insert more markers
         if length(self.tracks)==self.nindiv
-          howmany = 25;
+
+          howmany = ceil(max(25,self.opts.display.displayEveryNFrame*1.25));
+
           idx = max(self.currentFrame-howmany,1):self.currentFrame;
           trackpos = self.pos(:,:,idx);
           f2t = self.identityId2TrackId(idx,:);
@@ -154,11 +176,18 @@ function varargout = displayCurrentTracks(self)
               inds = xy.helper.s2i(size(cli),[(1:size(cli,1))',idx1]);
               inds2 = cli(inds);
               pos1 = squeeze(trackpos(:,ii,~isnan(inds2)))';
-              cols1 = uint8(cols_grey(inds2(~isnan(inds2)),:)*255);
               cols2 = uint8(cols(ii,:)*255);
-              uframe = insertMarker(uframe, pos1, 'o', 'color', cols2 , 'size', 3);
-              uframe = insertMarker(uframe, pos1, 'x', 'color', cols1 , 'size', 2);
-            end
+
+              if self.hasVision
+                  cols1 = uint8(cols_grey(inds2(~isnan(inds2)),:)*255); 
+                  
+                  uframe = insertMarker(uframe, pos1, 'o', 'color', cols2 , 'size', 3);
+                  uframe = insertMarker(uframe, pos1, 'x', 'color', cols1 , 'size', 2);
+              elseif self.useOpenCV  
+                  uframe = cv.circle(uframe,pos1,3,'Color',cols2,'Thickness','Filled');
+                  uframe = cv.circle(uframe,pos1(inds2(~isnan(inds2))~=ii+1,:),2,'Color',cols_grey(1,:),'Thickness','Filled');
+              end
+            
           end
         end
       end

@@ -1,4 +1,4 @@
-function [a varargout]=labelsubplot(figureh,labels,fs);
+function [a, varargout]=labelsubplot(figureh,labels,fs)
 % labels all children of a given figure handle by putting a new axis with
 % a label on top of it. Gives back the handles of the new axes.
     
@@ -33,7 +33,7 @@ function [a varargout]=labelsubplot(figureh,labels,fs);
   end
 
   %from left to right, top to down
-  [dummy,inds] = sortrows([-p(:,2),p(:,1)]);
+  [~,inds] = sortrows([-p(:,2),p(:,1)]);
   
   ch = ch(inds);
   s = 0;

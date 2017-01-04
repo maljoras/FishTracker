@@ -23,7 +23,7 @@ function checkOpts(self)
     end
   end
   
-  if self.nindiv>10 & self.bodylength<80 &   self.opts.classifier.allSwitchProbThres<0.5
+  if self.nindiv>10 && self.bodylength<80 &&   self.opts.classifier.allSwitchProbThres<0.5
     warning(['Many small individuals. Consider increasing ' ...
              '"classifier.allSwitchProbThres"']);
     self.opts.classifier.allSwitchProbThres = 0.6;

@@ -1,6 +1,8 @@
-#include <glibmm/threads.h>
-#include <glibmm/timer.h>
-#include <glibmm/init.h>
+ 
+#include <thread>
+#include <mutex>
+#include <chrono>
+#include <condition_variable>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -13,7 +15,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+//#include <unistd.h>
 
 
 #ifdef FLYCAPTURE
@@ -212,15 +214,15 @@ private:
     void deleteThreads();
     void waitThreads();
     
-    Glib::Threads::Thread * m_nextFrameThread;
-    Glib::Threads::Thread * m_segmentThread;
-    Glib::Threads::Mutex m_NextFrameMutex;
-    Glib::Threads::Mutex m_SegmentMutex;
+    std::thread * m_nextFrameThread; 
+    std::thread * m_segmentThread;
+    std::mutex m_NextFrameMutex;
+    std::mutex m_SegmentMutex;
 
-    Glib::Threads::Cond m_emptySegmentCond;
-    Glib::Threads::Cond m_emptyNextFrameCond;
-    Glib::Threads::Cond m_availableSegmentCond;
-    Glib::Threads::Cond m_availableNextFrameCond;
+    std::condition_variable m_emptySegmentCond;
+    std::condition_variable m_emptyNextFrameCond;
+    std::condition_variable m_availableSegmentCond;
+    std::condition_variable m_availableNextFrameCond;
 
     bool m_keepSegmentThreadAlive;
     bool m_keepNextFrameThreadAlive;

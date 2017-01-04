@@ -1,5 +1,4 @@
 
-
 #include "VideoHandler.h"
 //#define DEBUG
 //#define PLOTSEGMENTS
@@ -13,12 +12,21 @@ using namespace std;
 using namespace cv;
 
 //#define MAX(x,y) x>y?x:y
+#define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
 
 #ifdef DEBUG
 #define Debug(x) do { x } while(0)
 #else
 #define Debug(x) do { } while(0)
 #endif
+
+
+#define TIMER_ELAPSED ((double) ( std::clock() - timer ) / (double) CLOCKS_PER_SEC)
+#define TIMER_START timer = std::clock();
+#define TIMER_INIT std::clock_t timer; timer = std::clock();
+
+
+
 
 Segment::Segment() {}
 Segment::~Segment() {};
@@ -38,7 +46,6 @@ VideoHandler::VideoHandler(const string inFname,bool inKnnMethod)
   m_availableSegment = false;
   m_threadsAlive = false;
 
-  Glib::init();
   initPars();
 };
 
@@ -59,7 +66,6 @@ VideoHandler::VideoHandler(int camIdx, const string inFname, bool inKnnMethod)
   m_availableSegment = false;
   m_threadsAlive = false;
   
-  Glib::init();
   initPars();
 }
 #endif
@@ -90,7 +96,7 @@ void VideoHandler::initPars() {
   Delta = 0;
 
   fixedSizeImage = cv::Size(0,0);
-	  
+    
   minWidth = 2 ;
   minExtent = 2;
   minArea = 4;
@@ -102,7 +108,7 @@ void VideoHandler::initPars() {
   vector<float> tmp(3);
   Scale = tmp;
   for (int i=0; i<3;i++)
-    Scale[i] = 0.33333;
+    Scale[i] = (float) 0.33333;
 
 }
 
@@ -134,10 +140,12 @@ void VideoHandler::plotFrame(cv::Mat frame,const string windowName) {
 
 /****************************************************************************************/
 void VideoHandler::startThreads() {
-  m_nextFrameThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoHandler::readNextFrameThread));
-  Glib::usleep(200);
-  m_segmentThread = Glib::Threads::Thread::create(sigc::mem_fun(*this, &VideoHandler::segmentThread));
-  Glib::usleep(200);
+
+  m_nextFrameThread = new std::thread(&VideoHandler::readNextFrameThread,this);
+  sleep(100);
+
+  m_segmentThread = new std::thread(&VideoHandler::segmentThread,this);
+  sleep(100);
   m_threadsAlive = true;
 }
 
@@ -148,21 +156,23 @@ void VideoHandler::deleteThreads() {
     m_keepNextFrameThreadAlive = false;
     m_keepSegmentThreadAlive = false;
 
-    m_emptyNextFrameCond.signal();
-    m_emptySegmentCond.signal();
-    //m_availableSegmentCond.signal();
-    //m_availableNextFrameCond.signal();
+    m_emptyNextFrameCond.notify_one();
+    m_emptySegmentCond.notify_one();
     
     while ((!m_nextFrameThreadFinished) || (!m_segmentThreadFinished)) {
-      Glib::usleep(200);
+      sleep(100);
     }
     
     if ((m_segmentThread!=NULL)) {
       m_segmentThread->join();
+      delete(m_segmentThread);
+      m_segmentThread = NULL;
     }
 
     if ((m_nextFrameThread!=NULL)) {
       m_nextFrameThread->join();
+      delete(m_nextFrameThread);
+      m_nextFrameThread = NULL;
     }
 
     m_threadsAlive = false;
@@ -178,31 +188,31 @@ void VideoHandler::reinitThreads() {
     if (!m_camera) {
       waitThreads(); // Nextframe will be second last, segment last frame. 
       
-      Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+      std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       int iframe;
-      iframe = pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
+      iframe = (int) pVideoCapture->get(cv::CAP_PROP_POS_FRAMES);
  
       if (iframe>0) {
-	iframe = iframe-2; // two step  back;
-	iframe = iframe<0?0:iframe;
-	pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,iframe);
+  iframe = iframe-2; // two step  back;
+  iframe = iframe<0?0:iframe;
+  pVideoCapture->set(cv::CAP_PROP_POS_FRAMES,iframe);
       }
 
     }
     // signal that a new frame needs to be collected
-    { Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+    { std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       m_availableNextFrame = false;
-      m_emptyNextFrameCond.signal();
+      m_emptyNextFrameCond.notify_one();
     }
     {// wait frame to finish
-      Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+      std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       while ((!m_availableNextFrame) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-	m_availableNextFrameCond.wait(m_NextFrameMutex);
+  m_availableNextFrameCond.wait(lock);
     }
     // signal that a new frame can be handled
-    { Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    { std::unique_lock<std::mutex> lock(m_SegmentMutex);
       m_availableSegment = false;
-      m_emptySegmentCond.signal();
+      m_emptySegmentCond.notify_one();
     }
   }
 }
@@ -212,15 +222,15 @@ void VideoHandler::reinitThreads() {
 void VideoHandler::waitThreads() {
 
   { // first wait segment to finish
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     while ((!m_availableSegment) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-      m_availableSegmentCond.wait(m_SegmentMutex);
+      m_availableSegmentCond.wait(lock);
   }
 
   {// wait next frame to finish
-    Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+    std::unique_lock<std::mutex> lock(m_NextFrameMutex);
     while ((!m_availableNextFrame) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-      m_availableNextFrameCond.wait(m_NextFrameMutex);
+      m_availableNextFrameCond.wait(lock);
   }
 }
 
@@ -240,29 +250,29 @@ int VideoHandler::start() {
       error = busMgr.GetCameraFromIndex( m_camIdx, &guid );
       if (error != PGRERROR_OK)
       {
-	error.PrintErrorTrace();
-	return -1;
+         error.PrintErrorTrace();
+         return -1;
       }
       cout << "got camera from index" << endl;
       pVideoSaver = new VideoSaver();
       cout << "created VideoSaver" << endl;
       if (pVideoSaver->init(guid)!=0){
-	cout << "Warning: Error in initializing the camera\n" ;
-	return -1;
+         cout << "Warning: Error in initializing the camera\n" ;
+         return -1;
       }
       if (fname.empty()) {
-	cout << "start capture thread" << endl;
-	if (pVideoSaver->startCapture()!=0) {
-	  cout << "Warning: Error in starting the capture thread the camera \n";
-	  return -1;
-	}
+         cout << "start capture thread" << endl;
+         if (pVideoSaver->startCapture()!=0) {
+           cout << "Warning: Error in starting the capture thread the camera \n";
+           return -1;
+         }
       }
       else {
-	cout << "start capture and write threads" << endl;
-	if (pVideoSaver->startCaptureAndWrite(fname,string("X264"))!=0) {
-	  cout << "Warning: Error in starting the writing thread the camera \n";
-	  return -1;
-	}
+         cout << "start capture and write threads" << endl;
+         if (pVideoSaver->startCaptureAndWrite(fname,string("X264"))!=0) {
+           cout << "Warning: Error in starting the writing thread the camera \n";
+           return -1;
+         }
       }
 #else
       cout << "Error: FlyCaptureSDK camera feature not enabled." << endl;
@@ -270,8 +280,14 @@ int VideoHandler::start() {
 #endif      
     }
       else  {
+        unsigned int first_dv = 0;
+        if (fname[0] >= '0' && fname[0] <= '9') {
+          first_dv = fname[0] - '0';
+          pVideoCapture = new cv::VideoCapture(first_dv);
+        } else {
+          pVideoCapture = new cv::VideoCapture(fname);
+        }
 
-      pVideoCapture = new VideoCapture(fname);
       //pVideoCapture->set(cv::CAP_PROP_CONVERT_RGB,true); // output RGB
     }
 
@@ -317,7 +333,7 @@ void VideoHandler::stop() {
 /****************************************************************************************/
 void VideoHandler::getOFrame(cv::Mat * pFrame) {
   {
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     if ((!m_camera) && (colorfeature))
       cvtColor(m_OFrame,*pFrame,cv::COLOR_BGR2RGB);
     else
@@ -327,7 +343,7 @@ void VideoHandler::getOFrame(cv::Mat * pFrame) {
 /****************************************************************************************/
 void VideoHandler::getBWImg(cv::Mat * pBWImg) {
   {
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     m_BWImg.copyTo(*pBWImg); // might be not the latest one. Actually, likley the next one
   }
 }
@@ -349,9 +365,9 @@ int VideoHandler::step(vector<Segment> * pSegs,  double * pTimeStamp, cv::Mat * 
   cv::Mat bwimg;
   
   {
-    Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+    std::unique_lock<std::mutex> lock(m_SegmentMutex);
     while ((!m_availableSegment) && (!m_nextFrameThreadFinished) && (!m_segmentThreadFinished))
-      m_availableSegmentCond.wait(m_SegmentMutex);
+      m_availableSegmentCond.wait(lock);
 
     if ((m_nextFrameThreadFinished)|| (m_segmentThreadFinished)) {
       cout << "WARNING: threads are finished or not started. step not excecuted" << endl;
@@ -377,7 +393,7 @@ int VideoHandler::step(vector<Segment> * pSegs,  double * pTimeStamp, cv::Mat * 
 
     // signal stuff
     m_availableSegment = false;
-    m_emptySegmentCond.signal();
+    m_emptySegmentCond.notify_one();
   }
 
   if (plotif) {
@@ -395,121 +411,123 @@ void VideoHandler::readNextFrameThread()
   m_keepNextFrameThreadAlive = true;  
   m_availableNextFrame = false;
   m_nextFrameThreadFinished = false;
-  
+  TIMER_INIT;
   while (m_keepNextFrameThreadAlive) {
 
     {
-      Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
+      std::unique_lock<std::mutex> lock(m_NextFrameMutex);
       // wait for segment thread  handling
       while ((m_availableNextFrame) && (m_keepNextFrameThreadAlive)) {
-	m_emptyNextFrameCond.wait(m_NextFrameMutex);
+         m_emptyNextFrameCond.wait(lock);
       }
       if (!m_keepNextFrameThreadAlive)
-	continue;
+         continue;
 
-      Debug(Glib::Timer timer;timer.start(););
+      Debug(TIMER_INIT);
 
       Mat oframe;
 #ifdef FLYCAPTURE
       if (m_camera) {
-	int frameNumber;
-	if (pVideoSaver->getFrame(&oframe,&m_NextTimeStamp,&frameNumber)!=0) {
-	  break;
-	} // returns RGB
+         int frameNumber;
+         if (pVideoSaver->getFrame(&oframe,&m_NextTimeStamp,&frameNumber)!=0) {
+           break;
+         } // returns RGB
 
-	Debug(cout << oframe.size() << "  " << frameNumber << " " <<  m_NextTimeStamp << endl;);
+         Debug(cout << oframe.size() << "  " << frameNumber << " " <<  m_NextTimeStamp << endl;);
 
       } else {
 #endif      
-	m_NextTimeStamp = pVideoCapture->get(cv::CAP_PROP_POS_MSEC)*1e-3; 
-	if (!pVideoCapture->read(oframe)) { // should return RGB instead of BGR. But seems not to work.. NOW BGR
-		//cout <<  "ERROR: File read error." << endl;
-	  break;
-	}
-	//cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
+         m_NextTimeStamp = pVideoCapture->get(cv::CAP_PROP_POS_MSEC)*1e-3; 
+         if (m_NextTimeStamp<0) // in case of grabbing camera using pVideoCapture
+            m_NextTimeStamp = TIMER_ELAPSED; 
+         if (!pVideoCapture->read(oframe)) { // should return RGB instead of BGR. But seems not to work.. NOW BGR
+            //cout <<  "ERROR: File read error." << endl;
+           break;
+         }
+         //cvtColor(oframe,oframe,cv::COLOR_BGR2RGB);
 
-	Debug(cout << oframe.size() << " Time: " <<  m_NextTimeStamp << endl;);
+         Debug(cout << oframe.size() << " Time: " <<  m_NextTimeStamp << endl;);
 
-	if (oframe.type()!=CV_8UC3) {
-	  cout <<  "ERROR: Expect CV_8UC3 color movie." << endl;
-	  break;
-	}
+         if (oframe.type()!=CV_8UC3) {
+           cout <<  "ERROR: Expect CV_8UC3 color movie." << endl;
+           break;
+         }
 #ifdef FLYCAPTURE
       }
 #endif      
 
       if ((resizeif) && (resizescale!=1)) {
-	cv::resize(oframe,oframe,Size(0,0),resizescale,resizescale);
+         cv::resize(oframe,oframe,Size(0,0),resizescale,resizescale);
       }
     
       Mat frame;
     
       if (scaled) {
-	cv::Mat channel[3];
-	cv::Mat floatframe;
-	vector<int> order(3);
-	split(oframe, channel);
-	for (int ii=0; ii<3; ii++) {
-	  channel[ii].convertTo(channel[ii], CV_32FC1);
+         cv::Mat channel[3];
+         cv::Mat floatframe;
+         vector<int> order(3);
+         split(oframe, channel);
+         for (int ii=0; ii<3; ii++) {
+           channel[ii].convertTo(channel[ii], CV_32FC1);
 #ifdef FLYCAPTURE
-	  if (m_camera)
-	    order[ii] = ii; // rgb
-	  else
+           if (m_camera)
+             order[ii] = ii; // rgb
+           else
 #endif      
-	    order[ii] = 2-ii; // bgr
-	  
-	}
-	floatframe =  ((float) Scale[0]/255.)*channel[order[0]] + ((float) Scale[1]/255.)*channel[order[1]] + ((float) Scale[2]/255.)*channel[order[2]] + (Delta); 
+             order[ii] = 2-ii; // bgr
+    
+         }
+         floatframe =  ((float) Scale[0]/255.)*channel[order[0]] + ((float) Scale[1]/255.)*channel[order[1]] + ((float) Scale[2]/255.)*channel[order[2]] + (Delta); 
       
-	// subtract mean
-	//cv::Scalar globalmean = cv::mean(floatframe) ; // one channel anyway
-	//floatframe -= (globalmean[0]-0.5);// 0.5 because should be between 0..1
-	//floatframe.convertTo(frame, CV_8UC1,255.,(-globalmean[0]+0.5)*255); // better convert it back because of boundaries
-	floatframe.convertTo(frame, CV_8UC1,255.);
-      }
-      else {
+         // subtract mean
+         //cv::Scalar globalmean = cv::mean(floatframe) ; // one channel anyway
+         //floatframe -= (globalmean[0]-0.5);// 0.5 because should be between 0..1
+          //floatframe.convertTo(frame, CV_8UC1,255.,(-globalmean[0]+0.5)*255); // better convert it back because of boundaries
+          floatframe.convertTo(frame, CV_8UC1,255.);
+      } else {
 #ifdef FLYCAPTURE
-	if (m_camera)
-	  cvtColor(oframe,frame,cv::COLOR_RGB2GRAY);
-	else
+         if (m_camera)
+           cvtColor(oframe,frame,cv::COLOR_RGB2GRAY);
+         else
 #endif      
-	  cvtColor(oframe,frame,cv::COLOR_BGR2GRAY); // seems not to work for video capture...
+           cvtColor(oframe,frame,cv::COLOR_BGR2GRAY); // seems not to work for video capture...
       }
     
     
-      Debug(cout << "reading frame: " <<  timer.elapsed() << endl; timer.start(););
+      Debug(cout << "reading frame: " <<  TIMER_ELAPSED << endl; TIMER_START);
       
     
       // background computation (THIS IS THE SLOWEST PART!)
       if (knnMethod) {
-	if (inverted) {
-	  Mat iframe;
-	  iframe = 255-frame;
-	  pBackgroundSubtractor->apply(iframe, m_NextBWImg);
-	}  else {
-	  pBackgroundSubtractor->apply(frame, m_NextBWImg);
-	}
+         if (inverted) {
+           Mat iframe;
+           iframe = 255-frame;
+           pBackgroundSubtractor->apply(iframe, m_NextBWImg);
+         }  else {
+           pBackgroundSubtractor->apply(frame, m_NextBWImg);
+         }
       } else {
-	pBackgroundThresholder->apply(frame, &m_NextBWImg, &m_NextDFrame);
+        pBackgroundThresholder->apply(frame, &m_NextBWImg, &m_NextDFrame);
 
       }
       
     
-      Debug(cout << "background sub: " <<  timer.elapsed() << endl;);
-	      
+      Debug(cout << "background sub: " <<  TIMER_ELAPSED << endl;);
+        
       m_NextFrame = frame;
       if (colorfeature)
-	m_NextOFrame = oframe;
+         m_NextOFrame = oframe;
       else
-	m_NextOFrame = frame;
+         m_NextOFrame = frame;
     
       // thread stuff signal the end
       m_availableNextFrame = true;
-      m_availableNextFrameCond.signal();
+      m_availableNextFrameCond.notify_one();
     }
   }
   m_nextFrameThreadFinished = true;
 };
+
 /****************************************************************************************/
 void VideoHandler::segmentThread()
 {
@@ -521,95 +539,92 @@ void VideoHandler::segmentThread()
   while (m_keepSegmentThreadAlive) {
     
     {
-      Glib::Threads::Mutex::Lock lock(m_SegmentMutex);
+      std::unique_lock<std::mutex> lock(m_SegmentMutex);
       
       while ((m_availableSegment) && (m_keepSegmentThreadAlive)){
-	m_emptySegmentCond.wait(m_SegmentMutex);
+         m_emptySegmentCond.wait(lock);
       }
       if (!m_keepSegmentThreadAlive)
-	continue;
+         continue;
 
       // start new Segment computation
       {
-	Glib::Threads::Mutex::Lock lock(m_NextFrameMutex);
-	
-	while ((!m_availableNextFrame) && (m_keepSegmentThreadAlive)
-	       && (!m_nextFrameThreadFinished)) {
-	  m_availableNextFrameCond.wait(m_NextFrameMutex);
-	}
-	
-	if ((!m_keepSegmentThreadAlive) || (m_nextFrameThreadFinished))
-	  continue;
+         std::unique_lock<std::mutex> lock(m_NextFrameMutex);
+  
+         while ((!m_availableNextFrame) && (m_keepSegmentThreadAlive)
+                 && (!m_nextFrameThreadFinished)) {
+           m_availableNextFrameCond.wait(lock);
+         }
+  
+         if ((!m_keepSegmentThreadAlive) || (m_nextFrameThreadFinished))
+           continue;
 
-	if ((!colorfeature) && (difffeature) && (!knnMethod))
-	  m_NextDFrame.copyTo(m_Frame);
-	else
-	  m_NextFrame.copyTo(m_Frame);
-	
-	if (colorfeature) 
-	  m_NextOFrame.copyTo(m_OFrame);
-	else if ((difffeature) && (!knnMethod)) // not strictly needed..
-	  m_NextFrame.copyTo(m_OFrame);
-	else
-	  m_OFrame = m_Frame;
+         if ((!colorfeature) && (difffeature) && (!knnMethod))
+           m_NextDFrame.copyTo(m_Frame);
+         else
+           m_NextFrame.copyTo(m_Frame);
+  
+         if (colorfeature) 
+           m_NextOFrame.copyTo(m_OFrame);
+         else if ((difffeature) && (!knnMethod)) // not strictly needed..
+           m_NextFrame.copyTo(m_OFrame);
+         else
+           m_OFrame = m_Frame;
 
-	  
-	m_NextBWImg.copyTo(m_BWImg);
-	
-	m_TimeStamp = m_NextTimeStamp;
-	
-	m_availableNextFrame = false; 
-	m_emptyNextFrameCond.signal();
+    
+         m_NextBWImg.copyTo(m_BWImg);
+  
+         m_TimeStamp = m_NextTimeStamp;
+  
+         m_availableNextFrame = false; 
+         m_emptyNextFrameCond.notify_one();
       }
       
       
       if (computeSegments) {
-	  
-	
-	Debug(Glib::Timer timer;
-	  timer.start(););
-	  
-	
-	// finding contours
-	vector<vector<cv::Point> > contours;
-	findBodyContours(m_BWImg,&contours);
-	
-	
-	Debug(cout << "contours: " <<  timer.elapsed() << endl;
-	  timer.start(););
+    
+  
+         Debug(TIMER_INIT);
+    
+  
+         // finding contours
+         vector<vector<cv::Point> > contours;
+         findBodyContours(m_BWImg,&contours);
+  
+  
+         Debug(cout << "contours: " << TIMER_ELAPSED << endl; TIMER_START);
 
-	
-	Segment segm;
-	vector <Segment> tmp(0);
-	m_NextSegments.clear();
-	m_NextSegments = tmp;
+  
+         Segment segm;
+         vector <Segment> tmp(0);
+         m_NextSegments.clear();
+         m_NextSegments = tmp;
 
-	int ii=0;
-	int ssize;
-	ssize = contours.size();
-	if (ssize>MAXCONTOUR)
-	  ssize = MAXCONTOUR;
-	
-	for( int i = 0; i< ssize; i++ ) {
-
-	  getSegment(&segm,contours[i],m_BWImg,m_Frame,m_OFrame);
-	      
-	  if (testValid(&segm)) {
-	    ii++;
-	    m_NextSegments.push_back(segm);
-	  }
-	  if (ii>=MAXVALIDCONTOUR)
-	    break;
-	}
-
-	Debug(cout << m_NextSegments.size() << endl;
-	  cout << "segments: " <<  timer.elapsed() << endl;);
-	
+         size_t ii=0;
+         size_t ssize;
+         ssize = contours.size();
+         if (ssize>MAXCONTOUR)
+            ssize = MAXCONTOUR;
+          
+         for( size_t i = 0; i< ssize; i++ ) {
+            getSegment(&segm,contours[i],m_BWImg,m_Frame,m_OFrame);
+              
+            if (testValid(&segm)) {
+            ii++;
+            m_NextSegments.push_back(segm);
+         }
+         if (ii>=MAXVALIDCONTOUR)
+            break;
+        }      
+  
+      Debug(cout << m_NextSegments.size() << endl;
+       cout << "segments: " <<  TIMER_ELAPSED << endl;);
+  
       }
       
       // signal stuff
       m_availableSegment = true; 
-      m_availableSegmentCond.signal();
+      m_availableSegmentCond.notify_one();
     }
   }
   m_segmentThreadFinished = true;
@@ -649,7 +664,7 @@ void VideoHandler::findBodyContours(Mat inBwImg, vector<vector<cv::Point> > * ne
 
       Mat tmp;
       roi.copyTo(tmp);
-	
+  
       // namedWindow("before",WINDOW_AUTOSIZE);
       // imshow("before",tmp>0);
       // waitKey(10);
@@ -668,20 +683,20 @@ void VideoHandler::findBodyContours(Mat inBwImg, vector<vector<cv::Point> > * ne
       int s=0;
       
       for (int j=0;j<localcontours.size();j++) {
-	Rect bbox1 = boundingRect(localcontours[j]);
-	if (bbox1.width*bbox1.height>minArea) {
-	  (*newcontours).push_back(localcontours[j]);
-	  s++;
-	}
+  Rect bbox1 = boundingRect(localcontours[j]);
+  if (bbox1.width*bbox1.height>minArea) {
+    (*newcontours).push_back(localcontours[j]);
+    s++;
+  }
       }
     } else {
       if (bbox.width*bbox.height>minArea)  {
-	(*newcontours).push_back(contours[i]);
+  (*newcontours).push_back(contours[i]);
       }
     }
   }
 }
-	
+  
 
 
 /****************************************************************************************/
@@ -733,9 +748,9 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     if (fixedSizeImage.width>0) {
       Mat tmpMat ;
       if (difffeature) {
-	getRectSubPix(inFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
+  getRectSubPix(inFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
       } else {
-	getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
+  getRectSubPix(inOFrame,fixedSizeImage,segm->Centroid,tmpMat,-1);
       }
       segm->FilledImageFixedSize = tmpMat.clone(); // copy;
     }
@@ -753,7 +768,7 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     } else{
       dilate(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
       erode(img,img,srel,Point(-1,-1),2,BORDER_CONSTANT,0);
-    }	    
+    }     
     
     Mat F,L;
     distanceTransform(img,F,CV_DIST_L2, 3);
@@ -795,7 +810,7 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
       return;
     }
       
-    double pmax = proj[index.at<int>(locations.size()-2)];
+    double pmax = proj[index.at<int>((int) locations.size()-2)];
     double pmin = proj[index.at<int>(1)];
 
     vector<Point> probe(nprobe);
@@ -803,7 +818,7 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     for (int i=0; i<nprobe;i++ ) {
       double ptarget = i*(pmax-pmin)/(nprobe-1) + pmin;
       while (proj[index.at<int>(j)]<ptarget && j<locations.size()-1) {
-	j++;
+  j++;
       }
       probe[i] =  locations[index.at<int>(j)];
     } 
@@ -854,8 +869,8 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
       line(timg2,pvec*10+p1,p1,CV_RGB(255,255,145),1,8,0);
       line(timg2,v*10 + p1,  p1,CV_RGB(255,255,245),2,8,0);
       for (int i=0;i<nprobe;i++) {
-	Point2f p2(probe[i]);
-	circle(timg2,p2 + p1 - localcenter,5,CV_RGB(255-i*20,255-i*20,245-i*20),2,8,0);
+        Point2f p2(probe[i]);
+        circle(timg2,p2 + p1 - localcenter,5,CV_RGB(255-i*20,255-i*20,245-i*20),2,8,0);
       }
       circle(timg2,center + p1 - localcenter,5,CV_RGB(255,255,255),4,8,0);
       ellipse(timg2,p1,(sz)/2,segm->Orientation,0,360,CV_RGB(255,255,145),2,8,0);
@@ -901,15 +916,15 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     
     Mat comy = Mat::zeros(1,cols,CV_32FC1);
     for (int j=0;j<cols;j++) {
-      float minm = cols;
+      float minm = (float) cols;
       int mini = 0;
       for (int i=0;i<nprobe;i++) {
-	float m = abs(rotprobe[i].x - (float) j);
-	if (m<minm) {
-	  mini = i;
-	  minm = m;
-	}
+        float m = abs(rotprobe[i].x - (float) j);
+        if (m<minm) {
+        mini = i;
+        minm = m;
       }
+    }
       comy.at<float>(j) = rotprobe[mini].y;
     }
     
@@ -923,15 +938,15 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     if (fixedSizeImage.width>0) {
       Mat tmpMat,rotTmpMat2x,rotTmpMat;
 
-      Size fixedSize2x(fixedSizeImage.width*2.,fixedSizeImage.height*2.);
-      Point2f center2(fixedSize2x.width/2.,fixedSize2x.height/2.); 
+      Size fixedSize2x(fixedSizeImage.width*2,fixedSizeImage.height*2);
+      Point2f center2((float)fixedSize2x.width/2.,(float)fixedSize2x.height/2.); 
       Mat T2 = (Mat_<float>(2,3) << v.x, v.y, (1-v.x)*center2.x-v.y*center2.y, -v.y,v.x,v.y*center2.x+(1-v.x)*center2.y);
 
       if (difffeature) {
-	getRectSubPix(inFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
+  getRectSubPix(inFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
       }
       else {
-	getRectSubPix(inOFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
+  getRectSubPix(inOFrame,fixedSize2x,segm->Centroid,tmpMat,-1);
       }
       warpAffine(tmpMat,rotTmpMat2x,T2,fixedSize2x,INTER_CUBIC,BORDER_CONSTANT,segm->mback);
       getRectSubPix(rotTmpMat2x,fixedSizeImage,center2,rotTmpMat,-1);
@@ -945,9 +960,9 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
     
     if (REMAP) {
       
-      int nconv = ceil(((float) cols)/nprobe/2);
+      int nconv = (int) ceil(((float) cols)/nprobe/2);
       if (nconv==0) {
-	return;
+  return;
       }
 
 
@@ -956,11 +971,11 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
       Mat x = Mat::zeros(1,cols,CV_32FC1);
       for (int i=0;i<cols;i++) {
-	x.at<float>(i) = (float) i;
+  x.at<float>(i) = (float) i;
       }
       Mat y = Mat::zeros(rows,1,CV_32FC1);
       for (int i=0;i<rows;i++) {
-	y.at<float>(i) = (float) i;
+  y.at<float>(i) = (float) i;
       }
 
     
@@ -972,7 +987,7 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
       repeat(x,rows,1,X);
 
       for (int i=0;i<cols;i++) {
-	Y.col(i) += comy.at<float>(i) - (float) rows /2.;
+  Y.col(i) += comy.at<float>(i) - (float) rows /2.;
       }
       //Y = max(min(Y,rows-1),0);
 
@@ -1008,11 +1023,11 @@ void VideoHandler::getSegment(Segment * segm, vector<Point> inContour, Mat inBwI
 
       Mat timg4(segm->RotFilledImage);
       for (int i=0;i<nprobe;i++) {
-    	circle(timg4, rotprobe[i],4,CV_RGB(0,255,245),1,8,0);
+      circle(timg4, rotprobe[i],4,CV_RGB(0,255,245),1,8,0);
       }
 
       for (int i=0;i<comy.cols;i++) {
-    	circle(timg4, Point2f(i,comy.at<float>(i)),1,CV_RGB(0,255,245),1,8,0);
+      circle(timg4, Point2f(i,comy.at<float>(i)),1,CV_RGB(0,255,245),1,8,0);
       }
  
       Mat timg3;
@@ -1115,10 +1130,10 @@ int VideoHandler::set(const string prop, double value){
     minArea = minArea<4?4:minArea;
   }
   else if (prop=="computeSegments") {
-    computeSegments = (bool) value!=0;
+    computeSegments = (bool) ((int)value !=0);
   }
   else if ((prop=="inverted") && (!m_stopped)) {
-    inverted = (bool) value!=0;
+    inverted = (bool) (((int)value)!=0);
     if (!knnMethod) {
       waitThreads();
       pBackgroundThresholder->setInverted(inverted);
@@ -1179,7 +1194,7 @@ int VideoHandler::set(const string prop, double value){
   }
   else if ((prop == "ShadowValue")&& (!m_stopped)&& (knnMethod)) {
     waitThreads();
-    pBackgroundSubtractor->setShadowValue(value);
+    pBackgroundSubtractor->setShadowValue((int) value);
     reinitThreads();
   }
   else if ((prop == "nskip")&& (!m_stopped)) {
@@ -1355,15 +1370,30 @@ double VideoHandler::get(const string prop){
     return height;
   }
   else if ((prop == "FPS")  && (!m_stopped)){
-    if (!m_camera) 
-      return (double) pVideoCapture->get(cv::CAP_PROP_FPS);
-    else 
+    double fps=0;
+    if (!m_camera) {
+      fps = (double) pVideoCapture->get(cv::CAP_PROP_FPS);
+      if (((int) fps)==0) {
+        // webcam. Get the frame rate manually
+        TIMER_INIT;
+        int nframes = 25;
+        Mat frame;
+        for (int i=0; i<nframes;i++) {
+          if (!pVideoCapture->read(frame)) {
+            return 0.; 
+          }
+        }
+        fps = ((double) nframes)/TIMER_ELAPSED;
+      }
+      return (double) fps;
+    } else {
 #ifdef FLYCAPTURE
       return (double) pVideoSaver->getFPS();
 #else
       return (double) 0.;
-#endif      
-  }
+#endif
+    }
+  }      
   else if ((prop == "FrameCount")  && (!m_stopped)){
     if (!m_camera) 
       return (double) pVideoCapture->get(cv::CAP_PROP_FRAME_COUNT);
@@ -1528,9 +1558,9 @@ void BackgroundThresholder::apply(cv::Mat frame,cv::Mat *bwimg, cv::Mat *dframe)
       n = (float) m_istep+1;
     } else {
       if ((m_istep % m_nskip)==0) {
-	n = ((float) m_history)/((float) m_nskip);
+  n = ((float) m_history)/((float) m_nskip);
       }  else {
-	n = 0;
+  n = 0;
       }
     }
     if (n>1) {
@@ -1564,9 +1594,9 @@ int main() {
   cout << "colorfeature" << endl;
 
   vector<float> scale(3);
-  scale[0] = -0.592655;
-  scale[1] = -0.206795;
-  scale[2] = 2.14107;
+  scale[0] = (float) -0.592655;
+  scale[1] = (float) -0.206795;
+  scale[2] = (float) 2.14107;
   vh.setScale(scale);
   
   cout << "set pars" << endl;

@@ -31,7 +31,7 @@ function [scale,delta] = getColorConversion(bwmsks,cframes)
   end
 
 
-  [fv,~,proj,r] = xy.helper.lfd([col1;col2],[ones(size(col1,1),1);zeros(size(col2,1),1)],1,0);
+  fv = xy.helper.lfd([col1;col2],[ones(size(col1,1),1);zeros(size(col2,1),1)],1,0);
   fv = fv(:)/norm(fv);
 
   % test directions (objects should be black, background white)

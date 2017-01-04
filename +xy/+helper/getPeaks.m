@@ -1,4 +1,4 @@
-function peaks = getPeaks(x,varargin);
+function peaks = getPeaks(x,varargin)
 % gets all peaks along first dimension
 % outputs equals input in size and has 1 at peak position and 0 elsewhere
 % (each side is zero padded once)

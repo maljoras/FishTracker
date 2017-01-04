@@ -37,8 +37,10 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   for i = 1:n
 
     [segm] = self.videoHandler.step();
-    xy.helper.verbose('%1.1f%%\r',i/n*100); % some output
-
+    if ~(mod(i,50)) 
+      xy.helper.verbose('%1.1f%%\r',i/n*100); % some output
+    end
+    
     if self.displayif && self.opts.display.bodySearchResults && ~mod(i,5)
       imagesc(self.videoHandler.getCurrentBWImg);
       drawnow;
@@ -96,7 +98,7 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
 
       xy.helper.verbose('Regenerate background.')
       for i =1:(n/2)
-        [~,frame] = self.videoHandler.step();    
+        [~,~] = self.videoHandler.step();    
         fprintf('%1.1f%%\r',i/n*2*100); % some output
       end
       self.videoHandler.computeSegments = true;

@@ -55,13 +55,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
       plhs[0] = MxArray(last_id);
       return;
 #endif 
-    } else if ((nrhs==2) && rhs[0].isChar()) {
-      // Constructor is called. Create a new object from argument
-      obj_[++last_id] =  new VideoHandler(rhs[0].toString(),rhs[1].toBool());
-      plhs[0] = MxArray(last_id);
-      return;
-    }
-    else if (rhs[0].isNumeric() && rhs[0].numel()==1 && nrhs>1) {
+    } else if (rhs[0].isNumeric() && rhs[0].numel()==1 && nrhs>1) {
 
 	id = rhs[0].toInt();
 	if (obj_.find(id)==obj_.end())

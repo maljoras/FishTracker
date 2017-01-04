@@ -112,7 +112,10 @@ function generateResults(self)
   function df2t = subCorrectDagOverlaps(df2t)
   
     % ASSUMES IDX MAT IS SAME AS ID MSK (no track deletion)
-
+    if self.nindiv==1
+        return
+    end
+    
     MINOVERLAP = ceil(self.videoHandler.frameRate/2); 
     PROBTHRES = 0;%self.maxClassificationProb*self.opts.tracks.probThresForIdentity;
     

@@ -22,7 +22,6 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
     testingProb = 0;
     lrSwitchProb =  0; % 0: no change, 1:switching each stmround
     
-    nRound = 10;
     
     % this function is applied to stimulate identityIds either on the left (<0)
     % or on the right (>0) side or not stm (0)
@@ -126,7 +125,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
     end
     
       
-    function plotStmBkg(self,type,lrswitch);
+    function plotStmBkg(self,type,lrswitch)
 
       switch lower(type)
         
@@ -150,7 +149,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
           if lrswitch
             col = col([2,1]);
           end
-          if  strcmp(lower(type),'border')
+          if  strcmpi(type,'border')
             plotVLine(self,self.sideMarkerPos,self.sideMarkerWidth,col{1});
             plotVLine(self,1-self.sideMarkerPos,self.sideMarkerWidth,col{2});
           else
@@ -256,14 +255,14 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
      
    end
    
-   function updateRoundTime(self);
+   function updateRoundTime(self)
      trainingTime = 2*self.signalTime + self.stmTime;
      self.roundTime = trainingTime + self.gapTime;
    
      self.tmax = self.adaptationTime +  self.nRound*self.roundTime;
    end
 
-   function saveImageTextures(self,tracks);
+   function saveImageTextures(self,tracks)
 
      sbbox = self.screenBoundingBox;   
      self.bodyTexturesBbox = zeros(length(tracks),4);
@@ -278,7 +277,7 @@ classdef PresenterOnlineLearningCue < xy.stimulus.Presenter;
        seg = tracks(i).segment;
 
        if ~isempty(seg)
-         img = flipud(fliplr(seg.Image));
+         img = rot90(seg.Image,2);
          bodyori(i) = seg.Orientation;
        else
          img = 0;

@@ -44,8 +44,8 @@ ifeq ($(wildcard $(FLYCAPINCLUDEDIR)/FlyCapture2.h),)
   FLYCAPFLAG = 
   $(warning "Cannot find FlyCapture2.h. Compiling without ptGrey grabbing feature.")
 
-  FLYCAPINCLUDES = -I$(SRCDIR) $(shell pkg-config --cflags glibmm-2.4)
-  FLYCAPLIBS = $(shell pkg-config --libs glibmm-2.4) -lstdc++  
+  FLYCAPINCLUDES = -I$(SRCDIR) 
+  FLYCAPLIBS =  -lstdc++  
   ALLTARGET = nograb
 else
   FLYCAPFLAG = -DFLYCAPTURE
@@ -153,15 +153,15 @@ $(SAVEVIDEOOBJ): $(SAVEVIDEOSRC)
 
 #  objects
 $(OBJECTS): $(SRCS2)
-	$(MEX) -c -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
+	$(MEX) -c -cxx -largeArrayDims $(CFLAGS)  $(SAVEVIDEOOBJ) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
 
  
 # MEX-files
 $(TARGETS1): $(SRCS1) 
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) -output $(TARGETS1) -outdir $(TARGETDIR)/$(CAPTUREDIR) $< $(LDFLAGS)
+	$(MEX) -cxx -largeArrayDims $(CFLAGS)  -output $(TARGETS1) -outdir $(TARGETDIR)/$(CAPTUREDIR) $< $(LDFLAGS)
 
 $(TARGETS2): $(SRCS3)
-	$(MEX) -cxx -largeArrayDims $(CFLAGS) $(SAVEVIDEOOBJ) $(OBJECTS) -output $(TARGETS2) -outdir $(TARGETDIR)/$(HANDLERDIR) $< $(LDFLAGS) 
+	$(MEX) -cxx -largeArrayDims $(CFLAGS)  $(SAVEVIDEOOBJ) $(OBJECTS) -output $(TARGETS2) -outdir $(TARGETDIR)/$(HANDLERDIR) $< $(LDFLAGS) 
 
 $(SARTARGET): $(SAR)
 	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(HELPERDIR) -output $(SARTARGET) $< 

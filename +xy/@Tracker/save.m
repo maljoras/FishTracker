@@ -2,7 +2,7 @@
 function  save(self,savename,savepath,vname)
 % SELF.SAVE([SAVENAME,SAVEPATH,VNAME]) saves the object
 
-  [defname,exists] = self.getDefaultFileName();
+  defname = self.getDefaultFileName();
   
   if ~exist('savename','var') || isempty(savename)
     [~,savename] = fileparts(defname);

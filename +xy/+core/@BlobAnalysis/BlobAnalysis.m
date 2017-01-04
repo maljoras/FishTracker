@@ -40,7 +40,7 @@ classdef BlobAnalysis < handle;
   
   methods (Access=protected) %%% THIS FUNCTIONS CAN BE OVERLOADED
     
-    function a_init(self);
+    function a_init(self)
     % initialize mser
       if isempty(self.mser)
         self.mser  =  cv.MSER('MinArea',self.minArea,'MaxArea',self.maxArea,'MaxVariation',0.6);
@@ -89,7 +89,7 @@ classdef BlobAnalysis < handle;
       featim(~region.Image2x) = uint8(mean(featim(~region.Image2x)));
 
       
-      [p,bboxes] = self.mser.detectRegions(featim);
+      [p,~] = self.mser.detectRegions(featim);
       loc = zeros(length(p),2);
       ori = zeros(length(p),1);
       pixelList = cell(length(p),1);
@@ -171,7 +171,7 @@ classdef BlobAnalysis < handle;
 
     
     
-    function [bb,center] = a_getMaxAreaRegion(self,bwimg);
+    function [bb,center] = a_getMaxAreaRegion(self,bwimg)
     % only area,centroid,boundarybos from the max
       
       contours = cv.findContours(bwimg,'Mode','External','Method','Simple');
@@ -180,7 +180,7 @@ classdef BlobAnalysis < handle;
         area = zeros(length(contours),1);
         % only from largest needed
         for i = 1:length(contours)
-          area(i) =  cv.contourArea(contours{i});;
+          area(i) =  cv.contourArea(contours{i});
         end
         [~,imxarea] = max(area);
         c =contours{imxarea};
@@ -212,7 +212,7 @@ classdef BlobAnalysis < handle;
 
     end
 
-    function msk = a_closeHoles(self,msk);
+    function msk = a_closeHoles(self,msk)
     % not needed. Contours are filled.
     %msk = cv.dilate(msk,'Element',self.se,'BorderValue',0,'Iterations',1);
     %  msk = cv.erode(msk,'BorderValue',0,'Iterations',2);
@@ -221,7 +221,7 @@ classdef BlobAnalysis < handle;
     end
     
     
-    function rp = a_getRegions(self,bwimg,Iframe,rprops);
+    function rp = a_getRegions(self,bwimg,Iframe,rprops)
       
       contours = cv.findContours(bwimg,'Mode','External','Method','Simple');
 % $$$       isuint = isa(Iframe,'uint8');
@@ -231,7 +231,7 @@ classdef BlobAnalysis < handle;
       s = 0;
       for i = 1:length(contours)
         
-        area = cv.contourArea(contours{i});;
+        area = cv.contourArea(contours{i});
         if area< self.minArea
           continue;
         end
@@ -318,7 +318,7 @@ classdef BlobAnalysis < handle;
         
         
         % enlarge mask
-        region.Image2x = logical(zeros(bb2([4,3])));
+        region.Image2x = false(bb2([4,3]));
         offset = bb(1:2)-bb2(1:2);
         region.Image2x(offset(2)+1:offset(2)+bb(4),offset(1)+1:offset(1)+bb(3)) = region.Image;
         
@@ -342,7 +342,7 @@ classdef BlobAnalysis < handle;
       end
     end
     
-    function goodmsk = getGoodMsk(self,rp);
+    function goodmsk = getGoodMsk(self,rp)
 
       nspots = length(rp);
       goodmsk = true(nspots,1);
@@ -453,7 +453,7 @@ classdef BlobAnalysis < handle;
     
     
     
-    function segments = getIdentityFeatures(self,segments);
+    function segments = getIdentityFeatures(self,segments)
       
       plotif = self.plotif; % for debugging
 
@@ -594,7 +594,7 @@ classdef BlobAnalysis < handle;
         fbb = [center,fixedwidth,fixedheight];
         fbb([1,2]) = max(round(fbb([1,2])-fbb([3,4])/2),1);
 
-        foimg = mback*ones(fixedheight,fixedwidth);;
+        foimg = mback*ones(fixedheight,fixedwidth);
         indy = fbb(2):min(fbb(2)+fbb(4)-1,size(oimg,1));
         indx = fbb(1):min(fbb(1)+fbb(3)-1,size(oimg,2));
         foimg(1:length(indy),1:length(indx)) = oimg(indy,indx);
@@ -776,6 +776,7 @@ classdef BlobAnalysis < handle;
           if isprop(self,f{1})
             try
               self.(f{1}) = varargin{1}.(f{1});
+            catch
             end
             
           end
@@ -785,6 +786,7 @@ classdef BlobAnalysis < handle;
             if isprop(self,f{1})
               try
                 self.(f{1}) = varargin{1}.blob.(f{1});
+              catch
               end
             end
           end
@@ -809,7 +811,7 @@ classdef BlobAnalysis < handle;
       initialize(self);
     end
     
-    function featureSize = getFeatureSize(self);
+    function featureSize = getFeatureSize(self)
       featureSize  = [self.featureheight,self.featurewidth];
     end
     

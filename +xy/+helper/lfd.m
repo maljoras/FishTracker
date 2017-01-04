@@ -1,10 +1,10 @@
-function [FV,eVar,Proj,r] = lfd(Z,iidx,nindiv,npca,whiteif)
+function [FV,eVar,Proj,r] = lfd(Z,iidx,nindiv,npca)
 % [FV,EVAR,PROJ,RSTRUC] = LFD(Z,IIDX,NINDIV,NPCA) computes the LInear Fisher
 % Discrimant directions of Z (after initial PCA with NPCA components,)
 % using generalized eigenvectors. IIDX is has a unique number for each
 % individual (like class labels). NPCA=0 shuts the PCA preprocessing
 % off.
-% LFD(..,WHITEIF) whites the data after PCA (default 0). 
+
 
   
   %first do pca on Z
@@ -14,7 +14,7 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nindiv,npca,whiteif)
 
   if NPCADIM>0
     npcadim = min(N-Nc,NPCADIM);
-    [PC, eVar, Proj, m] = xy.helper.pca1(Z,npcadim);
+    [PC, ~, Proj, m] = xy.helper.pca1(Z,npcadim);
     X = Proj;
   else
     X = Z;
@@ -22,19 +22,11 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nindiv,npca,whiteif)
 
   r.totalVar = sum(var(Z));
   r.retainedVar = sum(var(X))/r.totalVar;
-
-  if exist('whiteif','var') && whiteif
-    % AXYTER Pca
-    X = whiten(X); % use function from matlab central; 
-  end
-    
-    
-    
   
   noclassnorm=1;% all classes are weighted the same regardless the
                    % number of samples
 
-  [u dummy ui]= unique(iidx);  
+  [u, ~, ui]= unique(iidx);  
   Nc = length(u);
   Ni = accumarray(ui,ui,[],@numel);
   
@@ -61,8 +53,7 @@ function [FV,eVar,Proj,r] = lfd(Z,iidx,nindiv,npca,whiteif)
 
   Sw = 0;
   for i = 1:Nc
-    j = find(iidx==u(i));
-    x = bsxfun(@minus,X(j,:),mX(i,:));
+    x = bsxfun(@minus,X(iidx==u(i),:),mX(i,:));
     for k = 1:size(x,1)
       if noclassnorm
         Sw = Sw + 1/size(x,1)*x(k,:)'*x(k,:);

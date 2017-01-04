@@ -84,15 +84,15 @@ classdef VideoHandlerMatlab < handle & xy.core.VideoReaderMatlab & xy.core.BlobA
       self.frameFormat = [self.grayFormat,self.detector.expectedFrameFormat];
     end
     
-    function plotting(self,bool);
+    function plotting(self,bool)
     % plotting not implemented...
     end
     
-    function bwmsk = getCurrentBWImg(self);
+    function bwmsk = getCurrentBWImg(self)
       bwmsk = self.bwmsk;
     end
 
-    function frame = getCurrentFrame(self);
+    function frame = getCurrentFrame(self)
       frame = getCurrentFrame@xy.core.VideoReaderMatlab(self);
       if self.resizeif
         frame = imresize(frame,self.resizescale);

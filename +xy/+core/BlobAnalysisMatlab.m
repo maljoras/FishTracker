@@ -29,7 +29,7 @@ classdef BlobAnalysisMatlab < xy.core.BlobAnalysis;
       end
     end
     
-    function rp = a_getRegions(self,bwimg,Iframe,rprops);
+    function rp = a_getRegions(self,bwimg,Iframe,rprops)
       if ~isstruct(bwimg)
         %bwimg = bwareaopen(bwimg,self.minArea); % needed ?
         spots=bwconncomp(bwimg,8);
@@ -40,14 +40,14 @@ classdef BlobAnalysisMatlab < xy.core.BlobAnalysis;
       
     end
     
-    function [bb,center] = a_getMaxAreaRegion(self,bwimg);
+    function [bb,center] = a_getMaxAreaRegion(self,bwimg)
       rp = regionprops(bwimg);
       [~,midx] = max(cat(1,rp.Area));
       bb = max(floor(rp(midx).BoundingBox),1);
       center = rp(midx).Centroid;
     end
     
-    function msk = a_closeHoles(self,msk);
+    function msk = a_closeHoles(self,msk)
       msk = imdilate(msk,self.se);
       msk = imerode(msk,self.se);
     end

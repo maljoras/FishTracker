@@ -38,11 +38,11 @@ classdef VideoReader < handle;
   methods (Access=protected)
     % needs to be overloaded
 
-    function dur = a_getDuration(self);
+    function dur = a_getDuration(self)
       dur = self.a_getNFrames()/self.a_getFrameRate();
     end
     
-    function nframes = a_getNFrames(self);
+    function nframes = a_getNFrames(self)
       nframes = get(self.reader,'FrameCount');
       if nframes==0
         % strange. cannot find how many frames. Assume Inf
@@ -51,7 +51,7 @@ classdef VideoReader < handle;
       
     end
     
-    function frameRate = a_getFrameRate(self);
+    function frameRate = a_getFrameRate(self)
       frameRate = get(self.reader,'FPS');
 
       if isnan(frameRate) % strasnge things happen
@@ -63,22 +63,22 @@ classdef VideoReader < handle;
       
     end
     
-    function frameSize= a_getFrameSize(self);
+    function frameSize= a_getFrameSize(self)
       frameSize = [get(self.reader,'FrameHeight'),get(self.reader,'FrameWidth')];
     end
     
-    function [frame oframe] = a_readScaledSFrame(self,scale,delta);      
+    function [frame, oframe] = a_readScaledSFrame(self,scale,delta)      
       if self.originalif
-        [frame oframe]= self.reader.readScaledS(scale,delta);
+        [frame, oframe]= self.reader.readScaledS(scale,delta);
       else
-        [frame]= self.reader.readScaledS(scale,delta);
+        frame= self.reader.readScaledS(scale,delta);
         oframe = [];
       end
     end
     
-    function [frame oframe] = a_readScaledUFrame(self,scale,delta);      
+    function [frame, oframe] = a_readScaledUFrame(self,scale,delta)      
       if self.originalif
-        [frame oframe] = self.reader.readScaledU(scale,delta);
+        [frame, oframe] = self.reader.readScaledU(scale,delta);
       else
         frame = self.reader.readScaledU(scale,delta);
         oframe = [];
@@ -86,9 +86,9 @@ classdef VideoReader < handle;
       
     end
 
-    function [frame oframe] = a_readUFrame(self);      
+    function [frame, oframe] = a_readUFrame(self)
       if self.originalif
-        [frame oframe] = self.reader.read();
+        [frame, oframe] = self.reader.read();
       else
         frame = self.reader.read();
         oframe = [];
@@ -96,64 +96,64 @@ classdef VideoReader < handle;
       
     end
     
-    function [frame oframe] = a_readGraySFrame(self);      
+    function [frame, oframe] = a_readGraySFrame(self)      
       if self.originalif
-        [frame oframe] = self.reader.readGraySingle();
+        [frame, oframe] = self.reader.readGraySingle();
       else
         frame = self.reader.readGraySingle();
         oframe = [];
       end
     end
     
-    function [frame oframe] = a_readGrayUFrame(self);      
+    function [frame, oframe] = a_readGrayUFrame(self)   
       if self.originalif
-        [frame oframe] = self.reader.readGray();
+        [frame, oframe] = self.reader.readGray();
       else
         frame = self.reader.readGray();
         oframe = [];
       end
     end
     
-    function [frame oframe] = a_readInvertedGraySFrame(self);      
+    function [frame, oframe] = a_readInvertedGraySFrame(self)      
       if self.originalif
-        [frame oframe] = self.reader.readInvertedGraySingle();
+        [frame, oframe] = self.reader.readInvertedGraySingle();
       else
         frame = self.reader.readInvertedGraySingle();
         oframe = [];
       end
     end
     
-    function [frame oframe] = a_readInvertedGrayUFrame(self);      
+    function [frame, oframe] = a_readInvertedGrayUFrame(self)      
       if self.originalif
-        [frame oframe] = self.reader.readInvertedGray();
+        [frame, oframe] = self.reader.readInvertedGray();
       else
         frame  = self.reader.readInvertedGray();
         oframe = [];
       end
     end
     
-    function [frame oframe] = a_readSFrame(self);      
+    function [frame, oframe] = a_readSFrame(self)      
       if self.originalif
-        [frame oframe]= self.reader.readSingle();
+        [frame, oframe]= self.reader.readSingle();
       else
         frame = self.reader.readSingle();
         oframe = [];
       end
     end
     
-    function bool = a_hasFrame(self);
+    function bool = a_hasFrame(self)
       nextFrame = get(self.reader,'PosFrames');
       bool = nextFrame<self.nFrames; % starts from 0!
     end
     
     
-    function a_delete(self);
+    function a_delete(self)
       self.reader.delete();
       self.reader = [];
     end
     
     
-    function a_setCurrentTime(self,time);
+    function a_setCurrentTime(self,time)
     % time is given in seconds
       nextFrame = max(floor(time*self.frameRate),0);
       pos = get(self.reader,'PosFrames');
@@ -162,10 +162,10 @@ classdef VideoReader < handle;
       end
     end
 
-    function playMsk(self);
+    function playMsk(self)
       vp = vision.VideoPlayer('Name',self.videoFile);
       cont = self.hasFrame();
-      fgbg = cv.BackgroundSubtractorMOG2()
+      fgbg = cv.BackgroundSubtractorMOG2();
       %fgbg.Dist2Threshold = 500;
       fgbg.DetectShadows = 0;
       %fgbg.ShadowValue = 0.5;
@@ -188,7 +188,7 @@ classdef VideoReader < handle;
       self.reader = xy.core.VideoCapture(self.videoFile);
     end
   
-    function loadTFile(self,tfile);
+    function loadTFile(self,tfile)
     % reads the txt file with the time information from SaveVideo
       tmp = dlmread(tfile);
       self.tframe = tmp(:,3);%-tmp(1,3);
@@ -213,12 +213,12 @@ classdef VideoReader < handle;
     % constructor
       self = self@handle();
 
-      if ischar(vid) && ~exist(vid,'file')
+      if ischar(vid)&& length(vid)>1 && ~exist(vid,'file')
         error('Video file not found');
       end
       self.videoFile = vid;
       
-      if ischar(vid) && exist([vid '.txt'],'file')
+      if ischar(vid) && length(vid)>1 && exist([vid '.txt'],'file')
         self.loadTFile([vid '.txt']);
       end
       
@@ -256,7 +256,7 @@ classdef VideoReader < handle;
     end
     
       
-    function increaseCounters(self,timeStamp);
+    function increaseCounters(self,timeStamp)
       self.currentFrame = self.currentFrame + 1;
       if self.ntframe > self.currentFrame
         self.currentTime = self.tframe(self.currentFrame);
@@ -270,7 +270,7 @@ classdef VideoReader < handle;
     end
 
     
-    function frame = getCurrentFrame(self);
+    function frame = getCurrentFrame(self)
       frame = self.frame;
     end
 
@@ -280,7 +280,7 @@ classdef VideoReader < handle;
     
     function set.timeRange(self,trange)
       if isempty(trange) || diff(trange)<=0
-        if isempty(self.tframe)
+        if isempty(self.tframe) %#ok<*MCSUP>
           self.timeRange= [0,self.duration];
         else
           self.timeRange= [self.tframe(1),self.tframe(end)];
@@ -299,7 +299,7 @@ classdef VideoReader < handle;
     function self = init(self)
 
       self.frameRate = self.a_getFrameRate();
-      self.duration = self.a_getDuration();
+      self.duration = abs(self.a_getDuration());
       self.nFrames = self.a_getNFrames();
       self.frameSize = self.a_getFrameSize();
       self.ntframe = length(self.tframe);
@@ -315,11 +315,11 @@ classdef VideoReader < handle;
     
     function verbose(self)
       if ~iscell(self.videoFile)
-        [a,b,c] = fileparts(self.videoFile);
+        [~,b,c] = fileparts(self.videoFile);
         xy.helper.verbose('%s using "%s" ',upper(class(self)),[b,c]);
         xy.helper.verbose('FPS: %gHz, NFrames: %d, selected range:  %1.1fs-%1.1fs',self.frameRate,self.nFrames,self.timeRange);
       else
-        [a,b,c] = fileparts(self.videoFile{2});
+        [~,b,c] = fileparts(self.videoFile{2});
         xy.helper.verbose('%s grabbing from camera %d (%gHz) and writing to "%s" ',upper(class(self)),self.videoFile{1},self.frameRate,[b,c]);
       end
       
@@ -348,7 +348,7 @@ classdef VideoReader < handle;
       time = self.currentTime;
     end
     
-    function bool = hasFrame(self);
+    function bool = hasFrame(self)
       if ~isempty(self.timeRange)
         bool = self.currentTime<=self.timeRange(2);
         bool = bool & self.a_hasFrame();
@@ -366,26 +366,26 @@ classdef VideoReader < handle;
     end
 
     
-    function varargout = readFrameFormat(self,format);
+    function varargout = readFrameFormat(self,format)
     % read increases frame counter. if ORGINALIF also returns the
     % original frame
       switch format
         case 'RGBS'
-          [self.frame self.oframe]= a_readSFrame(self);
+          [self.frame, self.oframe]= a_readSFrame(self);
         case 'RGBU'
-          [self.frame self.oframe] = a_readUFrame(self);
+          [self.frame, self.oframe] = a_readUFrame(self);
         case 'GRAYU'
-          [self.frame self.oframe] = a_readGrayUFrame(self);
+          [self.frame, self.oframe] = a_readGrayUFrame(self);
         case 'GRAYS'
-          [self.frame self.oframe] = a_readGraySFrame(self);
+          [self.frame, self.oframe] = a_readGraySFrame(self);
         case 'IGRAYU'
-          [self.frame self.oframe] = a_readInvertedGrayUFrame(self);
+          [self.frame, self.oframe] = a_readInvertedGrayUFrame(self);
         case 'IGRAYS'
-          [self.frame self.oframe] = a_readInvertedGraySFrame(self);
+          [self.frame, self.oframe] = a_readInvertedGraySFrame(self);
         case 'SCALEDU'
-          [self.frame self.oframe] = a_readScaledUFrame(self,self.scale,self.delta);
+          [self.frame, self.oframe] = a_readScaledUFrame(self,self.scale,self.delta);
         case 'SCALEDS'
-          [self.frame self.oframe] = a_readScaledSFrame(self,self.scale,self.delta);
+          [self.frame, self.oframe] = a_readScaledSFrame(self,self.scale,self.delta);
         otherwise
           error('Format not known');
       end
@@ -414,9 +414,9 @@ classdef VideoReader < handle;
     end
     
     
-    function varargout = readFrame(self);
+    function varargout = readFrame(self)
     % reads a frame format 
-      [self.frame self.oframe] = self.readFrameFormat(self.frameFormat);
+      [self.frame, self.oframe] = self.readFrameFormat(self.frameFormat);
       if nargout
         varargout{1} = self.frame;
         if self.originalif

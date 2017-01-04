@@ -1,3 +1,8 @@
+#include <thread>
+#include <mutex>
+#include <chrono>
+#include <condition_variable>
+
 #include "FlyCapture2.h"
 
 //#define COMPILE_AS_EXECUTABLE
@@ -16,12 +21,6 @@
 #include <fstream>   
 #include <iomanip>
 
-#include <glibmm/threads.h>
-#include <glibmm/timer.h>
-#include <glibmm/init.h>
-
-
-// Include Boost headers for system time and threading
 
 using namespace std;
 using namespace FlyCapture2;
@@ -95,7 +94,7 @@ protected:
 #ifdef COMPILE_AS_EXECUTABLE
     FrameRateCounter m_FPSCounter;
 #endif
-    Glib::Timer m_timer;  
+    std::clock_t m_timer;  
 
     bool m_newFrameAvailable;
     bool m_KeepThreadAlive;
@@ -104,9 +103,10 @@ protected:
     bool m_GrabbingFinished;
     bool m_writing;
     
-    Glib::Threads::Mutex m_FrameMutex;
-    Glib::Threads::Thread * m_captureThread;
-    Glib::Threads::Thread * m_writingThread;
+    std::mutex m_FrameMutex;
+    std::condition_variable m_newFrameAvailableCond;
+    std::thread * m_captureThread;
+    std::thread * m_writingThread;
 	
     FlyCapture2::Camera m_Camera;
     float m_FrameRateToUse;

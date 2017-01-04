@@ -35,7 +35,7 @@ classdef PresenterPlaneIndiv < xy.stimulus.PresenterOnlineLearningCue
       bool = iExp>length(self.nindivStimPerExps);
     end
     
-    function iExp = getExpIdx(self,t);
+    function iExp = getExpIdx(self,t)
       tt = t - self.adaptationTime;
       if tt<0
         iExp =0;

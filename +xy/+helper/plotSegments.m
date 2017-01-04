@@ -1,7 +1,7 @@
 function plotSegments(seg)
 
   
-  if ~length(seg)
+  if isempty(seg)
     return;
   end
 
@@ -14,7 +14,7 @@ function plotSegments(seg)
     x = 1:size(seg(i).FilledImage,2);
     y = 1:size(seg(i).FilledImage,1);
     imagesc(x,y,seg(i).FilledImage);
-    [X,Y] = meshgrid(x,y);
+    %%[X,Y] = meshgrid(x,y);
     
     % plot ellipse
     phi = seg(i).Orientation/180*pi;

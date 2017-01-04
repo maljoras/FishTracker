@@ -1,4 +1,4 @@
-function [r1,r2] = getsubplotnumber(n);
+function [r1,r2] = getsubplotnumber(n)
 % [R1,R2] = GETSUBPLOTNUMBER(N) calculate appropiate subplot devisions based
 % on N subplots
 

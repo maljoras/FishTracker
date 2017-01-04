@@ -1,7 +1,7 @@
 classdef PresenterTrackTextureRegions < xy.stimulus.PresenterTrackTextures;
   
   properties
-    xRegions = [0.5];
+    xRegions = 0.5;
     regSizeFactorScale = [0.5,10];
   end
 

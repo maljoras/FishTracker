@@ -101,7 +101,7 @@ function stimulusSimulator(stmObj,varargin)
 end
 
 
-function trace = subMakeTrace(nt,nindiv,cutoff);
+function trace = subMakeTrace(nt,nindiv,cutoff)
 
   [Hb,Ha] = butter(4,cutoff,'low');
   rpath = filtfilt(Hb,Ha,exp(1i*4*pi*(rand(nt,2,nindiv)-0.5)));

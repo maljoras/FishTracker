@@ -1,4 +1,4 @@
-function compareTrackingResults(self);
+function compareTrackingResults(self)
 % COMPARETRACKINGRESULTS compares the results with the switch-based
 % method an DAG method. Basically plots the overlaps
 

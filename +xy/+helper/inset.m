@@ -1,4 +1,4 @@
-function aa = inset(a,varargin);
+function aa = inset(a,varargin)
 % NEWA = INSET(A,...) creates an inset in the right upper corner of given
 % axis. 
   

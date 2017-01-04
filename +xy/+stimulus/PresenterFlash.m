@@ -20,7 +20,7 @@ classdef PresenterFlash < xy.stimulus.Presenter;
 
       %% change stimulus state with poisson characeteristics
       if self.flashLambda>0
-        msk = self.flashLambda>rand(size(self.flashState))
+        msk = self.flashLambda>rand(size(self.flashState));
         self.flashState(msk) = ~self.flashState(msk);
       end
 
@@ -43,7 +43,7 @@ classdef PresenterFlash < xy.stimulus.Presenter;
     % this function will be called from xy.Tracker after each round
     
       self.borderFlash(x,y);
-
+      stmInfo = [x,y];
     end
     
        

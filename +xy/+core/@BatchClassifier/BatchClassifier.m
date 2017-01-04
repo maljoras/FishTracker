@@ -29,7 +29,7 @@ classdef BatchClassifier < handle;
   
   
   methods(Static)
-    function obj = loadobj(S);
+    function obj = loadobj(S)
       if isstruct(S)
 
         obj = xy.core.BatchClassifier(S.nindiv,S.featdim);
@@ -240,7 +240,7 @@ classdef BatchClassifier < handle;
     
     
         
-    function [assignedIdentityIdx prob]= batchUpdate(self,fishidx,batchsample,varargin)
+    function [assignedIdentityIdx, prob]= batchUpdate(self,fishidx,batchsample,varargin)
     % updates the fatures of the fishidx with the cell-array;
     % returns "nan" if not updated.
       
@@ -275,7 +275,7 @@ classdef BatchClassifier < handle;
       if forceif 
         assignedIdentityIdx(validclasses) = fishidx(validclasses);
       else
-        [assignedIdentityIdx(validclasses) prob(validclasses)] = self.predictPermutedAssignments(X,fishidx(validclasses),0);
+        [assignedIdentityIdx(validclasses), prob(validclasses)] = self.predictPermutedAssignments(X,fishidx(validclasses),0);
         
         if any(assignedIdentityIdx(validclasses)~=fishidx(validclasses))
           xy.helper.verbose('WARNING: mixed up classes.')
@@ -314,7 +314,7 @@ classdef BatchClassifier < handle;
     end
 
 
-    function [assignedClassIdx prob] = predictPermutedAssignments(self,batchsample,assumedClassIdx,varargin)
+    function [assignedClassIdx, prob] = predictPermutedAssignments(self,batchsample,assumedClassIdx,varargin)
       
       if nargin>3
         preprocessif = varargin{1};
@@ -381,7 +381,7 @@ classdef BatchClassifier < handle;
       end
     end
 
-    function mu = getMeans(self);
+    function mu = getMeans(self)
     % returns the means of the classes in "readable" format
       mu = zeros([self.nindiv,self.featdim]);
 

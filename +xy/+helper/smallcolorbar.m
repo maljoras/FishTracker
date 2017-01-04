@@ -1,4 +1,4 @@
-function hc = smallcolorbar(ax,varargin);
+function hc = smallcolorbar(ax,varargin)
 % HC = SMALLCOLORBAR(AX) as COLORBAR but makes a somewhat smaller
 % vertical colorbar on the right inside.
 % MJR 2/2008

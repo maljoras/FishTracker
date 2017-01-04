@@ -1,4 +1,4 @@
-function addSaveFields(self,varargin);
+function addSaveFields(self,varargin)
 %  XYT.ADDSAVEFIELD('FIELDNAME1','FIELDNAME2',...) adds a tracks field to the saved structure
 
   f = fieldnames(self.initializeTracks())'; 

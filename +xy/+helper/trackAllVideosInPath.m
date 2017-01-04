@@ -19,7 +19,7 @@ function trackAllVideosInPath(path,varargin)
   p = genpath(path);
   p = strsplit(p,':');
   
-  if ~iscell(opts.excludeNames)
+  if ~iscell(opts.excludeNames) %#ok<NODEF>
     opts.excludeNames = {opts.excludeNames};
   end
 
@@ -43,7 +43,7 @@ function trackAllVideosInPath(path,varargin)
     
     for j = 1:length(d)
       fname = [p{i} filesep d(j).name];
-      [a,b,c] = fileparts(fname);
+      [~,b,~] = fileparts(fname);
       matname = [p{i} filesep opts.nameadd, b,'.mat'];
       nindiv = [];
       if opts.excludeDone && exist(matname,'file');
@@ -91,7 +91,7 @@ function trackAllVideosInPath(path,varargin)
   end
   
 
-function subTrack(fname,matname,varargin);
+function subTrack(fname,matname,varargin)
 
   T = xy.Tracker(fname,'displayif',0,varargin{:});
   T.track();

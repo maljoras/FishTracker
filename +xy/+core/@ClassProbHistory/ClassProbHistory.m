@@ -20,7 +20,7 @@ classdef ClassProbHistory < handle;
   
   
    methods(Static);
-    function obj = loadobj(S);
+    function obj = loadobj(S)
       if isstruct(S)
         obj = xy.core.ClassProbHistory(size(S.buffer,2));
         for f = fieldnames(S)'
@@ -62,7 +62,7 @@ classdef ClassProbHistory < handle;
 
     
     
-    function [reasonable w] = update(self,vector,somenoiseval)
+    function [reasonable, w] = update(self,vector,somenoiseval)
       
       self.age = self.age +1;
       self.currentIdx = self.currentIdx + 1;
@@ -119,7 +119,7 @@ classdef ClassProbHistory < handle;
     end
 
       
-    function [mclassProb usedN] = mean(self,N)
+    function [mclassProb, usedN] = mean(self,N)
     % MCLASSPROB = MEAN(SELF,N) returns the weighted mean
     % class prob for the last N steps 
       

@@ -23,7 +23,7 @@ function setDisplay(self,varargin)
       self.opts.display.displayEveryNFrame = 1;
     end
     
-  elseif ~mod(length(varargin),2) && length(varargin)>0
+  elseif ~mod(length(varargin),2) && ~isempty(varargin)
     for i = 1:2:length(varargin)
       assert(ischar(varargin{i}))
       if ~isfield(self.opts.display,varargin{i})

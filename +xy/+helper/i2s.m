@@ -1,4 +1,4 @@
-function sub = i2s(sz,ind);
+function sub = i2s(sz,ind)
 % works like ind2sub but with v = s2i(sz,ind) instead of
 % [v1,v2,v3,...] = ind2sub(sz,ind)
 % works along dimension 2 (i.e. rows specify the index)

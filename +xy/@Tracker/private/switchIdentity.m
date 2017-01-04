@@ -83,7 +83,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
       xy.helper.verbose('Use conventional switching');
     end
     
-    [nc ncidx]= self.connectedComponents(trackIndices,assignedIdentityIds);
+    [~, ncidx]= self.connectedComponents(trackIndices,assignedIdentityIds);
     for i_ncidx = 1:length(ncidx)  % actually do not need to check again.
       idx = ncidx{i_ncidx};
       
@@ -159,7 +159,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
     
     
 
-  function subPlotCrossings();
+  function subPlotCrossings()
 
     %define just for the plotting  (might be confused by the loop
     %above. Just ignore)
@@ -190,13 +190,13 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
 
     figure(125);
     clf;
-    xlim([tt([1,end])]-t1+1)
+    xlim(tt([1,end])-t1+1)
     subplot(2,1,1);
     plot(pdifference,'-x')
     hold on;
-    plot([tminfinal([1,1])] - t1 + 1,ylim(),'-k');
-    plot([tminfinalclprob([1,1])] - t1 + 1,ylim(),'--r');
-    plot([tminfinaldist([1,1])] - t1 + 1,ylim(),'--m');
+    plot(tminfinal([1,1]) - t1 + 1,ylim(),'-k');
+    plot(tminfinalclprob([1,1]) - t1 + 1,ylim(),'--r');
+    plot(tminfinaldist([1,1]) - t1 + 1,ylim(),'--m');
 
     plot([tfinalsearchstart,tfinalsearchend]-t1 + 1,[0,0],'r-o','linewidth',2);
     if crossingflag
@@ -258,7 +258,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
   end
 
 
-  function [dagpos,dagf2t,flag, extraIds] = subGetDagBasedPos();
+  function [dagpos,dagf2t,flag] = subGetDagBasedPos()
   % get the backtrace from  tstart (if possible). 
   
     flag = 0;
@@ -387,7 +387,7 @@ function switchIdentity(self,trackIndices,assignedIdentityIds,crossingflag)
   function [tminOut,nanmskOut] = subCalcLostTrackBasedSwitchPoint()
     % candidate switch points where tracks were lost
 
-    localpos = permute(self.pos(:,idxOldIdentityIds,tstart:tend),[3,2,1]);;
+    localpos = permute(self.pos(:,idxOldIdentityIds,tstart:tend),[3,2,1]);
     localpos(isnan(localpos)) = 0;
     sz = size(localpos);
     sz(1) = 1;

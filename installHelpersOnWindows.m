@@ -171,7 +171,7 @@ end
 mex -largeArrayDims -cxx CXXFLAGS='-std=c++11 -lstdc++' assignDetectionsToTracks.cpp -outdir ..\+xy\+helper\
 
 cd ..
-fprintf('FINISHED!\n Run >> xy.Tracker.runTest() to test the tracking system.\n\n')
+fprintf('\nFINISHED!\nRun >> xy.Tracker.runSimpleTest() to test the tracking system.\n\n')
 
 
 

@@ -151,7 +151,7 @@ classdef Tracker < handle;
         end
 
         if ~exist(S.videoFile,'file') 
-          [a,b,c] = fileparts(S.videoFile);
+          [~,b,c] = fileparts(S.videoFile);
           if exist([b,c],'file') 
             S.videoFile = [b c];
           else
@@ -184,10 +184,10 @@ classdef Tracker < handle;
     
     %% parameter variations
           
-    function [d,ddag, fL, t_elapsed] = parameterfun(opts1,parname,parvalue,tmax,dfname);
+    function [d,ddag, fL, t_elapsed] = parameterfun(opts1,parname,parvalue,tmax,dfname)
 
       if nargin>4 && ~isempty(dfname)
-        global VERBOSEDIARY;
+        global VERBOSEDIARY; %#ok<TLEV>
         VERBOSEDIARY = dfname;
       end
         
@@ -200,8 +200,7 @@ classdef Tracker < handle;
       opts.verbosity = 3;
       
       xy.helper.verbose('Start parameter variation: %s = %f',parname,parvalue);
-      
-      T = [];
+     
       [~,t_elapsed,~,idpos, T] = xy.Tracker.runTest(tmax,opts,[],[],0);
       
       r = T.getDagTrackingResults();
@@ -210,7 +209,7 @@ classdef Tracker < handle;
       ddag = squeeze(sqrt(sum((xyposdag - idpos).^2,2)));
       r = T.getSwitchBasedTrackingResults();
       xypos = r.pos;
-      d = squeeze(sqrt(nansum((xypos - idpos).^2,2)));
+      d = squeeze(sqrt(xy.helper.nansum((xypos - idpos).^2,2)));
       fL = T.bodylength;
       
       if nargin>4 && ~isempty(dfname)
@@ -337,9 +336,9 @@ classdef Tracker < handle;
       init = 100;
       
       [r1,r2] = xy.helper.getsubplotnumber(size(res,1));
-      %fun = @(x)nanmax(x,[],2);
-      %fun = @(x)nanmean(x,2);
-      fun = @(x)nansum(x>0.5,2); % across body;
+      %fun = @(x)max(x,[],2);
+      %fun = @(x)xy.helper.nanmean(x,2);
+      fun = @(x)xy.helper.nansum(x>0.5,2); % across body;
       
       dat = res.dat;
       nframes = size(dat(1,1).d,1);
@@ -356,10 +355,10 @@ classdef Tracker < handle;
         xdag = xdag(init:end,:,:);
 
         
-        md = shiftdim(nanmean(fun(x),1));
+        md = shiftdim(xy.helper.nanmean(fun(x),1));
         sd = shiftdim(xy.helper.stderr(fun(x),1));
         
-        mdag = shiftdim(nanmean(fun(xdag),1));
+        mdag = shiftdim(xy.helper.nanmean(fun(xdag),1));
         sdag = shiftdim(xy.helper.stderr(fun(xdag),1));
 
         nnan = shiftdim(sum(sum(isnan(cat(3,dat(i,:).d)),1),2))/n;
@@ -367,7 +366,7 @@ classdef Tracker < handle;
         
         a = subplot(r1,r2,i);
         nc = 1;
-        xy.helper.errorbarpatch(parr,imfilter([md,mdag],ones(nc,1)/nc,'same','replicate'),[sd,sdag]);
+        xy.helper.errorbarpatch(parr,conv2([md,mdag],ones(nc,1)/nc,'same'),[sd,sdag]);
         ylabel('% frames > 1 BL');
         legend('SWB','DAG');
         b = xy.helper.submargin(a,'MARGIN',0.01,'SPACE',0.2);
@@ -387,6 +386,12 @@ classdef Tracker < handle;
 
     %% test
     function [self] = runSimpleTest(tmax,plotif)
+        if nargin<1
+            tmax = 100;
+        end
+        if nargin<2
+            plotif = 5;
+        end
       [~,~,~,~,self] = xy.Tracker.runTest(tmax,[],[],[],plotif);
     end
     
@@ -473,7 +478,7 @@ classdef Tracker < handle;
       
       for i = 1:nindiv
         for j = 1:nindiv
-          dist(i,j) = nanmean(sqrt(sum((xyres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)));
+          dist(i,j) = xy.helper.nanmean(sqrt(sum((xyres.pos(:,:,j) - idres.pos(1:end-offs,:,i)).^2,2)),1);
         end
       end
       assignments = xy.helper.assignDetectionsToTracks(dist,1e3);
@@ -485,7 +490,7 @@ classdef Tracker < handle;
       t = xyres.t(:,1);
       d = sqrt(sum((xypos(:,:,:) - idpos(:,:,:)).^2,2))/T.bodylength;
       
-      success = mean(nanmax(d,[],3)>1)<0.05;
+      success = mean(max(d,[],3)>1)<0.05;
 
       varargout{1} = xypos;
       varargout{2} = idpos;
@@ -506,9 +511,9 @@ classdef Tracker < handle;
         
 
         if MAXDISTANCE
-          plot(t,nanmax(d,[],3));
+          plot(t,max(d,[],3));
         else
-          xy.helper.errorbarpatch(t,nanmean(d,3),xy.helper.stderr(d,3));
+          xy.helper.errorbarpatch(t,xy.helper.nanmean(d,3),xy.helper.stderr(d,3));
         end
         
         hold on;
@@ -583,7 +588,7 @@ classdef Tracker < handle;
         
         xlabel('Time [sec]','fontsize',10);
         b = xy.helper.labelsubplot(gcf);
-        xy.helper.shiftaxes(b,[0.02])
+        xy.helper.shiftaxes(b,0.02)
         drawnow;
       end
 
@@ -597,7 +602,7 @@ classdef Tracker < handle;
     end
 
     
-    function [screenBoundingBox] = calibrateStimulusScreen(camIdx,screenIdx,plotif);
+    function [screenBoundingBox] = calibrateStimulusScreen(camIdx,screenIdx,plotif)
     % [SCREENBOUNDINGBOX] =
     % CALIBRATESTIMULUSSCREEN(CAMIDX,SCREENIDX gets the
     % SCREENBOUNDINGBOX used for stimulus presentation.
@@ -814,11 +819,17 @@ classdef Tracker < handle;
     end
     
     
-    function predictor = newPredictor(self,centroid);
+    function predictor = newPredictor(self,centroid)
     % Create a Kalman filter object.
-      vel = 1/(self.avgTimeScale)*self.bodylength;
-      predictor = configureKalmanFilter('ConstantVelocity', centroid, [self.bodylength, self.bodylength], [vel,vel], 1);
+      if self.hasVision
+          vel = 1/(self.avgTimeScale)*self.bodylength;
+          predictor = configureKalmanFilter('ConstantVelocity', centroid, [self.bodylength, self.bodylength], [vel,vel], 1);
+      else
+          predictor = [];
+      end
+      
     end
+    
 
     
     
@@ -845,7 +856,7 @@ classdef Tracker < handle;
           self.stimulusPresenter = xy.stimulus.Presenter(self.opts.stimulus);
         else
           if ischar(self.opts.stimulus.presenter)
-            self.stimulusPresenter = eval('%s(self.opts.stimulus)',self.opts.stimulus.presenter);
+            self.stimulusPresenter = eval(sprintf('%s(self.opts.stimulus)',self.opts.stimulus.presenter));
           elseif isa(self.opts.stimulus.presenter,'xy.stimulus.Presenter')
             self.stimulusPresenter = self.opts.stimulus.presenter;
           else
@@ -1035,7 +1046,7 @@ classdef Tracker < handle;
       delidx = find(~self.scalecost);
       self.costinfo(delidx) = [];
       self.scalecost(delidx) = [];
-      assert(length(self.scalecost)>0);
+      assert(~isempty(self.scalecost));
 
       FEATCOSTTYPES = {'Area','Size','BoundingBox'};
       self.featurecosttypes = {};
@@ -1209,9 +1220,9 @@ classdef Tracker < handle;
     % ClASSIFICATION
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    function cla = newClassifier(self,opts);
+    function cla = newClassifier(self,opts)
     % Create Classifier objects
-      featdim = [self.videoHandler.getFeatureSize()];
+      featdim = self.videoHandler.getFeatureSize();
       cla = xy.core.BatchClassifier(self.nindiv,featdim);
       
       % set proporties
@@ -1277,7 +1288,7 @@ classdef Tracker < handle;
       identityIds = cat(2,self.tracks(trackIndices).identityId);
 
       % test on the whole set of possible identityIds
-      [assignedIdentityIds prob steps probdiag] = self.predictIdentity(trackIndices,1:self.nindiv,...
+      [assignedIdentityIds, prob, steps, probdiag] = self.predictIdentity(trackIndices,1:self.nindiv,...
                                                         self.nFramesForSingleUpdate);
       same = assignedIdentityIds==identityIds; 
 
@@ -1285,7 +1296,7 @@ classdef Tracker < handle;
         % do not update if classes might be mixed up (wait for more data)
         % change classifier
         feat = self.getFeatureDataFromTracks(trackIndices);
-        [assignedIdentityIds prob] = self.identityClassifier.batchUpdate(identityIds,feat,1); % force
+        self.identityClassifier.batchUpdate(identityIds,feat,1); % force
         self.resetBatchIdx(trackIndices);
         self.uniqueIdentityFrames = 0;
         changed  = 1;
@@ -1374,7 +1385,7 @@ classdef Tracker < handle;
       thres = 3;
       if length(self.tracks)<self.nindiv 
         if  self.currentFrame > thres*self.nFramesForInit
-          xy.helper.verbose(['nindiv setting might be wrong or some identity are lost\r'])
+          xy.helper.verbose('nindiv setting might be wrong or some identity are lost\r')
         end
         return
       end
@@ -1417,7 +1428,7 @@ classdef Tracker < handle;
       
     end
     
-    function  [assignedIdentityIds, prob, steps, probdiag] = predictIdentity(self,trackIndices,identityIdSet,maxSteps);
+    function  [assignedIdentityIds, prob, steps, probdiag] = predictIdentity(self,trackIndices,identityIdSet,maxSteps)
     % predicts the identity according to the running probhist mean 
       
       C = zeros(length(trackIndices),length(identityIdSet));
@@ -1432,7 +1443,7 @@ classdef Tracker < handle;
         track = self.tracks(trackIndices(i));
         if ~isempty(track.classProbHistory)
           nsteps = min(max(self.currentFrame-track.lastFrameOfCrossing,1),maxSteps);
-          [p nsteps] = track.classProbHistory.mean(nsteps);
+          [p, nsteps] = track.classProbHistory.mean(nsteps);
           steps(i) = nsteps;        
         else
           p = track.clpMovAvg;
@@ -1587,7 +1598,7 @@ classdef Tracker < handle;
         
 
         % we force the permutation to be in the valid identity only (otherwise too many errors for many identity)
-        [assignedIdentityIds prob steps probdiag] = self.predictIdentity(thisTrackIndices,crossedIdentityIds,...
+        [assignedIdentityIds, prob, steps, probdiag] = self.predictIdentity(thisTrackIndices,crossedIdentityIds,...
                                                           self.nFramesForUniqueUpdate); 
 
         MAXCROSSIDENTITY = max(10,self.nindiv/2);
@@ -1600,7 +1611,7 @@ classdef Tracker < handle;
         OLD = 0;
         if OLD
 
-          if  all(ismember(assignedIdentityIds,assumedIdentityIds)) 
+          if all(ismember(assignedIdentityIds,assumedIdentityIds)) 
             % we have a valid assignment (note that it is always a permutation inside
             % those that cross because that is guaranteed in predictIdentity)
 
@@ -1702,7 +1713,7 @@ classdef Tracker < handle;
             crossedIds = [];
           end
           
-          [self.tracks(crossedTrackIndices).crossedTrackIds] = deal(crossedIds);
+          [self.tracks(crossedTrackIndices).crossedTrackIds] = deal(crossedIds); %#ok<FNDSB>
           self.tracks(localTrackIndices(ii)).crossedTrackIds = [];
         end
 
@@ -1710,7 +1721,7 @@ classdef Tracker < handle;
         
     end
       
-    function computeLeakyAvgFrame(self,frame);
+    function computeLeakyAvgFrame(self,frame)
       
       if isempty(self.leakyAvgFrame)
         self.leakyAvgFrame = im2double(frame);
@@ -1721,7 +1732,7 @@ classdef Tracker < handle;
     end
     
     
-    function handled = testHandled(self);
+    function handled = testHandled(self)
       handled = false(1,length(self.tracks));
       for i = 1:length(self.tracks)
         handled(i) = isempty(self.tracks(i).crossedTrackIds);
@@ -1730,7 +1741,7 @@ classdef Tracker < handle;
       %handled = arrayfun(@(x)isempty(x.crossedTrackIds),self.tracks);
     end
     
-    function  hitBound = testBeyondBound(self);
+    function  hitBound = testBeyondBound(self)
     % hit bound will be true even if already handled!!
       hitBound = self.currentFrame-[self.tracks.lastFrameOfCrossing] >= self.nFramesAfterCrossing;
     end
@@ -1739,12 +1750,11 @@ classdef Tracker < handle;
       newCrossing  = ismember(1:length(self.tracks), cat(2,self.crossings{:}));
     end
     
-    function [bool,pdiff] = testTrackMisalignment(self,trackIndices);
-
+    function [bool,pdiff] = testTrackMisalignment(self,trackIndices)
     %      if length(trackIndices)<self.MAXCROSSIDENTITY
         identityIds = cat(1,self.tracks(trackIndices).identityId);
         clp = cat(1,self.tracks(trackIndices).clpMovAvg);
-        [sz1,sz2] = size(clp);
+        [sz1,~] = size(clp);
         idx =  (identityIds-1)*sz1 + (1:sz1)';
         prob_correct = clp(idx); %  probability that current settings correct
         clp(idx) = 0;
@@ -1876,7 +1886,7 @@ classdef Tracker < handle;
     %---------------------------------------------------
     
     
-    function tracks = initializeTracks(self)
+    function tracks = initializeTracks(self) %#ok<MANU>
     % create an empty array of tracks
       tracks = struct(...
         'id', {}, ...
@@ -2049,10 +2059,10 @@ classdef Tracker < handle;
       self.cost = [];
       self.assignments= [];
       self.unassignedTracks = [];
-      self.unassignedDetections = [1:nDetections];
+      self.unassignedDetections = 1:nDetections;
 
 
-      if nDetections && length(self.tracks)
+      if nDetections && ~isempty(self.tracks)
         
         scalecost = self.scalecost/sum(self.scalecost);
         scale = scalecost./self.meanCost;
@@ -2191,7 +2201,7 @@ classdef Tracker < handle;
 
         %% Correct the estimate of the object's location  using the new detection.
         if trackopts.kalmanFilterPredcition
-          correct(self.tracks(trackIdx).predictor, [location]); 
+          correct(self.tracks(trackIdx).predictor, location); 
         end
         
 
@@ -2265,7 +2275,7 @@ classdef Tracker < handle;
         end
 
         % always update history, though (weight will be zero for NaN)
-        [reasonable w]  = self.tracks(trackIdx).classProbHistory.update(classprob, probNoise);
+        [reasonable, w]  = self.tracks(trackIdx).classProbHistory.update(classprob, probNoise);
 
         
         if w>0
@@ -2424,7 +2434,7 @@ classdef Tracker < handle;
       end
       
       availableidentityids = setdiff(1:self.nindiv,cat(2,self.tracks.identityId));
-      if  ~self.opts.tracks.withTrackDeletion && ~length(availableidentityids)
+      if  ~self.opts.tracks.withTrackDeletion && isempty(availableidentityids)
         return;
       end
       
@@ -2435,8 +2445,7 @@ classdef Tracker < handle;
         unassignedDetections = self.unassignedDetections;
       else
         %take all at the beginning
-
-        if ~length(availableidentityids)
+        if isempty(availableidentityids)
           return
         end
         unassignedDetections = self.unassignedDetections;
@@ -3124,14 +3133,14 @@ classdef Tracker < handle;
       end
       
       if ~isempty(vname)
-        if all(vname(1:2)=='~/') && isunix()
+        if length(vname)>1 && all(vname(1:2)=='~/') && isunix()
           [~,home] = unix('eval echo ~$USER');
           vname = [home(1:end-1) vname(2:end)];
         elseif vname(1)=='~'
           error('provide full path name. Cannot start with "~"');        
         end
 
-        if ~exist(vname) && ~iscell(vid)
+        if ~exist(vname) && ~iscell(vid) && length(vid)>1
           error(sprintf('Video file "%s" not found',vname));
         end
       end
@@ -3247,9 +3256,8 @@ classdef Tracker < handle;
           self.computeLeakyAvgFrame(frame);
         else
           [self.segments,self.timeStamp] = self.videoHandler.step(); % faster..
-        end
+        end 
         self.dt = self.timeStamp -self.lastTimeStamp;
-
         self.detectObjects();
         self.handleTracks();
 

@@ -47,7 +47,7 @@ classdef DAGraph < handle;
   end
 
   methods(Static);
-    function obj = loadobj(S);
+    function obj = loadobj(S)
       if isstruct(S)
         obj = xy.core.DAGraph(S.nindiv,S.nhyp);
         for f = fieldnames(S)'
@@ -83,7 +83,7 @@ classdef DAGraph < handle;
   
   methods    
     
-    function test(self);
+    function test(self)
       
       T = 0.3;
       dt = 0.004;
@@ -203,7 +203,7 @@ classdef DAGraph < handle;
     end
 
     
-    function varargout = plotTraceAssignments(self,identityIds,assignments,stepsback);
+    function varargout = plotTraceAssignments(self,identityIds,assignments,stepsback)
     % plots the traces for a current assignemts. Called from xy.Tracker
       
       detectionIdx = assignments(:, 2);
@@ -234,7 +234,7 @@ classdef DAGraph < handle;
         stepsback = mt;
       end
 
-      [rtrace,objidx] = self.backtrace(ifish,mobj,mt,stepsback);
+      [rtrace,~] = self.backtrace(ifish,mobj,mt,stepsback);
 
       hold on;
       h = [];
@@ -249,10 +249,10 @@ classdef DAGraph < handle;
     end
     
     
-    function varargout =checkOverlap(self,objidx,verbosity);
+    function varargout =checkOverlap(self,objidx,verbosity)
 
       if nargin<2 || isempty(objidx)
-        [rtrace,objidx] = self.backtrace();
+        [~,objidx] = self.backtrace();
       end
       objidx = reshape(objidx,[],self.nindiv,self.nhyp);
 
@@ -326,7 +326,7 @@ classdef DAGraph < handle;
         mobj = mobj(:)';
       end
       
-      assert(length(mobj)==length(ifish),['IFISH and MOBJ has to be of same length']);
+      assert(length(mobj)==length(ifish),'IFISH and MOBJ has to be of same length');
       
       [rtrace,objidx] = backtrace_(self.dagIdx,self.dagPos,ifish,mobj,mt,stepsback);
       
@@ -356,7 +356,7 @@ classdef DAGraph < handle;
     end
     
     
-    function predIdentityIds = predictIdentityIds(self);
+    function predIdentityIds = predictIdentityIds(self)
 
       assignments = xy.helper.assignDetectionsToTracks(self.dagI,2*max(self.dagI(:)));
       predIdentityIds = assignments(assignments(:,1),2)';
@@ -364,11 +364,11 @@ classdef DAGraph < handle;
     
     
     
-    function reset(self,initPos,tframe);
+    function reset(self,initPos,tframe)
       % init pos has to be in fishID order...
       
       self.dagI = self.startPenalty*ones(self.nindiv,self.nhyp);
-      self.dagI(find(eye(self.nindiv))) = 0;
+      self.dagI(find(eye(self.nindiv))) = 0; %#ok<*FNDSB>
       
       self.dagIdx = nan(self.nindiv,self.nhyp,self.memoryBlock);
       self.dagPos = nan(self.dim,self.nhyp,self.memoryBlock);
@@ -452,7 +452,7 @@ classdef DAGraph < handle;
     
     
     
-    function updateWCost(self,sfcost,classProb,detections,costOfNonAssignment);
+    function updateWCost(self,sfcost,classProb,detections,costOfNonAssignment)
     % computes the Directed Acyclic Graph minimal path problem in
     % an online manner (Nodes are in topological order). SFCOST is
     % cost matrix of size NHYP x NDETECT
@@ -477,7 +477,7 @@ classdef DAGraph < handle;
         pos(:,1:ndetect) = detections;
       else % ndetect>nhyp 
         [~,rank] =  sort(min(sfcost,[],1),'ascend');
-        msk = rank<=nhyp;
+        msk = rank<=self.nhyp;
         dist = sfcost(:,msk);
         if ~isempty(classProb)
           cl = classProb(:,msk);
@@ -521,7 +521,7 @@ classdef DAGraph < handle;
 
     end
 
-    function dagI = getSavedDagI(self);
+    function dagI = getSavedDagI(self)
       if ~self.saveDagIif
         error('Need to turn on option "saveDagIif" to save the dagI');
       else

@@ -11,75 +11,75 @@ classdef VideoReaderMatlab < xy.core.VideoReader;
   
   methods(Access=protected)
       
-   function dur = a_getDuration(self);
+   function dur = a_getDuration(self)
      dur = self.reader.Duration;
    end
    
-   function nframes = a_getNFrames(self);
+   function nframes = a_getNFrames(self)
      nframes = floor(self.reader.Duration*self.reader.FrameRate);
    end
 
-   function framesize = a_getFrameSize(self);
+   function framesize = a_getFrameSize(self)
      framesize = [self.reader.Height,self.reader.Width];
    end
 
-   function framerate = a_getFrameRate(self);
+   function framerate = a_getFrameRate(self)
      framerate = self.reader.FrameRate;
    end
    
-   function [frame oframe] = a_readScaledSFrame(self,scale,delta);      
+   function [frame, oframe] = a_readScaledSFrame(self,scale,delta)      
      oframe = self.reader.readFrame();
      frame = im2single(oframe);
      frame = bsxfun(@plus,bsxfun(@times,frame,shiftdim(scale(:),-2)),shiftdim(delta(:),-2));
      frame = sum(frame,3);
    end
    
-   function [frame oframe] = a_readScaledUFrame(self,scale,delta);      
+   function [frame, oframe] = a_readScaledUFrame(self,scale,delta)      
      oframe = self.reader.readFrame();
      frame = im2single(oframe);
      frame = bsxfun(@plus,bsxfun(@times,frame,shiftdim(scale(:),-2)),shiftdim(delta(:),-2));
      frame = uint8(255*sum(frame,3));
    end
 
-   function [frame,oframe] = a_readUFrame(self);      
+   function [frame,oframe] = a_readUFrame(self)      
      % returns uint color frame
      oframe = self.reader.readFrame();
      frame = oframe;
    end
    
-   function [frame oframe] = a_readGrayUFrame(self);      
+   function [frame, oframe] = a_readGrayUFrame(self)      
      oframe = self.reader.readFrame();
      frame = rgb2gray(oframe);
    end
    
-   function [frame oframe] = a_readGraySFrame(self);      
+   function [frame, oframe] = a_readGraySFrame(self)      
      oframe = self.reader.readFrame();
      frame = im2single(rgb2gray(oframe));
    end
    
-   function [frame oframe]= a_readInvertedGrayUFrame(self);      
+   function [frame, oframe]= a_readInvertedGrayUFrame(self)      
      oframe = self.reader.readFrame();
      frame = uint8(255) - rgb2gray(oframe);
    end
    
-   function [frame oframe] = a_readInvertedGraySFrame(self);      
+   function [frame, oframe] = a_readInvertedGraySFrame(self)      
      oframe = self.reader.readFrame();
      frame = single(1.0) - im2single(rgb2gray(oframe));
    end
 
    
-   function [frame oframe] = a_readSFrame(self);      
+   function [frame, oframe] = a_readSFrame(self)      
      % returns single color frame 
      oframe = self.reader.readFrame();
      frame = im2single(oframe);
    end
    
-   function bool = a_hasFrame(self);
+   function bool = a_hasFrame(self)
      bool = self.reader.hasFrame();
    end
    
    
-   function a_setCurrentTime(self,time);
+   function a_setCurrentTime(self,time)
      self.reader.CurrentTime = time;
    end
 
@@ -87,7 +87,7 @@ classdef VideoReaderMatlab < xy.core.VideoReader;
      self.reader = [];
    end
    
-    function playMsk(self);
+    function playMsk(self)
       vp = vision.VideoPlayer('Name',self.videoFile);
       cont = self.hasFrame();
       fgbg = vision.Autothresholder();

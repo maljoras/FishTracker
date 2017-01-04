@@ -15,7 +15,7 @@ function [pcl,a,mu,Sigma] = emclustering(X,k,plotif)
  maxd = 10;
  if d>maxd
    % preprocess;
-   [prepc, ~,X, prempc] = xy.helper.pca1(X,maxd); % on
+   [~, ~,X] = xy.helper.pca1(X,maxd); % on
    d = maxd;
  end
 
@@ -84,7 +84,7 @@ function [pcl,a,mu,Sigma] = emclustering(X,k,plotif)
    % compute the class probs according to weighted distance
    for j = 1:k
      xm = bsxfun(@minus,X,mu(:,j)');
-     xms = xm*inv(Sigma(:,:,j));
+     xms = xm/Sigma(:,:,j);
      prob(:,j) = exp(-sum(xms.*xm,2)/2)/sqrt(det(Sigma(:,:,j)))/(2*pi)^(d/2);
    end
 

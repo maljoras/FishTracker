@@ -75,7 +75,7 @@ classdef PresenterDot < xy.stimulus.Presenter;
      y(~msk) = NaN;
    end
    
-   function updateRoundTime(self);
+   function updateRoundTime(self)
      trainingTime = self.stmTime;
      self.roundTime = trainingTime + self.gapTime;
    end
@@ -117,7 +117,7 @@ classdef PresenterDot < xy.stimulus.Presenter;
          % stimulus time
          if self.iround~=lastRound
            % new stim round
-           self.stimulatedMsk = rand(length(identityIds),1) < self.funStmIdentityIdProb(identityIds(:)));
+           self.stimulatedMsk = rand(length(identityIds),1) < self.funStmIdentityIdProb(identityIds(:));
          end
          self.stmIdx = self.ID_STIMULATION;
        

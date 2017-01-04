@@ -93,26 +93,26 @@ if nargout >= 3,
   Proj = dat * PC;				% Proj centered dat onto PCs.
 end
 
-
-return;
-
-
-
-  
-%%%%%%%%%%%%%%%%%%%
-%%%%% EXAMPLE OF RECONSTRUCTING INDIVIDUAL SIGNALS FROM PC COMPONENTS
-%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function Reco = getreco(Spf)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-NPC=5;
-for ObspNo=1:size(Spf,2)
-  for ChanNo=1:size(Spf,1),
-	[PC, eVar, Proj, SigMean] = pca(Sig{ChanNo,ObspNo}.dat,NPC);
-	for K=1:size(Sig{ChanNo,ObspNo}.dat,2),
-	  Spf{ChanNo,ObspNo}.reco(:,K) = PC * Proj(K,:)' + SigMean;
-	end;
-  end;
-end;
+% 
+% return;
+% 
+% 
+% 
+%   
+% %%%%%%%%%%%%%%%%%%%
+% %%%%% EXAMPLE OF RECONSTRUCTING INDIVIDUAL SIGNALS FROM PC COMPONENTS
+% %%%%%%%%%%%%%%%%%%%
+% 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% function Reco = getreco(Spf)
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% NPC=5;
+% for ObspNo=1:size(Spf,2)
+%   for ChanNo=1:size(Spf,1),
+% 	[PC, eVar, Proj, SigMean] = pca(Sig{ChanNo,ObspNo}.dat,NPC);
+% 	for K=1:size(Sig{ChanNo,ObspNo}.dat,2),
+% 	  Spf{ChanNo,ObspNo}.reco(:,K) = PC * Proj(K,:)' + SigMean;
+% 	end;
+%   end;
+% end;
 

@@ -1,4 +1,4 @@
-function index = s2i(sz,v);
+function index = s2i(sz,v)
 % works like sub2ind but with s2i(sz,[v1,v2,v3,...]) instead of
 % sub2ind(sz,v1,v2,v3,...)
 % works along dimension 2 (i.e. rows specify the indices)

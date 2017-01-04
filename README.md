@@ -9,7 +9,7 @@ is not lost for long tracking experiments. The name "xy" derives from Chinese "X
 
 ##Installation
 
-The tracking system includes 3 versions (in order of increasing performance): A purely matlab based version, an OpenCV/matlab version, and an optimized MEX/C++/OpenCV version. All versions have the same matlab interface. The system automatically chooses the fastest available version depending what additional packages are installed on the system.  However, the purely matlab version is depreciated since it is slow and not well maintained. Please install the OpenCV/Mex version as described below.
+The tracking system includes 3 versions (in order of increasing performance): A purely matlab based version, an OpenCV/matlab version, and an optimized MEX/C++/OpenCV version. All versions have the same matlab interface. The system automatically chooses the fastest available version depending what additional packages are installed on the system.  **However, the purely matlab version is depreciated since it is slow and not well maintained**. Please install the OpenCV/Mex version as described below.
 
 Note further, that the xy.Tracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 
@@ -17,7 +17,7 @@ Note further, that the xy.Tracker also uses (and includes a copy of) [networkCom
 
 For the matlab-based version, only matlab is needed (no additional matlab toolbox license should be necessary; the vision toolbox is used for a different plotting interface, but not necessary). 
 
-Please install [OpenCV](http:///www.opencv.org) version >=3.0. and the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. **Please follow the installation instructions for the mexopencv toolbox to first install OpenCV and mexopencv**.  
+For fast tracking, install [OpenCV](http:///www.opencv.org) version >=3.0. and the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. **Please follow the installation instructions of the [mexopencv](https://github.com/kyamagu/mexopencv) toolbox to  install OpenCV and mexopencv**.  
 
 Optionally, for grabbing from ptGray cameras the FlyCapture SDK is needed. One can download it from the [ptGrey website](http://www.ptgrey.com). 
 
@@ -26,9 +26,9 @@ After installing these prerequisites, one needs to compile the xyTracker source 
 #### Windows
 Call the provided matlab file for compilation. Thus, start matlab, and run the file
 ~~~~
->> installHelpersOnWindows(pathToOpenCV);
+>> installHelpersOnWindows;
 ~~~~
-Make sure that the mexopencv directory is in the matlab path.  This will compile and install the source code. 
+Make sure that the mexopencv directory is in the matlab path.  This will compile and install the source code if OpenCV and mexopencv are properly installed. If FlyCaptureSDK functionality should be compiled as well, the path settings in installHelpersOnWindows might have to be adjusted. 
 
 #### Linux
 For compilation, one needs to specify the Matlab path and the path to mexopencv and the path to FlycaptureSDK (if available) to compile with  

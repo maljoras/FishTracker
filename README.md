@@ -179,15 +179,19 @@ Tracking stops when the tracking display window is closed and results
 are saved. Note that the video is continuously recorded in the
 background until the ft object is cleared.
 
-Although xyTracker is currently only tested with ptGrey cameras, it should be
-also possible to use the OpenCV VideoCapture method for video grabbing. That is, try
-(with camara index 0) 
+### Grabbing with other cameras
+
+Although xyTracker is currently only tested with ptGrey cameras, it can also be used with other cameras through the OpenCV VideoCapture functionality for video grabbing. That is, try
+for real-time tracking of 4 animals (with a camera with index 0) 
 
 ~~~~
->> T = xy.Tracker(0);
+>> T = xy.Tracker('0','nindiv',4);
+>> T.setDisplay(1); % to test the tracking; note,however, that plotting will introduce a delay
 >> T.track();
+>> clear all; % will release the video hardware
 ~~~~
 
+Note that the camera index is given as a string in matlab. Cameras indeces 0-9 are supported. However, in contrast to the FlyCapture Method (see above), the video is currently not saved in background, when using this VideoCapture method.  
 
 
 ## Stimulation

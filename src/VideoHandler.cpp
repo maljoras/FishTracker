@@ -1,5 +1,4 @@
 
-
 #include "VideoHandler.h"
 //#define DEBUG
 //#define PLOTSEGMENTS
@@ -24,7 +23,7 @@ using namespace cv;
 #ifdef DEBUG
 #define TIMER_ELAPSED ( std::clock() - timer ) / (double) CLOCKS_PER_SEC
 #define TIMER_START timer = std::clock();
-#define TIMER_INIT std::clock_t; timer = std::clock();
+#define TIMER_INIT std::clock_t timer; timer = std::clock();
 #endif
 
 

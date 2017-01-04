@@ -144,7 +144,7 @@ function varargout = displayCurrentTracks(self)
       if self.opts.display.level>2
         %% insert more markers
         if length(self.tracks)==self.nindiv
-          howmany = 15;
+          howmany = 25;
           idx = max(self.currentFrame-howmany,1):self.currentFrame;
           trackpos = self.pos(:,:,idx);
           f2t = self.identityId2TrackId(idx,:);
@@ -175,17 +175,16 @@ function varargout = displayCurrentTracks(self)
               inds = xy.helper.s2i(size(cli),[(1:size(cli,1))',idx1]);
               inds2 = cli(inds);
               pos1 = squeeze(trackpos(:,ii,~isnan(inds2)))';
-              cols1 = uint8(cols_grey(inds2(~isnan(inds2)),:)*255);
               cols2 = uint8(cols(ii,:)*255);
-              
+
               if self.hasVision
+                  cols1 = uint8(cols_grey(inds2(~isnan(inds2)),:)*255); 
+                  
                   uframe = insertMarker(uframe, pos1, 'o', 'color', cols2 , 'size', 3);
                   uframe = insertMarker(uframe, pos1, 'x', 'color', cols1 , 'size', 2);
               elseif self.useOpenCV
-                  for iii = 1:size(pos1,1)
-                      % VERY SLOW !! Should be put into a C-function
-                     uframe = cv.circle(uframe,pos1(iii,:),3,'Color',cols2,'Thickness','Filled');
-                  end
+                  uframe = cv.circle(uframe,pos1,3,'Color',cols2,'Thickness','Filled');
+                  uframe = cv.circle(uframe,pos1(inds2(~isnan(inds2))~=ii+1,:),2,'Color',cols_grey(1,:),'Thickness','Filled');
               end
             
           end

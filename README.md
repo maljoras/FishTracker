@@ -9,26 +9,44 @@ is not lost for long tracking experiments. The name "xy" derives from Chinese "X
 
 ##Installation
 
-The tracking system includes 3 versions (in order of increasing performance): A purely matlab based version, an OpenCV/matlab version, and an optimized MEX/C++/OpenCV version. All versions have the same matlab interface. The system automatically chooses the fastest available version depending what additional packages are installed on the system. 
+The tracking system includes 3 versions (in order of increasing performance): A purely matlab based version, an OpenCV/matlab version, and an optimized MEX/C++/OpenCV version. All versions have the same matlab interface. The system automatically chooses the fastest available version depending what additional packages are installed on the system.  Note, that the xy.Tracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
 
-For the matlab-based version, only matlab (including the image processing toolbox and the vision toolbox) has to be installed. For the OpenCV versions, one needs to install [OpenCV](http:///www.opencv.org) version >=3.0. For the Matlab/OpenCV  functionality one needs to install the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. Additionally, for grabbing form ptGray cameras one needs to have installed the FlyCapture SDK. 
+###Installation instructions
 
-For stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and in the matlab path. Note, that the xy.Tracker also uses (and includes a copy of) [networkComponents](http://www.mathworks.com/matlabcentral/fileexchange/42040-find-network-components) and parts of the project [munkres-cpp](https://github.com/kaajo/munkres-cpp). 
+For the matlab-based version, only matlab (including the image processing toolbox) has to be installed (the vision toolbox is used for a diffrent interface, but is not necessary). However, this purely matlab version is depreciated since it is slow and not well maintained. Please install the OpenCV version below.
 
+Please install [OpenCV](http:///www.opencv.org) version >=3.0. and the excellent [mexopencv](https://github.com/kyamagu/mexopencv) project. **Please follow the installation instructions for the mexopencv toolbox to first install OpenCV and mexopencv**.  
+
+Optionally, for grabbing form ptGray cameras one needs to have installed the FlyCapture SDK. One can download it from the [ptGrey website](http://www.ptgrey.com). 
+
+After installing these prerequisites, one needs to compile the xyTracker source code. 
+
+#### Windows
+Call the provided matlab file for compilation. Thus, start matlab, and run the file
+~~~~
+>> installHelpersOnWindows(pathToOpenCV);
+~~~~
+Make sure that the mexopencv directory is in the matlab path.  This will compile and install the source code. 
+
+#### Linux
 For compilation, one needs to specify the Matlab path and the path to mexpoencv (if available) and the path to FlycaptureSDK (if available) to compile with  
 ~~~~
 $ make  MATLABDIR=/my/path/to/MATLAB/ FLYCAPINCLUDEDIR=/usr/include/flycapture MEXOPENCVDIR=/mypath/to/mexopencv
 ~~~~
 
-To avoid library incompatibility with Matlab's packaged libraries one needs to preload the OpenCV and other libraries. With Linux, eg., put an alias into the .bashrc file:
+To avoid library incompatibility with Matlab's packaged libraries one needs to preload the OpenCV and other libraries. With Linux, eg., put an alias into the .bashrc file (with possible adjustements of the paths):
 
 ~~~~
 export PRELOAD_LIBS=/usr/lib64/libstdc++.so.6:/usr/lib64/libtiff.so.5:/usr/lib/libflycapture.so:/usr/lib64/libglibmm-2.4.so:/usr/lib64/libglib-2.0.so.0:/usr/lib64/libsigc-2.0.so.0:/usr/lib/libflycapture.so.2:`ls /usr/local/lib/libopencv*.so |xargs|tr ' ' ':'`
 alias matlab='LD_PRELOAD=$PRELOAD_LIBS /opt/MATLAB/R2014b/bin/matlab '
-~~~~  
+~~~~ 
+
+### Stimulation environment
+
+Finally, for stimulus presenting functionality, the [PsychToolbox](http://psychtoolbox.org/) has to be installed and added to the matlab path. 
 
 ##Test
-One can test the installation by running 
+One can test the installation by running (from the directory where +xy directory can be seen)
 ~~~~
 >> xy.Tracker.runTest();
 ~~~~

@@ -1,11 +1,7 @@
 function checkOpts(self)
 % checks (and modifies potentially) the given options. 
 
-  
- 
-  
-  
-  assert(self.bodylength>self.bodywidth);      
+  assert(self.bodylength>self.bodywidth,'Assertion error: bodylength>bodywidth');      
   % overwrite the given options
   self.bodylength = self.bodylength;
 

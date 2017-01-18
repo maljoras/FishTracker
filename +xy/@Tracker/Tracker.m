@@ -842,7 +842,7 @@ classdef Tracker < handle;
         error(['Please compile the code. Consult the Readme. ("make ' ...
                'clean;make" on linux)']);
       end
-      %self.hasVision = ~isempty(which('vision.VideoPlayer'));
+      self.hasVision = ~isempty(which('vision.VideoPlayer'));
     
       
       %% Create a video file reader.
@@ -2784,6 +2784,24 @@ classdef Tracker < handle;
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   methods
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %Destructor
+    %function delete(self) 
+    %  delete(self.videoHandler);
+    %  delete@handle(self);
+    %end
+    
+    
+    function release(self) 
+    % releases the camera and stops the capturing/writing in case
+    % of online recording 
+    
+      if isGrabbing(self.videoHandler)
+        self.videoHandler.release();
+      end
+    end
+    
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Constructor

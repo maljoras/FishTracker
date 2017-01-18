@@ -46,15 +46,14 @@ void mexFunction( int nlhs, mxArray *plhs[],
       obj_[++last_id] =  new VideoHandler(rhs[0].toString(),rhs[1].toBool());
       plhs[0] = MxArray(last_id);
       return;
-#ifdef FLYCAPTURE
-    } else if  ((nrhs==4) && (rhs[0].isChar() && (rhs[0].toString()=="camera"))){
-      // CApture Constructor is called. Create a new object from argument
+    } else if  ((nrhs==5) && (rhs[0].isChar() && (rhs[0].toString()=="camera"))){
+      // Capture Constructor is called. Create a new object from argument
       if (!obj_.empty())
 	mexErrMsgIdAndTxt("mexopencv:error","Only one camera instance supported");
-      obj_[++last_id] =  new VideoHandler(rhs[1].toInt(),rhs[2].toString(),rhs[3].toBool());
+      obj_[++last_id] =  new VideoHandler(rhs[1].toInt(),rhs[2].toString(),rhs[3].toString(),rhs[4].toBool());
       plhs[0] = MxArray(last_id);
       return;
-#endif 
+
     } else if (rhs[0].isNumeric() && rhs[0].numel()==1 && nrhs>1) {
 
 	id = rhs[0].toInt();
@@ -72,6 +71,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
     if (method == "delete") {
         if (nrhs!=2 || nlhs!=0)
             mexErrMsgIdAndTxt("mexopencv:error","Output not assigned");
+	obj_[id]->stop(); // should be called though the release...
 	obj_[id].release();
         obj_.erase(id);
     }

@@ -88,6 +88,15 @@ classdef VideoHandlerMatlab < handle & xy.core.VideoReaderMatlab & xy.core.BlobA
     % plotting not implemented...
     end
     
+    function release(self);
+      release@xy.core.VideoReaderMatlab(self);
+    end
+
+    function bool = isGrabbing(self);
+      bool = false ; % not supported;
+    end
+    
+    
     function bwmsk = getCurrentBWImg(self)
       bwmsk = self.bwmsk;
     end

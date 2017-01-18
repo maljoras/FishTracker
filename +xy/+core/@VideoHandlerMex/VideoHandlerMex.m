@@ -34,6 +34,11 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
     adjustThresScale
   end
 
+  properties 
+    codec = 'X264';
+  end
+  
+  
   methods(Static)
     function bool = installed()
       bool = ~~exist('xyVideoHandler_');
@@ -42,6 +47,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
     
   
   methods 
+    
     
     function self = VideoHandlerMex(vidname,timerange,knnMethod,opts)
     %VIDEOCAPTURE  Create a new VideoHandlerMex object. VIDNAME
@@ -87,6 +93,18 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
       end
       
     end
+     
+    
+    function release(self)
+    %RELEASE  Closes video file or capturing device.
+    %
+    % The methods are automatically called by subsequent open() and by destructor.
+    %
+    %
+      xyVideoHandler_(self.id, 'stop');
+    end
+
+    
     
     function setOpts(self,opts)
       
@@ -327,7 +345,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
             pause;
           end
           
-          self.id = xyVideoHandler_('camera',camidx,self.videoFile{2},knnMethod);      
+          self.id = xyVideoHandler_('camera',camidx,self.videoFile{2},upper(self.codec),knnMethod);      
         else
           self.id = xyVideoHandler_(self.videoFile,knnMethod);      
         end
@@ -483,21 +501,8 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
   end
   
 
-% $$$   
-% $$$   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% $$$   
-% $$$   methods (Hidden = true)
-% $$$ 
-% $$$     function release(self)
-% $$$     %RELEASE  Closes video file or capturing device.
-% $$$     %
-% $$$     % The methods are automatically called by subsequent open() and by destructor.
-% $$$     %
-% $$$     % See also cv.VideoCapture.open
-% $$$     %
-% $$$       xyVideoHandler_(self.id, 'release');
-% $$$     end
-% $$$   end
   
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
   
 end

@@ -91,6 +91,12 @@ ifneq ($(FLYCAPFLAG),)
   SAVEVIDEOOBJ = $(TARGETDIR)/$(HANDLERDIR)/SaveVideoClass.$(OBJEXT)
 endif
 
+
+SAVEVIDEOSRCBASE = $(SRCDIR)/SaveVideoClassBase.cpp
+SAVEVIDEOOBJBASE = $(TARGETDIR)/$(HANDLERDIR)/SaveVideoClassBase.$(OBJEXT)
+
+
+
 # struc
 SAR = $(SRCDIR)/strucarr2strucmat.c
 SARTARGET = $(TARGETDIR)/$(HELPERDIR)/strucarr2strucmat.$(MEXEXT)
@@ -144,16 +150,19 @@ override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPLIBS)
 # targets
 all: $(ALLTARGET) 
 helper: $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET) $(BTRACETARGET) $(GTTTARGET)
-everything: $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
+everything: $(SAVEVIDEOOBJBASE) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
 nograb: $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
 
+$(SAVEVIDEOOBJBASE): $(SAVEVIDEOSRCBASE)
+	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  -outdir $(TARGETDIR)/$(HANDLERDIR)/  $<
 
 $(SAVEVIDEOOBJ): $(SAVEVIDEOSRC)
 	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  -outdir $(TARGETDIR)/$(HANDLERDIR)/  $<
 
+
 #  objects
 $(OBJECTS): $(SRCS2)
-	$(MEX) -c -cxx -largeArrayDims $(CFLAGS)  $(SAVEVIDEOOBJ) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
+	$(MEX) -c -cxx -largeArrayDims $(CFLAGS)  $(SAVEVIDEOOBJBASE) $(SAVEVIDEOOBJ) -outdir $(TARGETDIR)/$(HANDLERDIR)/ $<
 
  
 # MEX-files
@@ -161,7 +170,7 @@ $(TARGETS1): $(SRCS1)
 	$(MEX) -cxx -largeArrayDims $(CFLAGS)  -output $(TARGETS1) -outdir $(TARGETDIR)/$(CAPTUREDIR) $< $(LDFLAGS)
 
 $(TARGETS2): $(SRCS3)
-	$(MEX) -cxx -largeArrayDims $(CFLAGS)  $(SAVEVIDEOOBJ) $(OBJECTS) -output $(TARGETS2) -outdir $(TARGETDIR)/$(HANDLERDIR) $< $(LDFLAGS) 
+	$(MEX) -cxx -largeArrayDims $(CFLAGS)  $(SAVEVIDEOOBJBASE) $(SAVEVIDEOOBJ) $(OBJECTS) -output $(TARGETS2) -outdir $(TARGETDIR)/$(HANDLERDIR) $< $(LDFLAGS) 
 
 $(SARTARGET): $(SAR)
 	$(MEX) -largeArrayDims -outdir $(TARGETDIR)/$(HELPERDIR) -output $(SARTARGET) $< 
@@ -182,5 +191,5 @@ $(MUNKRESTARGET): $(MUNKRES)
 	$(MEX) -largeArrayDims -cxx CXXFLAGS='$$CXXFLAGS -std=c++11 -lstdc++' -I$(SRCDIR) -outdir $(TARGETDIR)/$(HELPERDIR) -output $(MUNKRESTARGET) $<
 
 clean:
-	rm $(TARGETS1) $(TARGETS2) $(OBJECTS) $(SAVEVIDEOOBJ) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET) $(BTRACETARGET) $(GTTTARGET)
+	rm $(TARGETS1) $(TARGETS2) $(OBJECTS) $(SAVEVIDEOOBJ) $(SAVEVIDEOOBJBASE) $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET) $(BTRACETARGET) $(GTTTARGET)
 

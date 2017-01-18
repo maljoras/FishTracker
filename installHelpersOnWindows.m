@@ -115,7 +115,12 @@ if opencvflag
     % videoCapture
     mex(mexargs{:}, 'xyVideoCapture_.cpp',...
         '-outdir', '..\+xy\+core\@VideoCapture\private');
-    
+
+    % VideoSaverObj
+    mex('-c',mexargs{:},'SaveVideoClassBase.cpp',...
+        '-outdir','..\+xy\+core\@VideoHandlerMex\private');
+    mexargs{end+1} = '..\+xy\+core\@VideoHandlerMex\private\SaveVideoClassBase.obj';
+
     if flycaptureflag
         % VideoSaverObj
         mex('-c',mexargs{:},'SaveVideoClass.cpp',...

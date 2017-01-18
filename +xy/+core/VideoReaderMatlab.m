@@ -121,10 +121,13 @@ classdef VideoReaderMatlab < xy.core.VideoReader;
        
      self@xy.core.VideoReader(vid,varargin{:});
 
-
-      
    end
    
+   
+   function release(self);
+   %dummy. not need to release reader.
+   end
+     
   end
   
   

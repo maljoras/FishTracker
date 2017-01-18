@@ -64,6 +64,12 @@ classdef VideoHandler < handle & xy.core.VideoReader & xy.core.BlobAnalysis
       bool = false ; % not supported;
     end
     
+    function release(self);
+      release@xy.core.VideoReader(self);
+    end
+    
+    
+    
     function bwmsk = getCurrentBWImg(self);
       bwmsk = self.bwmsk;
     end

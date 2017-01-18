@@ -152,7 +152,6 @@ classdef VideoReader < handle;
       self.reader = [];
     end
     
-    
     function a_setCurrentTime(self,time)
     % time is given in seconds
       nextFrame = max(floor(time*self.frameRate),0);
@@ -277,6 +276,11 @@ classdef VideoReader < handle;
     function delete(self)
       a_delete(self);
     end
+    
+    function release(self)
+      a_delete(self);
+    end
+    
     
     function set.timeRange(self,trange)
       if isempty(trange) || diff(trange)<=0

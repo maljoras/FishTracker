@@ -17,9 +17,10 @@
 #include <stdlib.h>
 //#include <unistd.h>
 
-
 #ifdef FLYCAPTURE
 #include "SaveVideoClass.h"
+#else
+#include "SaveVideoClassBase.h"
 #endif
 
 using namespace std;
@@ -106,7 +107,7 @@ public:
      * initializes video/camera
      */
     VideoHandler(const string fname,bool inKnnMethod);
-    VideoHandler(int camIdx, const string fname,bool inKnnMethod);
+    VideoHandler(int camIdx, const string fname,const string codec, bool inKnnMethod);
 
     /** Destructor. */
     virtual ~VideoHandler();
@@ -233,12 +234,12 @@ private:
 
 
     bool m_threadsAlive;
-
+    string m_codec;
+    
 protected:
     cv::Ptr<cv::VideoCapture>  pVideoCapture;
-#ifdef FLYCAPTURE
     cv::Ptr<VideoSaver> pVideoSaver;
-#endif
+
     cv::Ptr<cv::BackgroundSubtractorKNN> pBackgroundSubtractor;
     cv::Ptr<BackgroundThresholder> pBackgroundThresholder;
 

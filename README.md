@@ -162,17 +162,19 @@ Further examples can be found in the 'exps' and 'figs' directories.
 
 ## Video Grabbing
 
-For Video grabbing and online tracking currently only
-[PointGrey](https://www.ptgrey.com) cameras are supported via the
-FlyCaptureSDK library. After installation and compilation (see above) animals can be tracked from a camera with
+For Video grabbing and online tracking is explicitely supported for
+[PointGrey](https://www.ptgrey.com) cameras via the
+FlyCaptureSDK library (for OpenCV compatible cameras see below). After installation and compilation (see above) animals can be tracked from a camera with
 camera index CamIdx and simultaneously saved to raw video file
 'myfile.avi' (camera index and ROI can be set with the flycap2 tool)
 
 ~~~~
 >> T = xy.Tracker({0,'myfile.avi'});   
 >> T.track(); % tracks indefintely. Close tracking window for stop or set end time  
+>> T.plot();
 >> T.save();  
->> clear ft; % to stop the background video recording  
+>> clear T; % to stop the background video recording (or use T.release()).   
+>>          % Clear/release T explicitely before using "clear all"
 ~~~~
 
 Tracking stops when the tracking display window is closed and results
@@ -181,17 +183,32 @@ background until the ft object is cleared.
 
 ### Grabbing with other cameras
 
-Although xyTracker is currently only tested with ptGrey cameras, it can also be used with other cameras through the OpenCV VideoCapture functionality for video grabbing. That is, try
-for real-time tracking of 4 animals (with a camera with index 0) 
+xyTracker can also be used with other cameras through the OpenCV
+VideoCapture functionality for video grabbing (this should include all
+Video for Windows (VFW) and Matrox Imaging Library (MIL) or Video for
+Linux(V4L) and IEEE1394 compatible cameras, respectively, on Windows
+or Linux).
+
+Try for real-time tracking of 4 animals (with a
+camera with index 0) 
 
 ~~~~
->> T = xy.Tracker('0','nindiv',4);
+>> T = xy.Tracker({0,'myfile.avi'},'nindiv',4);
 >> T.setDisplay(1); % to test the tracking; note,however, that plotting will introduce a delay
 >> T.track();
->> clear all; % will release the video hardware
+>> T.save();
+>> T.release(); % will release the video hardware and stop writing video files
 ~~~~
 
-Note that the camera index is given as a string in matlab. Cameras indices 0-9 are supported. However, in contrast to the FlyCapture method (see above), the grabbed video is currently not encoded and saved in the background, when using this VideoCapture method.  
+Thus using an OpenCV compatible camera can be used in the same way as with FlyCapture SDK.
+
+### Background video recording
+Note that "myfile.avi" in the above examples may contain more frames that used during real-time tracking, because frames might be skipped in the tracking to keep it to real-time. The saved video file could thus be read and tracked offline to improve/check the real-time tracking. For that, just start another Tracker on the saved video file. The "myfile.avi.txt" contains the exact time of acquisition of each frame during grabbing (the wrting might lag, too). This information will be used by the tracker.
+
+~~~~
+T2 = xy.Tracker('myfile.avi','nindiv',4);
+T2.track();  % to re-track the saved video file. 
+~~~~
 
 
 ## Stimulation

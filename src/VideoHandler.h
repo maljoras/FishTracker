@@ -188,9 +188,7 @@ private:
     bool m_camera; /* this property will be always false if flycapture
 		    * is not present. However, one might still use
 		    * capturing using the onecv capture feature. */
-#ifdef FLYCAPTURE
     int m_camIdx;
-#endif
     
     bool m_stopped;
     

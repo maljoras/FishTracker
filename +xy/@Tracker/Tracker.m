@@ -3230,7 +3230,8 @@ classdef Tracker < handle;
         saveif = false;
       end
       
-      if exist('trange','var') 
+      if exist('trange','var') && ~isempty(trange) 
+        assert(numel(trange)==2 && diff(trange)>0,['trange argument not valid']);
         self.timerange = trange;
       else
         self.timerange = self.videoHandler.timeRange; % take all
@@ -3264,10 +3265,6 @@ classdef Tracker < handle;
 
         
         %% main tracking step
-        s = s+1;
-        %self.trackStep(); % avoid calling this..just paste for performance.
-        %unnecessary function call
-        self.currentFrame = self.currentFrame + 1;
         self.lastTimeStamp = self.timeStamp;
         if self.displayif && self.opts.display.switchIdentity
           [self.segments, self.timeStamp, frame] = self.videoHandler.step();
@@ -3275,6 +3272,14 @@ classdef Tracker < handle;
         else
           [self.segments,self.timeStamp] = self.videoHandler.step(); % faster..
         end 
+        if self.timeStamp<0
+          % some error occurred
+          break
+        end
+
+        s = s+1;
+
+        self.currentFrame = self.currentFrame + 1;
         self.dt = self.timeStamp -self.lastTimeStamp;
         self.detectObjects();
         self.handleTracks();

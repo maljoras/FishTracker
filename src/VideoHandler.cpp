@@ -345,6 +345,7 @@ int VideoHandler::step(vector<Segment> * pSegs,  double * pTimeStamp, cv::Mat * 
       vector<Segment> tmp(0);
       *pSegs = tmp;
       *pFrame = Mat::zeros(0,0,CV_8UC1);
+      *pTimeStamp = -1.;
       return -1;
     }
   }
@@ -361,6 +362,7 @@ int VideoHandler::step(vector<Segment> * pSegs,  double * pTimeStamp, cv::Mat * 
       vector<Segment> tmp(0);
       *pSegs = tmp;
       *pFrame = Mat::zeros(0,0,CV_8UC1);
+      *pTimeStamp = -1.;
       return -1;
     }
       

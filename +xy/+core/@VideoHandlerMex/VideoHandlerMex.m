@@ -37,7 +37,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
   properties 
     codec = 'X264';
   end
-  
+
   
   methods(Static)
     function bool = installed()
@@ -139,11 +139,13 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
       else
         [seg,timeStamp,frame] = xyVideoHandler_(self.id, 'step');
       end
+      if timeStamp>=0
+        self.increaseCounters(timeStamp); % implicit read frame, so increase
+                                          % the counters
+      else
+        self.increaseCounters(Inf); 
+      end
       
-      self.increaseCounters(timeStamp); % implicit read frame, so increase
-                                        % the counters
-            
-
 % $$$       if self.computeSegments
 % $$$         self.segm = seg;
 % $$$         bwimg = self.getCurrentBWImg(); 
@@ -390,7 +392,7 @@ classdef VideoHandlerMex < handle & xy.core.BlobAnalysis & xy.core.VideoReader
     
     function bool = a_hasFrame(self)
       nextFrame = xyVideoHandler_(self.id,'get','PosFrames');
-      bool = nextFrame<self.nFrames; % starts from 0!
+      bool = nextFrame<self.nFrames && ~isinf(self.currentTime); % starts from 0!
     end
     
     

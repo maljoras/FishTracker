@@ -35,7 +35,10 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
   end
   
   for i = 1:n
-
+    if ~self.videoHandler.hasFrame()
+      break
+    end
+    
     [segm] = self.videoHandler.step();
     if ~(mod(i,50)) 
       xy.helper.verbose('%1.1f%%\r',i/n*100); % some output
@@ -60,8 +63,8 @@ function [nObjects,objectSize] =findObjectSizes(self,minAxisWidth)
     error('Something wrong with the blobAnalyzer ... cannot find objects.');
   end
 
-  nObjects = median(count);
-  objectSize = ceil([quantile(height,0.9),quantile(width,0.9)]); % body are bending
+  nObjects = median(count(1:s));
+  objectSize = ceil([quantile(height(1:s),0.9),quantile(width(1:s),0.9)]); % body are bending
   xy.helper.verbose('Detected %d objects of size %1.0fx%1.0f pixels.',nObjects, objectSize);
 
   if self.displayif && self.opts.display.bodySearchResults

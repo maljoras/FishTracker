@@ -85,52 +85,50 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	obj.step(&segms,&timeStamp,&frame);
 
 	if (nlhs>0) {
-	    if (segms.size()) {
-		mxArray * p = mxCreateStructMatrix(segms.size(),1,NSEGMENTFIELD, segments_fields);
-		if (!p)
-		    mexErrMsgIdAndTxt("mexopencv:error", "Allocation error");
+	  if (segms.size()) {
+	    mxArray * p = mxCreateStructMatrix(segms.size(),1,NSEGMENTFIELD, segments_fields);
+	    if (!p)
+	      mexErrMsgIdAndTxt("mexopencv:error", "Allocation error");
 		
-		for (int i=0; i<segms.size(); i++) {
-		    mxSetField(p,i,"BoundingBox",MxArray(segms[i].Bbox));
-		    mxSetField(p,i,"Centroid",MxArray(segms[i].Centroid));
-		    mxSetField(p,i,"Area",MxArray(segms[i].Area));
-		    mxSetField(p,i,"Orientation",MxArray(-segms[i].Orientation + 90.));
-		    mxSetField(p,i,"Size",MxArray(segms[i].Size));
-		    mxSetField(p,i,"MajorAxisLength",MxArray(segms[i].MajorAxisLength));
-		    mxSetField(p,i,"MinorAxisLength",MxArray(segms[i].MinorAxisLength));
+	    for (int i=0; i<segms.size(); i++) {
+	      mxSetField(p,i,"BoundingBox",MxArray(segms[i].Bbox));
+	      mxSetField(p,i,"Centroid",MxArray(segms[i].Centroid));
+	      mxSetField(p,i,"Area",MxArray(segms[i].Area));
+	      mxSetField(p,i,"Orientation",MxArray(-segms[i].Orientation + 90.));
+	      mxSetField(p,i,"Size",MxArray(segms[i].Size));
+	      mxSetField(p,i,"MajorAxisLength",MxArray(segms[i].MajorAxisLength));
+	      mxSetField(p,i,"MinorAxisLength",MxArray(segms[i].MinorAxisLength));
 
-		    mxSetField(p,i,"Image",MxArray(segms[i].Image,mxLOGICAL_CLASS));
-		    mxSetField(p,i,"FilledImage",MxArray(segms[i].FilledImage));
+	      mxSetField(p,i,"Image",MxArray(segms[i].Image,mxLOGICAL_CLASS));
+	      mxSetField(p,i,"FilledImage",MxArray(segms[i].FilledImage));
 
-		    mxSetField(p,i,"RotImage",MxArray(segms[i].RotImage,mxLOGICAL_CLASS));
-		    mxSetField(p,i,"RotFilledImage",MxArray(segms[i].RotFilledImage));
-		    mxSetField(p,i,"IdentityFeature",MxArray(segms[i].IdentityFeature));
-		    mxSetField(p,i,"IdentityFeatureRemapped",MxArray(segms[i].IdentityFeatureRemap));
+	      mxSetField(p,i,"RotImage",MxArray(segms[i].RotImage,mxLOGICAL_CLASS));
+	      mxSetField(p,i,"RotFilledImage",MxArray(segms[i].RotFilledImage));
+	      mxSetField(p,i,"IdentityFeature",MxArray(segms[i].IdentityFeature));
+	      mxSetField(p,i,"IdentityFeatureRemapped",MxArray(segms[i].IdentityFeatureRemap));
 
-		    mxSetField(p,i,"CenterLine",MxArray(segms[i].CenterLine));
-		    mxSetField(p,i,"Thickness",MxArray(segms[i].Thickness));
+	      mxSetField(p,i,"CenterLine",MxArray(segms[i].CenterLine));
+	      mxSetField(p,i,"Thickness",MxArray(segms[i].Thickness));
 
-		    mxSetField(p,i,"mback",MxArray(segms[i].mback));
-		    mxSetField(p,i,"bendingStdValue",MxArray(segms[i].bendingStdValue));
-		    mxSetField(p,i,"MSERregions",mxCreateDoubleMatrix( 0, 0, mxREAL ));
+	      mxSetField(p,i,"mback",MxArray(segms[i].mback));
+	      mxSetField(p,i,"bendingStdValue",MxArray(segms[i].bendingStdValue));
+	      mxSetField(p,i,"MSERregions",mxCreateDoubleMatrix( 0, 0, mxREAL ));
 
-		    mxSetField(p,i,"FilledImageFixedSize",MxArray(segms[i].FilledImageFixedSize));
-		    mxSetField(p,i,"FilledImageFixedSizeRotated",MxArray(segms[i].FilledImageFixedSizeRotated));
-		    mxSetField(p,i,"reversed",MxArray(segms[i].reversed));
-		}
-		plhs[0] = p;
+	      mxSetField(p,i,"FilledImageFixedSize",MxArray(segms[i].FilledImageFixedSize));
+	      mxSetField(p,i,"FilledImageFixedSizeRotated",MxArray(segms[i].FilledImageFixedSizeRotated));
+	      mxSetField(p,i,"reversed",MxArray(segms[i].reversed));
 	    }
-	    else {
-		plhs[0] = mxCreateDoubleMatrix( 0, 0, mxREAL );
-	    }
+	    plhs[0] = p;
+	  }
+	  else {
+	    plhs[0] = mxCreateDoubleMatrix( 0, 0, mxREAL );
+	  }
 	}
 
 	if (nlhs>1) 
-	    plhs[1] = MxArray(timeStamp);
+	  plhs[1] = MxArray(timeStamp);
 	if (nlhs>2) 
-	    plhs[2] = MxArray(frame);
-
-
+	  plhs[2] = MxArray(frame);
 
     }
     else if (method == "resetBkg") {

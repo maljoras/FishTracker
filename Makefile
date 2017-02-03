@@ -37,7 +37,7 @@ SRCDIR = src
 TARGETDIR = .
 
 #flycapture paths
-FLYCAPINCLUDEDIR ?= /usr/include/flycapture 
+FLYCAPINCLUDEDIR ?= /usr/include/flycapture
 
 # search whether .h can be found
 ifeq ($(wildcard $(FLYCAPINCLUDEDIR)/FlyCapture2.h),)
@@ -151,7 +151,7 @@ override LDFLAGS += -L$(LIBDIR) -lMxArray $(CV_LDFLAGS) $ $(FLYCAPLIBS)
 all: $(ALLTARGET) 
 helper: $(SARTARGET) $(PDISTTARGET) $(PCLDISTTARGET) $(MUNKRESTARGET) $(BTRACETARGET) $(GTTTARGET)
 everything: $(SAVEVIDEOOBJBASE) $(SAVEVIDEOOBJ) $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
-nograb: $(OBJECTS) $(TARGETS1) $(TARGETS2) helper
+nograb: $(SAVEVIDEOOBJBASE) $(OBJECTS) $(TARGETS1) $(TARGETS2)  helper
 
 $(SAVEVIDEOOBJBASE): $(SAVEVIDEOSRCBASE)
 	$(MEX) -c -cxx -largeArrayDims  $(CFLAGS)  -outdir $(TARGETDIR)/$(HANDLERDIR)/  $<

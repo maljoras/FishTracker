@@ -279,8 +279,11 @@ if ~exist('doc','var');
   doc = [];
 end
 
-  
-if ~evalin('caller','nargin') || HELP
+try 
+  HELP = HELP || ~evalin('caller','nargin');
+end
+
+if HELP
 
 
   %display help and defaults 

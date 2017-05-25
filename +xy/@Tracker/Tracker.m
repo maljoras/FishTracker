@@ -3076,6 +3076,7 @@ classdef Tracker < handle;
       ALLFIELDNAMES = 1;
       
       MFILENAME = 'xy.Tracker';
+      if ~nargin, HELP=1; end;
       xy.helper.parseInputs;
       if HELP;self.videoHandler = [];return;end
 

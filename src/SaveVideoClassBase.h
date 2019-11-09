@@ -103,7 +103,7 @@ protected:
   void waitForNewFrame();
 
   
-  std::clock_t m_timer;  
+  std::chrono::high_resolution_clock::time_point m_timer;  
   cv::Mat m_Frame;
   double m_TimeStamp;
   int m_frameNumber;

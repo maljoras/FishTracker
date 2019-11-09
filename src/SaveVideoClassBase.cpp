@@ -2,12 +2,13 @@
 
 #include "SaveVideoClassBase.h"
 
-#define TIMER_ELAPSED ((double) ( std::clock() - timer ) / (double) CLOCKS_PER_SEC)
-#define TIMER_START timer = std::clock();
-#define TIMER_INIT std::clock_t timer; timer = std::clock();
+#define ELAPSED(TIMER) static_cast<std::chrono::duration<double,std::milli>>(std::high_resolution_clock::now() - TIMER).count()
+#define TIMER_ELAPSED ELAPSED(timer)
+#define TIMER_START timer = std::high_resolution_clock::now();
+#define TIMER_INIT auto timer = std::high_resolution_clock::now();
 
 #define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
-#define M_TIMER_ELAPSED ((double)(( std::clock() - m_timer ) / (double) CLOCKS_PER_SEC))
+#define M_TIMER_ELAPSED ELAPSED(m_timer) 
 
 
 
@@ -152,23 +153,22 @@ int VideoSaver::getLostFrameNumber() {
 }
 
 /****************************************************************************************/
-int VideoSaver::getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber) 
-{
+int VideoSaver::getCurrentFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber) 
+{  // this grabs a frame from outside. To not interfere with the writing thread it will just grab the current frame,
+   // NO WAITING TIME. Will re-grab the same frame if called again. 
   if (!m_GrabbingFinished) {
-    waitForNewFrame();
-    
+       
     {
       std::unique_lock<std::mutex> lock(m_FrameMutex);
       
       if (m_Frame.size().width==0) {
-	*pFrame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
+	      *pFrame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
       }
       else {
-	m_Frame.copyTo(*pFrame);
+	      m_Frame.copyTo(*pFrame);
       }
       *pTimeStamp = m_TimeStamp;
       *pFrameNumber = m_frameNumber;
-      m_newFrameAvailable = false;
     }
     return 0;
   }
@@ -238,13 +238,13 @@ int VideoSaver::startCapture() {
 }
 
 void VideoSaver::waitForNewFrame() {
-  {
+  
   std::unique_lock<std::mutex> lock(m_FrameMutex);
 
   while (!m_newFrameAvailable) {
     m_newFrameAvailableCond.wait(lock);
   }
-  }
+
 }
 
 
@@ -298,13 +298,14 @@ void VideoSaver::captureThread()
   m_frameNumber = 0;
   m_newFrameAvailable = false;
 
-  m_timer= std::clock();
+  m_timer= std::chrono::highsystem_clock::now();
 
 	  
   while (m_KeepThreadAlive) {
 
     double localtimestamp = -1.;
     
+
     cv::Mat frame;
     if (m_Capture.grab()) {
       localtimestamp = M_TIMER_ELAPSED;  
@@ -356,34 +357,37 @@ void VideoSaver::captureAndWriteThread()
     
   while(m_KeepWritingAlive) {
     
-    const double currentTime =  M_TIMER_ELAPSED;
+    //auto start_t =  M_TIMER_ELAPSED;
+
+    waitForNewFrame();
 
     {
       std::unique_lock<std::mutex> lock(m_FrameMutex);
       if (isRGB()) {
-	cv::cvtColor(m_Frame,frame,CV_RGB2BGR);
+	      cv::cvtColor(m_Frame,frame ,CV_RGB2BGR);
       } else {
-	m_Frame.copyTo(frame);
+	      m_Frame.copyTo(frame);
       }
       localTimeStamp = m_TimeStamp;
       grabbedFrameNumber = m_frameNumber;
       frameNumber  = m_writingFrameNumber++;
+      m_newFrameAvailable = false; // need to reset !!
     }
       
     m_Video.write(frame); // slow, thus out of the lock
 
     m_OutputFile << frameNumber 
       << "\t" << grabbedFrameNumber <<"\t" 
-      <<  std::fixed << std::setprecision(5) 
+      <<  std::fixed << std::setprecision(8) 
       << localTimeStamp << std::endl;
 
 
-    const double thisTime = M_TIMER_ELAPSED;
-    const double seconds = thisTime - currentTime;	
-    delayFound = static_cast<int> (1000./m_FrameRateToUse - 1000*seconds);
-    if (delayFound>0) {
-	     sleep(delayFound);
-    }
+    //stop_t = M_TIMER_ELAPSED;
+    //double dur_ms = start_t - stop_t;	
+    //delayFound = (int) (1000./m_FrameRateToUse - dur_ms);
+    //if (delayFound>0) {
+	  //  sleep(delayFound);
+    //}
   }
 
   while (!m_GrabbingFinished)

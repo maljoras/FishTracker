@@ -1,11 +1,12 @@
 
-
 #include "SaveVideoClassBase.h"
+#include <chrono>
 
-#define ELAPSED(TIMER) static_cast<std::chrono::duration<double,std::milli>>(std::high_resolution_clock::now() - TIMER).count()
+
+#define ELAPSED(TIMER) static_cast<std::chrono::duration<double,std::milli>>(std::chrono::high_resolution_clock::now() - TIMER).count()
 #define TIMER_ELAPSED ELAPSED(timer)
-#define TIMER_START timer = std::high_resolution_clock::now();
-#define TIMER_INIT auto timer = std::high_resolution_clock::now();
+#define TIMER_START timer = std::chrono::high_resolution_clock::now();
+#define TIMER_INIT auto timer = std::chrono::high_resolution_clock::now();
 
 #define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
 #define M_TIMER_ELAPSED ELAPSED(m_timer) 
@@ -298,7 +299,7 @@ void VideoSaver::captureThread()
   m_frameNumber = 0;
   m_newFrameAvailable = false;
 
-  m_timer= std::chrono::highsystem_clock::now();
+  m_timer= std::chrono::high_resolution_clock::now();
 
 	  
   while (m_KeepThreadAlive) {
@@ -379,7 +380,7 @@ void VideoSaver::captureAndWriteThread()
     m_OutputFile << frameNumber 
       << "\t" << grabbedFrameNumber <<"\t" 
       <<  std::fixed << std::setprecision(8) 
-      << localTimeStamp << std::endl;
+      << localTimeStamp/1000. << std::endl;
 
 
     //stop_t = M_TIMER_ELAPSED;

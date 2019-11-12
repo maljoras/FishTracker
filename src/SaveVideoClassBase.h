@@ -43,7 +43,7 @@ public:
   /**
    * makes the current frame available in "Frame"
    */ 
-  int getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber);
+  int getCurrentFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber);
   /**
    * returns the current framecounter
    */ 

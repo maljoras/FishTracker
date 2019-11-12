@@ -1,7 +1,12 @@
 #include "SaveVideoClass.h"
 
+#define ELAPSED(TIMER) static_cast<std::chrono::duration<double,std::milli>>(std::chrono::high_resolution_clock::now() - TIMER).count()
+#define TIMER_ELAPSED ELAPSED(timer)
+#define TIMER_START timer = std::chrono::high_resolution_clock::now();
+#define TIMER_INIT auto timer = std::chrono::high_resolution_clock::now();
+
 #define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
-#define M_TIMER_ELAPSED ((double)(( std::clock() - m_timer ) / (double) CLOCKS_PER_SEC))
+#define M_TIMER_ELAPSED ELAPSED(m_timer) 
 
 VideoSaverFlyCapture::VideoSaverFlyCapture()
 { // base class constructor are automatically called
@@ -252,7 +257,7 @@ void VideoSaverFlyCapture::captureThread()
     FlyCapture2::Image rawImage;
     FlyCapture2::Image rawImage2;
 
-    m_timer= std::clock();
+    m_timer= std::chrono::high_resolution_clock::now();
   
     while (m_KeepThreadAlive) 
     {

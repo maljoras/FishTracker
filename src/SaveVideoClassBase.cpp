@@ -9,7 +9,7 @@
 #define TIMER_INIT auto timer = std::chrono::high_resolution_clock::now();
 
 #define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
-
+#define M_TIMER_ELAPSED ELAPSED(m_timer) 
 
 
 
@@ -356,9 +356,7 @@ void VideoSaver::captureAndWriteThread()
   
   while(m_KeepWritingAlive) {
     
-    //auto start_t =  M_TIMER_ELAPSED;
-
-    waitForNewFrame();
+    auto currentTime =  M_TIMER_ELAPSED;
 
     {
       std::unique_lock<std::mutex> lock(m_FrameMutex);
@@ -376,7 +374,7 @@ void VideoSaver::captureAndWriteThread()
       m_newFrameAvailable = false;
     }
 
-    if (m_bufferFrameNumber!=lastGrabbedFrameNumber) { // avoid multiple write
+    if (m_bufferFrameNumber!=lastGrabbedFrameNumber) { // avoid multiple write. Should always be true actually.
       std::unique_lock<std::mutex> lock(m_FrameBufferMutex); 
       m_Video.write(m_FrameBuffer); // slow, thus out of the lock
       

@@ -416,7 +416,7 @@ void VideoHandler::readNextFrameThread()
 
       if (m_camera) {
 	int frameNumber;
-	if (pVideoSaver->getFrame(&oframe,&m_NextTimeStamp,&frameNumber)!=0) {
+	if (pVideoSaver->getCurrentFrame(&oframe,&m_NextTimeStamp,&frameNumber)!=0) {
 	  break;
 	} // returns RGB
 

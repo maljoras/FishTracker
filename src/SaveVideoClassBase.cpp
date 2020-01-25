@@ -1,13 +1,15 @@
 
-
 #include "SaveVideoClassBase.h"
+#include <chrono>
 
-#define TIMER_ELAPSED ((double) ( std::clock() - timer ) / (double) CLOCKS_PER_SEC)
-#define TIMER_START timer = std::clock();
-#define TIMER_INIT std::clock_t timer; timer = std::clock();
+
+#define ELAPSED(TIMER) static_cast<std::chrono::duration<double,std::milli>>(std::chrono::high_resolution_clock::now() - TIMER).count()
+#define TIMER_ELAPSED ELAPSED(timer)
+#define TIMER_START timer = std::chrono::high_resolution_clock::now();
+#define TIMER_INIT auto timer = std::chrono::high_resolution_clock::now();
 
 #define sleep(x) std::this_thread::sleep_for(std::chrono::milliseconds(x)) 
-#define M_TIMER_ELAPSED ((double)(( std::clock() - m_timer ) / (double) CLOCKS_PER_SEC))
+
 
 
 
@@ -153,7 +155,7 @@ int VideoSaver::getLostFrameNumber() {
 
 /****************************************************************************************/
 
-int VideoSaver::getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber) 
+int VideoSaver::getCurrentFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber) 
 {
   if (!m_GrabbingFinished) {
     
@@ -168,6 +170,7 @@ int VideoSaver::getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumbe
       }
       *pTimeStamp = m_bufferTimeStamp;
       *pFrameNumber = m_bufferFrameNumber;
+
     }
     return 0;
   }
@@ -237,13 +240,13 @@ int VideoSaver::startCapture() {
 }
 
 void VideoSaver::waitForNewFrame() {
-  {
+  
   std::unique_lock<std::mutex> lock(m_FrameMutex);
 
   while (!m_newFrameAvailable) {
     m_newFrameAvailableCond.wait(lock);
   }
-  }
+
 }
 
 
@@ -297,13 +300,14 @@ void VideoSaver::captureThread()
   m_frameNumber = 0;
   m_newFrameAvailable = false;
 
-  m_timer= std::clock();
+  m_timer= std::chrono::high_resolution_clock::now();
 
 	  
   while (m_KeepThreadAlive) {
 
     double localtimestamp = -1.;
     
+
     cv::Mat frame;
     if (m_Capture.grab()) {
       localtimestamp = M_TIMER_ELAPSED;  
@@ -352,7 +356,9 @@ void VideoSaver::captureAndWriteThread()
   
   while(m_KeepWritingAlive) {
     
-    const double currentTime =  M_TIMER_ELAPSED;
+    //auto start_t =  M_TIMER_ELAPSED;
+
+    waitForNewFrame();
 
     {
       std::unique_lock<std::mutex> lock(m_FrameMutex);

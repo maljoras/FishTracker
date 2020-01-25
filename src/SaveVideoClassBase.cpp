@@ -152,23 +152,22 @@ int VideoSaver::getLostFrameNumber() {
 }
 
 /****************************************************************************************/
+
 int VideoSaver::getFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber) 
 {
   if (!m_GrabbingFinished) {
-    waitForNewFrame();
     
     {
-      std::unique_lock<std::mutex> lock(m_FrameMutex);
+      std::unique_lock<std::mutex> lock(m_FrameBufferMutex);
       
-      if (m_Frame.size().width==0) {
+      if (m_FrameBuffer.size().width==0) {
 	*pFrame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
       }
       else {
-	m_Frame.copyTo(*pFrame);
+	m_FrameBuffer.copyTo(*pFrame);
       }
-      *pTimeStamp = m_TimeStamp;
-      *pFrameNumber = m_frameNumber;
-      m_newFrameAvailable = false;
+      *pTimeStamp = m_bufferTimeStamp;
+      *pFrameNumber = m_bufferFrameNumber;
     }
     return 0;
   }
@@ -349,40 +348,45 @@ void VideoSaver::captureAndWriteThread()
 
 
   int delayFound = 0;
-  int grabbedFrameNumber;
-  cv::Mat frame;
-  double localTimeStamp;
-  int frameNumber;
-    
+  int lastGrabbedFrameNumber = -1;
+  
   while(m_KeepWritingAlive) {
     
     const double currentTime =  M_TIMER_ELAPSED;
 
     {
       std::unique_lock<std::mutex> lock(m_FrameMutex);
-      if (isRGB()) {
-	cv::cvtColor(m_Frame,frame,CV_RGB2BGR);
-      } else {
-	m_Frame.copyTo(frame);
+      while (!m_newFrameAvailable) {
+	m_newFrameAvailableCond.wait(lock);
       }
-      localTimeStamp = m_TimeStamp;
-      grabbedFrameNumber = m_frameNumber;
-      frameNumber  = m_writingFrameNumber++;
+
+      if (isRGB()) {
+	cv::cvtColor(m_Frame,m_FrameBuffer,CV_RGB2BGR);
+      } else {
+	m_Frame.copyTo(m_FrameBuffer);
+      }
+      m_bufferTimeStamp = m_TimeStamp;
+      m_bufferFrameNumber = m_frameNumber;
+      m_newFrameAvailable = false;
     }
+
+    if (m_bufferFrameNumber!=lastGrabbedFrameNumber) { // avoid multiple write
+      std::unique_lock<std::mutex> lock(m_FrameBufferMutex); 
+      m_Video.write(m_FrameBuffer); // slow, thus out of the lock
       
-    m_Video.write(frame); // slow, thus out of the lock
-
-    m_OutputFile << frameNumber 
-      << "\t" << grabbedFrameNumber <<"\t" 
-      <<  std::fixed << std::setprecision(5) 
-      << localTimeStamp << std::endl;
-
+      m_OutputFile << m_writingFrameNumber++
+		   << "\t" << m_bufferFrameNumber <<"\t" 
+		   <<  std::fixed << std::setprecision(5) 
+		   << m_bufferTimeStamp << std::endl;
+      lastGrabbedFrameNumber = m_bufferFrameNumber;
+    }
+  
 
     const double thisTime = M_TIMER_ELAPSED;
     const double seconds = thisTime - currentTime;	
     delayFound = static_cast<int> (1000./m_FrameRateToUse - 1000*seconds);
     if (delayFound>0) {
-	     sleep(delayFound);
+      sleep(delayFound);
     }
   }
 

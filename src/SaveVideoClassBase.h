@@ -105,9 +105,12 @@ protected:
   
   std::clock_t m_timer;  
   cv::Mat m_Frame;
+  cv::Mat m_FrameBuffer;
   double m_TimeStamp;
   int m_frameNumber;
 
+  int m_bufferFrameNumber;
+  double m_bufferTimeStamp;
   
   float m_FrameRateToUse;
   cv::Size m_FrameSize;
@@ -123,6 +126,7 @@ protected:
   bool m_isRGB;
     
   std::mutex m_FrameMutex;
+  std::mutex m_FrameBufferMutex;
   std::condition_variable m_newFrameAvailableCond;
   std::thread * m_captureThread;
   std::thread * m_writingThread;

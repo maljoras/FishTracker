@@ -30,7 +30,7 @@
 # ============================================================================
 
 # programs
-MATLABDIR  ?= /opt/MATLAB/R2014b
+MATLABDIR  ?= /opt/MATLAB/R2019a
 MATLAB     = $(MATLABDIR)/bin/matlab
 MEXOPENCVDIR ?= /home/malte/work/progs/toolboxes/mexopencv
 SRCDIR = src

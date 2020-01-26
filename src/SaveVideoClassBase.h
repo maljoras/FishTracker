@@ -108,14 +108,14 @@ protected:
   cv::Mat m_FrameBuffer;
   double m_TimeStamp;
   int m_frameNumber;
-
+  int m_lastGetFrameNumber;
   int m_bufferFrameNumber;
   double m_bufferTimeStamp;
   
   float m_FrameRateToUse;
   cv::Size m_FrameSize;
 
-  
+
   bool m_newFrameAvailable;
   bool m_KeepThreadAlive;
   bool m_KeepWritingAlive;
@@ -128,6 +128,7 @@ protected:
   std::mutex m_FrameMutex;
   std::mutex m_FrameBufferMutex;
   std::condition_variable m_newFrameAvailableCond;
+  std::condition_variable m_newFrameBufferAvailableCond;
   std::thread * m_captureThread;
   std::thread * m_writingThread;
 	

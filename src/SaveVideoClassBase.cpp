@@ -19,12 +19,15 @@ VideoSaver::VideoSaver()
   m_KeepThreadAlive = false; // not yet in capture mode
   m_WritingFinished = true;
   m_GrabbingFinished = true;
+
   m_writing = false;
   m_capturing = false;
   m_newFrameAvailable = false;
   m_isRGB = false;
   m_writingFrameNumber = 0;
   m_frameNumber = 0;
+  m_lastGetFrameNumber = -1;
+  m_bufferFrameNumber -1;
 
 };
 
@@ -108,7 +111,7 @@ int VideoSaver::stopWriting()
 
   m_KeepWritingAlive = false;
   m_KeepThreadAlive = false;
-  m_newFrameAvailableCond.notify_one();
+  m_newFrameAvailableCond.notify_all();
   
   while ((!m_GrabbingFinished) || (!m_WritingFinished))
     sleep(250);
@@ -158,9 +161,13 @@ int VideoSaver::getLostFrameNumber() {
 int VideoSaver::getCurrentFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFrameNumber) 
 {
   if (!m_GrabbingFinished) {
-    
     {
       std::unique_lock<std::mutex> lock(m_FrameBufferMutex);
+      
+      while (m_bufferFrameNumber <= m_lastGetFrameNumber) {
+	m_newFrameBufferAvailableCond.wait(lock);
+      }
+      m_lastGetFrameNumber = m_bufferFrameNumber;
       
       if (m_FrameBuffer.size().width==0) {
 	*pFrame = cv::Mat::zeros(m_FrameSize,CV_8UC3);
@@ -170,8 +177,8 @@ int VideoSaver::getCurrentFrame(cv::Mat * pFrame ,double * pTimeStamp, int *pFra
       }
       *pTimeStamp = m_bufferTimeStamp;
       *pFrameNumber = m_bufferFrameNumber;
-
     }
+
     return 0;
   }
   else {
@@ -330,11 +337,11 @@ void VideoSaver::captureThread()
       m_TimeStamp =localtimestamp; 
       m_frameNumber++;
       m_newFrameAvailable = true;
-      m_newFrameAvailableCond.notify_one();
+      m_newFrameAvailableCond.notify_all();
     }
 
   } 
-  m_newFrameAvailableCond.notify_one();
+  m_newFrameAvailableCond.notify_all();
 
   std::cout << "Finished grabbing." << std::endl;    
   m_GrabbingFinished  = true;
@@ -363,19 +370,22 @@ void VideoSaver::captureAndWriteThread()
       while (!m_newFrameAvailable) {
 	m_newFrameAvailableCond.wait(lock);
       }
+      {
+	std::unique_lock<std::mutex> lock(m_FrameBufferMutex); 
+	if (isRGB()) {
+	  cv::cvtColor(m_Frame,m_FrameBuffer,CV_RGB2BGR);
+	} else {
+	  m_Frame.copyTo(m_FrameBuffer);
+	}
+	m_bufferTimeStamp = m_TimeStamp;
+	m_bufferFrameNumber = m_frameNumber;
+	m_newFrameAvailable = false;
 
-      if (isRGB()) {
-	cv::cvtColor(m_Frame,m_FrameBuffer,CV_RGB2BGR);
-      } else {
-	m_Frame.copyTo(m_FrameBuffer);
+	m_newFrameBufferAvailableCond.notify_all();
       }
-      m_bufferTimeStamp = m_TimeStamp;
-      m_bufferFrameNumber = m_frameNumber;
-      m_newFrameAvailable = false;
     }
 
     if (m_bufferFrameNumber!=lastGrabbedFrameNumber) { // avoid multiple write. Should always be true actually.
-      std::unique_lock<std::mutex> lock(m_FrameBufferMutex); 
       m_Video.write(m_FrameBuffer); // slow, thus out of the lock
       
       m_OutputFile << m_writingFrameNumber++

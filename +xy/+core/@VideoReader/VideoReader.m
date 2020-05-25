@@ -191,6 +191,10 @@ classdef VideoReader < handle;
     % reads the txt file with the time information from SaveVideo
       tmp = dlmread(tfile);
       self.tframe = tmp(:,3);%-tmp(1,3);
+      if self.tframe(2)-self.tframe(1)>1
+          % tframe in ms, cahnge to seconds
+          self.tframe = self.tframe/1000;
+      end
       self.ntframe = length(self.tframe);
     end
   
@@ -340,6 +344,12 @@ classdef VideoReader < handle;
         self.currentFrame = 0;
       else
         self.currentFrame = find(self.tframe<=time,1,'last')-1;
+        if isempty(self.currentFrame)
+            self.currentFrame = find(self.tframe>=time,1,'first')-1;
+        end
+        if isempty(self.currentFrame)
+            error(" cannot find frame in specified time range")
+        end
         self.a_setCurrentTime(self.currentFrame/self.frameRate);
         self.currentTime = self.tframe(self.currentFrame+1);
       end
